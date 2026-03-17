@@ -74,20 +74,63 @@ function LoginScreen() {
     setTimeout(initGoogleButton, 300);
   };
 
-  return (
-    <Box sx={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <Box sx={{ width: { xs: "100%", sm: 400 }, bgcolor: "background.paper", borderRadius: "24px", boxShadow: "0 8px 40px rgba(0,0,0,0.1)", p: { xs: 3, sm: 4 }, textAlign: "center" }}>
-          <Icon sx={{ fontSize: "3rem !important", color: "primary.main", mb: 1 }}>calendar_month</Icon>
-          <Typography variant="h3" fontWeight="bold" sx={{ mb: 0.5 }}>FamCal</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-            Your family calendar and task manager
-          </Typography>
+  const features = [
+    { icon: "calendar_month", label: "Family Calendar" },
+    { icon: "checklist", label: "Tasks & Chores" },
+    { icon: "emoji_events", label: "Rewards & Points" },
+    { icon: "sync", label: "Google Calendar Sync" },
+  ];
 
+  return (
+    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", p: 3 }}>
+      {/* Hero */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+        <Box sx={{ textAlign: "center", mb: 4 }}>
+          <Box sx={{
+            width: 80, height: 80, borderRadius: "24px", mx: "auto", mb: 2,
+            background: "linear-gradient(135deg, #4ECDC4 0%, #44B09E 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 12px 32px rgba(78,205,196,0.3)",
+          }}>
+            <Icon sx={{ fontSize: "2.5rem !important", color: "#fff" }}>calendar_month</Icon>
+          </Box>
+          <Typography variant="h2" fontWeight={800} sx={{ color: "text.primary", letterSpacing: "-0.03em" }}>
+            FamCal
+          </Typography>
+          <Typography variant="body1" sx={{ color: "text.secondary", mt: 0.5, maxWidth: 320, mx: "auto" }}>
+            Your family hub for calendars, tasks, and rewards
+          </Typography>
+        </Box>
+      </motion.div>
+
+      {/* Feature pills */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.2 }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 1, mb: 4, maxWidth: 400 }}>
+          {features.map((f) => (
+            <Box key={f.label} sx={{
+              display: "flex", alignItems: "center", gap: 0.75,
+              px: 1.5, py: 0.75, borderRadius: "20px",
+              bgcolor: "background.paper", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+            }}>
+              <Icon sx={{ fontSize: "1rem !important", color: "primary.main" }}>{f.icon}</Icon>
+              <Typography variant="caption" fontWeight={600} sx={{ color: "text.secondary" }}>{f.label}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </motion.div>
+
+      {/* Sign-in card */}
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
+        <Box sx={{
+          width: { xs: "100%", sm: 400 }, bgcolor: "background.paper", borderRadius: "24px",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.08)", p: { xs: 3, sm: 4 }, textAlign: "center",
+        }}>
           {showClientInput ? (
             <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: "left" }}>
-                Enter your Google OAuth Client ID to get started.
+              <Icon sx={{ fontSize: "2rem !important", color: "primary.main", mb: 1.5 }}>settings</Icon>
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>First Time Setup</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Paste your Google OAuth Client ID to enable sign-in and calendar sync.
               </Typography>
               <TextField
                 fullWidth
@@ -97,22 +140,33 @@ function LoginScreen() {
                 onChange={(e) => setClientIdLocal(e.target.value)}
                 sx={{ mb: 2 }}
               />
-              <Button fullWidth variant="contained" onClick={handleSaveClientId} disabled={!clientId.trim()}>
+              <Button fullWidth variant="contained" size="large" onClick={handleSaveClientId} disabled={!clientId.trim()}>
                 Continue
               </Button>
             </Box>
           ) : (
             <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>Welcome Back</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Sign in to access your family dashboard
+              </Typography>
               <Box ref={btnRef} sx={{ display: "flex", justifyContent: "center", mb: 2, minHeight: 44 }} />
               {error && (
                 <Typography variant="caption" color="error" sx={{ mb: 1, display: "block" }}>{error}</Typography>
               )}
-              <Button size="small" onClick={() => setShowClientInput(true)} sx={{ color: "text.secondary", mt: 1 }}>
+              <Button size="small" onClick={() => setShowClientInput(true)} sx={{ color: "text.disabled", mt: 1, fontSize: "0.7rem" }}>
                 Change Client ID
               </Button>
             </Box>
           )}
         </Box>
+      </motion.div>
+
+      {/* Footer */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+        <Typography variant="caption" sx={{ color: "text.disabled", mt: 4, display: "block" }}>
+          FamCal v2.0
+        </Typography>
       </motion.div>
     </Box>
   );
