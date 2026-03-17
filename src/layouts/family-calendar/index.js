@@ -351,24 +351,38 @@ function FamilyCalendar() {
 
   // Sync
   const handleSync = useCallback(async () => {
-    setSyncing(true); setSyncMessage("");
+    setSyncing(true); setSyncMessage("Syncing...");
     try {
       const results = await syncAllMembers(members, events, family.id, dispatch);
       setLastSyncTime(new Date());
-      const errors = Object.entries(results).filter(([, r]) => r.error);
-      const success = Object.entries(results).filter(([, r]) => !r.error);
-      if (errors.length > 0 && success.length === 0) {
-        setSyncMessage(`Reconnect needed — tap avatars`);
-      } else if (errors.length > 0) {
-        setSyncMessage(`Synced ${success.length}, ${errors.length} need reconnect`);
-      } else if (success.length > 0) {
-        const total = success.reduce((s, [, r]) => s + r.pulled + r.pushed, 0);
-        setSyncMessage(total > 0 ? `Synced ${total} events` : "Up to date");
-      }
-      setTimeout(() => setSyncMessage(""), 5000);
+
+      const entries = Object.entries(results);
+      let totalPulled = 0;
+      let totalPushed = 0;
+      const errorNames = [];
+
+      entries.forEach(([id, r]) => {
+        const name = members.find((m) => m.id === id)?.name || "Unknown";
+        if (r.error) {
+          errorNames.push(name);
+          console.warn(`[sync] ${name}: ${r.error}`);
+        } else {
+          totalPulled += r.pulled || 0;
+          totalPushed += r.pushed || 0;
+          if (r.pulled || r.pushed) console.log(`[sync] ${name}: pulled ${r.pulled}, pushed ${r.pushed}`);
+        }
+      });
+
+      const parts = [];
+      if (totalPulled + totalPushed > 0) parts.push(`${totalPulled + totalPushed} events synced`);
+      else if (entries.length > 0 && errorNames.length === 0) parts.push("All up to date");
+      if (errorNames.length > 0) parts.push(`${errorNames.join(", ")} need reconnect`);
+      setSyncMessage(parts.join(" | ") || "Sync complete");
+      setTimeout(() => setSyncMessage(""), 8000);
     } catch (err) {
-      setSyncMessage("Sync failed");
-      setTimeout(() => setSyncMessage(""), 5000);
+      console.error("[sync] Error:", err);
+      setSyncMessage(`Sync failed: ${err.message}`);
+      setTimeout(() => setSyncMessage(""), 8000);
     }
     setSyncing(false);
   }, [members, events, family.id, dispatch]);
@@ -391,6 +405,19 @@ function FamilyCalendar() {
 
   const connectedCount = members.filter((m) => m.google_calendar_id).length;
   const syncTooltip = lastSyncTime ? `Last: ${lastSyncTime.toLocaleTimeString()}` : "Sync calendars";
+
+  // Auto-sync on first load when calendars are connected
+  const autoSyncDone = useRef(false);
+  useEffect(() => {
+    if (connectedCount > 0 && !autoSyncDone.current && !syncing && members.length > 0) {
+      autoSyncDone.current = true;
+      // Small delay to let the page render first
+      const timer = setTimeout(() => {
+        handleSync();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [connectedCount, members.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Box>
