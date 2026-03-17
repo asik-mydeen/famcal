@@ -418,13 +418,31 @@ function FamilyCalendar() {
   }, []);
 
   // ── Google sync ──
+  const [syncMessage, setSyncMessage] = useState("");
+
   const handleSync = useCallback(async () => {
     setSyncing(true);
+    setSyncMessage("");
     try {
-      await syncAllMembers(members, events, family.id, dispatch);
+      const results = await syncAllMembers(members, events, family.id, dispatch);
       setLastSyncTime(new Date());
+      // Check for errors
+      const errors = Object.entries(results).filter(([, r]) => r.error);
+      const success = Object.entries(results).filter(([, r]) => !r.error);
+      if (errors.length > 0 && success.length === 0) {
+        const names = errors.map(([id]) => members.find((m) => m.id === id)?.name || "Unknown").join(", ");
+        setSyncMessage(`${names} need to reconnect — tap their avatar`);
+      } else if (errors.length > 0) {
+        setSyncMessage(`Synced ${success.length}, ${errors.length} need reconnect`);
+      } else if (success.length > 0) {
+        const total = success.reduce((s, [, r]) => s + r.pulled + r.pushed, 0);
+        setSyncMessage(total > 0 ? `Synced ${total} events` : "All up to date");
+      }
+      setTimeout(() => setSyncMessage(""), 5000);
     } catch (err) {
       console.warn("[gcal] Sync error:", err.message);
+      setSyncMessage("Sync failed");
+      setTimeout(() => setSyncMessage(""), 5000);
     }
     setSyncing(false);
   }, [members, events, family.id, dispatch]);
@@ -456,7 +474,7 @@ function FamilyCalendar() {
           <Box>
             <Typography variant="h4" fontWeight="bold">Calendar</Typography>
             <Typography variant="body2" color="text.secondary">
-              {connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} synced` : "Connect calendars to sync"}
+              {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap member avatars below to connect")}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
