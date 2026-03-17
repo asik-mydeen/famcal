@@ -76,7 +76,7 @@ function Rewards() {
   });
 
   const isSmall = useMediaQuery("(max-width:599px)");
-  const isMedium = useMediaQuery("(max-width:899px)");
+
 
   // Computed data
   const totalPoints = useMemo(() => members.reduce((sum, m) => sum + m.points, 0), [members]);
