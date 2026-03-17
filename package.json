@@ -26,9 +26,11 @@
     "@mui/styled-engine": "5.12.3",
     "@pathofdev/react-tag-input": "1.0.7",
     "@react-leaflet/core": "2.1.0",
+    "@supabase/supabase-js": "^2.99.1",
     "@testing-library/jest-dom": "5.16.5",
     "@testing-library/react": "14.0.0",
     "@testing-library/user-event": "14.4.3",
+    "ajv": "^8.12.0",
     "chart.js": "3.9.1",
     "chroma-js": "2.4.2",
     "draft-convert": "^2.1.13",
@@ -36,6 +38,7 @@
     "dropzone": "5.9.3",
     "flatpickr": "4.6.13",
     "formik": "2.2.9",
+    "framer-motion": "^12.37.0",
     "html-react-parser": "3.0.16",
     "leaflet": "1.9.3",
     "prop-types": "15.8.1",
@@ -60,8 +63,7 @@
     "swiper": "9.3.2",
     "uuid": "9.0.0",
     "web-vitals": "3.3.1",
-    "yup": "1.1.1",
-    "ajv": "^8.12.0"
+    "yup": "1.1.1"
   },
   "scripts": {
     "start": "NODE_OPTIONS=--openssl-legacy-provider react-scripts start",
@@ -94,13 +96,13 @@
     "react-dom": ">=16.8.0"
   },
   "devDependencies": {
+    "ajv": "^8.12.0",
     "eslint": "8.40.0",
     "eslint-config-prettier": "8.8.0",
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-prettier": "4.2.1",
     "eslint-plugin-react": "7.32.2",
     "eslint-plugin-react-hooks": "4.6.0",
-    "prettier": "2.8.8",
-    "ajv": "^8.12.0"
+    "prettier": "2.8.8"
   }
 }
