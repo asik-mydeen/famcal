@@ -56,6 +56,16 @@ export function clearCachedToken(memberId) {
 
 // ── OAuth: connect a member to Google Calendar ──
 
+// Request token silently (for sync). Only uses cached tokens — never opens a popup.
+export function requestAccessTokenSilent(memberId) {
+  return new Promise((resolve, reject) => {
+    const cached = getCachedToken(memberId);
+    if (cached) return resolve(cached);
+    reject(new Error("Token expired — member needs to reconnect"));
+  });
+}
+
+// Request token with popup (for initial connect or re-auth)
 export function requestAccessToken(memberId) {
   return new Promise((resolve, reject) => {
     const clientId = getGoogleClientId();
@@ -241,9 +251,9 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
 
   let accessToken;
   try {
-    accessToken = await requestAccessToken(member.id);
+    accessToken = await requestAccessTokenSilent(member.id);
   } catch {
-    return { pulled: 0, pushed: 0, error: "Auth required" };
+    return { pulled: 0, pushed: 0, error: "Token expired — tap member avatar to reconnect" };
   }
 
   const calendarId = member.google_calendar_id;
