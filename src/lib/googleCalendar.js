@@ -56,17 +56,10 @@ export function clearCachedToken(memberId) {
 
 // ── OAuth: connect a member to Google Calendar ──
 
-// Request token silently (for sync). Only uses cached tokens — never opens a popup.
-export function requestAccessTokenSilent(memberId) {
-  return new Promise((resolve, reject) => {
-    const cached = getCachedToken(memberId);
-    if (cached) return resolve(cached);
-    reject(new Error("Token expired — member needs to reconnect"));
-  });
-}
-
-// Request token with popup (for initial connect or re-auth)
-export function requestAccessToken(memberId) {
+// Request token for sync — uses login_hint to silently target the right Google account.
+// If the member previously consented, GIS will not show a popup.
+// Falls back to showing consent if needed (e.g., first time or revoked access).
+export function requestAccessToken(memberId, loginHint) {
   return new Promise((resolve, reject) => {
     const clientId = getGoogleClientId();
     if (!clientId) return reject(new Error("Google Client ID not configured"));
@@ -82,6 +75,7 @@ export function requestAccessToken(memberId) {
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES,
+      hint: loginHint || undefined,
       callback: (resp) => {
         if (resp.error) return reject(new Error(resp.error));
         setCachedToken(memberId, resp.access_token, resp.expires_in);
@@ -89,7 +83,7 @@ export function requestAccessToken(memberId) {
       },
     });
 
-    tokenClient.requestAccessToken({ prompt: "" });
+    tokenClient.requestAccessToken({ prompt: "", login_hint: loginHint || "" });
   });
 }
 
@@ -251,9 +245,10 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
 
   let accessToken;
   try {
-    accessToken = await requestAccessTokenSilent(member.id);
+    // Use google_calendar_id as login_hint — it's the member's email
+    accessToken = await requestAccessToken(member.id, member.google_calendar_id);
   } catch {
-    return { pulled: 0, pushed: 0, error: "Token expired — tap member avatar to reconnect" };
+    return { pulled: 0, pushed: 0, error: "Auth required — tap avatar to reconnect" };
   }
 
   const calendarId = member.google_calendar_id;
