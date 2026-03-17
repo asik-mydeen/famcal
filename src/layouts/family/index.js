@@ -526,7 +526,7 @@ function Family() {
         onClick={openAddDialog}
         sx={{
           position: "fixed",
-          bottom: 100,
+          bottom: 76,
           right: 20,
           background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
           color: "text.primary",

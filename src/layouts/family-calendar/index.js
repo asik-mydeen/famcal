@@ -478,7 +478,7 @@ function FamilyCalendar() {
         }}
         sx={{
           position: "fixed",
-          bottom: 100,
+          bottom: 76,
           right: 20,
           zIndex: 1200,
         }}
