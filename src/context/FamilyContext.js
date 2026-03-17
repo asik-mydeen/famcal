@@ -17,7 +17,7 @@ const MEMBER_COLORS = [
   { name: "Teal", value: "#14b8a6", gradient: "success" },
 ];
 
-const MEMBER_EMOJIS = ["👨", "👩", "👦", "👧", "👶", "🧓", "👴", "👵", "🐶", "🐱"];
+
 
 const TASK_CATEGORIES = [
   { key: "chores", label: "Chores", icon: "cleaning_services", color: "#7c3aed" },
@@ -35,21 +35,6 @@ const INITIAL_FAMILY = {
 };
 
 const INITIAL_MEMBERS = [];
-
-const today = new Date();
-const yyyy = today.getFullYear();
-const mm = String(today.getMonth() + 1).padStart(2, "0");
-const dd = String(today.getDate()).padStart(2, "0");
-const todayStr = `${yyyy}-${mm}-${dd}`;
-
-function addDays(dateStr, days) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 const INITIAL_TASKS = [];
 
@@ -507,6 +492,5 @@ export {
   FamilyProvider,
   useFamilyController,
   MEMBER_COLORS,
-  MEMBER_EMOJIS,
   TASK_CATEGORIES,
 };

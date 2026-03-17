@@ -92,7 +92,7 @@ function FamilyCalendar() {
 
   const calendarRef = useRef(null);
   const isSmall = useMediaQuery("(max-width:599px)");
-  const isMedium = useMediaQuery("(max-width:959px)");
+
 
   // View state
   const [viewTab, setViewTab] = useState(0);

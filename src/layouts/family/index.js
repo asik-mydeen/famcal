@@ -82,7 +82,6 @@ function Family() {
     const usedColors = members.map((m) => m.avatar_color);
     const nextColor =
       MEMBER_COLORS.find((c) => !usedColors.includes(c.value))?.value || MEMBER_COLORS[0].value;
-    const nextEmoji = "";
     setFormData({
       name: "",
       avatar_color: nextColor,
