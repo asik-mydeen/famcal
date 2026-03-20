@@ -32,6 +32,10 @@ import { motion } from "framer-motion";
 
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar } from "lib/googleCalendar";
+import { useThemeMode } from "context/ThemeContext";
+import SmartSidebar from "components/SmartSidebar";
+import NotesWidget from "components/NotesWidget";
+import CountdownWidget from "components/CountdownWidget";
 
 // ── Helpers ──
 
@@ -263,7 +267,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
 
 function FamilyCalendar() {
   const [state, dispatch] = useFamilyController();
-  const { family, members, events } = state;
+  const { family, members, events, tasks, notes, countdowns, meals } = state;
+  const { darkMode } = useThemeMode();
   const calendarRef = useRef(null);
   const isSmall = useMediaQuery("(max-width:599px)");
 
@@ -276,6 +281,9 @@ function FamilyCalendar() {
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [connectingId, setConnectingId] = useState(null);
   const [syncMessage, setSyncMessage] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    localStorage.getItem("famcal_sidebar_collapsed") === "true"
+  );
 
   // Navigation
   const goToday = () => setCurrentDate(new Date());
@@ -421,6 +429,85 @@ function FamilyCalendar() {
     }
   }, [connectedCount, members.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Widget Definitions ──
+
+  // Notes widget
+  const notesWidget = (
+    <NotesWidget
+      notes={notes}
+      members={members}
+      dispatch={dispatch}
+      familyId={family?.id}
+    />
+  );
+
+  // Countdown widget
+  const countdownWidget = (
+    <CountdownWidget
+      variant="sidebar"
+      countdowns={countdowns}
+      members={members}
+      dispatch={dispatch}
+      familyId={family?.id}
+    />
+  );
+
+  // Today's chores mini-widget
+  const todayStr = fmtDate(new Date());
+  const todayTasks = tasks.filter(t => t.due_date === todayStr && !t.completed);
+  const completedToday = tasks.filter(t => t.due_date === todayStr && t.completed);
+
+  const todayChoresWidget = (
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+        <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+          {completedToday.length}/{completedToday.length + todayTasks.length} done
+        </Typography>
+      </Box>
+      {todayTasks.slice(0, 3).map(task => {
+        const member = members.find(m => m.id === task.assigned_to);
+        return (
+          <Box key={task.id} sx={{
+            display: "flex", alignItems: "center", gap: 1,
+            py: 0.5, px: 1, borderRadius: "8px", mb: 0.5,
+            cursor: "pointer",
+            "&:hover": { background: "rgba(0,0,0,0.03)" },
+          }}
+            onClick={() => dispatch({ type: "COMPLETE_TASK", value: { taskId: task.id, memberId: task.assigned_to } })}
+          >
+            <Icon sx={{ fontSize: "1rem", color: "text.disabled" }}>radio_button_unchecked</Icon>
+            <Typography sx={{ fontSize: "0.78rem", flex: 1 }}>{task.title}</Typography>
+            <Typography sx={{ fontSize: "0.65rem", color: "warning.main", fontWeight: 700 }}>
+              +{task.points_value || 10}
+            </Typography>
+          </Box>
+        );
+      })}
+      {todayTasks.length === 0 && (
+        <Typography variant="caption" color="text.secondary">All done for today!</Typography>
+      )}
+    </Box>
+  );
+
+  // Tonight's dinner mini-widget
+  const todayDinner = meals.find(m => m.date === todayStr && m.meal_type === "dinner");
+  const tonightDinnerWidget = todayDinner ? (
+    <Box sx={{
+      p: 1.5,
+      background: darkMode ? "rgba(108,92,231,0.06)" : "linear-gradient(135deg, rgba(108,92,231,0.06), rgba(0,184,148,0.06))",
+      borderRadius: "12px", textAlign: "center"
+    }}>
+      <Typography sx={{ fontSize: "1.05rem", fontWeight: 800 }}>{todayDinner.title}</Typography>
+      {todayDinner.notes && (
+        <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mt: 0.5 }}>{todayDinner.notes}</Typography>
+      )}
+    </Box>
+  ) : (
+    <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", display: "block" }}>
+      No dinner planned
+    </Typography>
+  );
+
   return (
     <Box sx={{ flex: 1 }}>
       {/* Header - simplified (date now in HeaderBar) */}
@@ -462,59 +549,79 @@ function FamilyCalendar() {
         </Box>
       </motion.div>
 
-      {/* Member strip */}
-      <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, mb: 2.5, overflowX: "auto", pb: 0.5, px: 0.5 }}>
-        {members.map((m) => {
-          const connected = Boolean(m.google_calendar_id);
-          return (
-            <Tooltip key={m.id} title={connected ? `Connected — tap to disconnect` : "Tap to connect Google Calendar"} arrow>
-              <Box onClick={() => connected ? handleDisconnectMember(m) : handleConnectMember(m)}
-                sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
-              >
-                <Box sx={{ position: "relative", mb: 0.5 }}>
-                  <Avatar src={m.avatar_url || undefined}
-                    sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: connected ? `3px solid ${m.avatar_color}` : "3px solid transparent", transition: "border 0.2s" }}
+      {/* Main content with sidebar */}
+      <Box sx={{ display: "flex", flex: 1, overflow: "hidden", gap: 2 }}>
+        {/* Calendar content */}
+        <Box sx={{ flex: 1, overflow: "auto", minWidth: 0 }}>
+          {/* Member strip */}
+          <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, mb: 2.5, overflowX: "auto", pb: 0.5, px: 0.5 }}>
+            {members.map((m) => {
+              const connected = Boolean(m.google_calendar_id);
+              return (
+                <Tooltip key={m.id} title={connected ? `Connected — tap to disconnect` : "Tap to connect Google Calendar"} arrow>
+                  <Box onClick={() => connected ? handleDisconnectMember(m) : handleConnectMember(m)}
+                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
                   >
-                    <Icon sx={{ fontSize: "1.3rem !important", color: "#fff" }}>person</Icon>
-                  </Avatar>
-                  {connected && (
-                    <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: "success.main", border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>check</Icon>
+                    <Box sx={{ position: "relative", mb: 0.5 }}>
+                      <Avatar src={m.avatar_url || undefined}
+                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: connected ? `3px solid ${m.avatar_color}` : "3px solid transparent", transition: "border 0.2s" }}
+                      >
+                        <Icon sx={{ fontSize: "1.3rem !important", color: "#fff" }}>person</Icon>
+                      </Avatar>
+                      {connected && (
+                        <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: "success.main", border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>check</Icon>
+                        </Box>
+                      )}
                     </Box>
-                  )}
-                </Box>
-                <Typography variant="caption" fontWeight={600} sx={{ color: "text.primary", fontSize: "0.65rem", lineHeight: 1.2, textAlign: "center" }}>
-                  {m.name.split(" ")[0]}
-                </Typography>
-              </Box>
-            </Tooltip>
-          );
-        })}
+                    <Typography variant="caption" fontWeight={600} sx={{ color: "text.primary", fontSize: "0.65rem", lineHeight: 1.2, textAlign: "center" }}>
+                      {m.name.split(" ")[0]}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+              );
+            })}
+          </Box>
+
+          {/* Day View */}
+          {viewTab === 0 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              <DayTimeline date={currentDate} members={members} events={events} onEventClick={handleEventClick} onTimeClick={handleTimeClick} />
+            </motion.div>
+          )}
+
+          {/* Month View */}
+          {viewTab === 1 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
+                <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
+                  <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    initialView="dayGridMonth" headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
+                    events={fcEvents} dateClick={handleFcDateClick} eventClick={handleFcEventClick}
+                    height={isSmall ? "55vh" : "65vh"} dayMaxEvents={isSmall ? 2 : 4}
+                    nowIndicator editable={false} selectable={false} eventDisplay="block"
+                    eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </Box>
+
+        {/* Smart Sidebar */}
+        <SmartSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => {
+            const next = !sidebarCollapsed;
+            setSidebarCollapsed(next);
+            localStorage.setItem("famcal_sidebar_collapsed", String(next));
+          }}
+          notesWidget={notesWidget}
+          countdownWidget={countdownWidget}
+          todayChoresWidget={todayChoresWidget}
+          tonightDinnerWidget={tonightDinnerWidget}
+        />
       </Box>
-
-      {/* Day View */}
-      {viewTab === 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-          <DayTimeline date={currentDate} members={members} events={events} onEventClick={handleEventClick} onTimeClick={handleTimeClick} />
-        </motion.div>
-      )}
-
-      {/* Month View */}
-      {viewTab === 1 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-          <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
-            <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
-              <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth" headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-                events={fcEvents} dateClick={handleFcDateClick} eventClick={handleFcEventClick}
-                height={isSmall ? "55vh" : "65vh"} dayMaxEvents={isSmall ? 2 : 4}
-                nowIndicator editable={false} selectable={false} eventDisplay="block"
-                eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-              />
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
 
       {/* FAB */}
       <Fab color="primary" onClick={() => { setEditingEvent(null); setEventForm(defaultEventForm(fmtDate(currentDate))); setDialogOpen(true); }}
