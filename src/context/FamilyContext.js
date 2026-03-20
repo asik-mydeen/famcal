@@ -430,6 +430,34 @@ function FamilyProvider({ children }) {
           const { data: seeded } = await supabase.from("rewards").insert(rewardRows).select();
           if (seeded) dispatch({ type: "SET_REWARDS", value: seeded });
         }
+
+        // Load v3 data (meals, lists, notes, countdowns, photos) in parallel
+        try {
+          const { fetchMeals, fetchLists, fetchNotes, fetchCountdowns, fetchPhotos } = await import("lib/supabase");
+
+          // Calculate current week for meals
+          const now = new Date();
+          const weekStart = new Date(now);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+          const [mealsData, listsData, notesData, countdownsData, photosData] = await Promise.all([
+            fetchMeals(family.id, weekStart.toISOString().split("T")[0], weekEnd.toISOString().split("T")[0]),
+            fetchLists(family.id),
+            fetchNotes(family.id),
+            fetchCountdowns(family.id),
+            fetchPhotos(family.id),
+          ]);
+
+          dispatch({ type: "SET_MEALS", value: mealsData });
+          dispatch({ type: "SET_LISTS", value: listsData });
+          dispatch({ type: "SET_NOTES", value: notesData });
+          dispatch({ type: "SET_COUNTDOWNS", value: countdownsData });
+          dispatch({ type: "SET_PHOTOS", value: photosData });
+        } catch (e) {
+          console.log("[supabase] v3 tables not available yet:", e.message);
+        }
       } catch (e) {
         console.warn("[supabase] Load failed, using local state:", e.message);
       }

@@ -30,7 +30,6 @@ import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
 import FamilyCalendar from "layouts/family-calendar";
-import Tasks from "layouts/tasks";
 import Chores from "layouts/chores";
 import Meals from "layouts/meals";
 import Lists from "layouts/lists";
