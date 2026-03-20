@@ -255,6 +255,50 @@ function localEventToGoogle(event) {
   };
 }
 
+// ── Direct push: create event on Google immediately ──
+export async function pushEventToGoogle(member, event) {
+  if (!member.google_calendar_id || !event.member_id) return null;
+
+  try {
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const gEvent = localEventToGoogle(event);
+    const created = await createGoogleEvent(accessToken, member.google_calendar_id, gEvent);
+    return created?.id || null; // Return the google_event_id
+  } catch (err) {
+    console.warn("[gcal] Direct push failed:", err.message);
+    return null;
+  }
+}
+
+// ── Direct update: push edited event to Google immediately ──
+export async function pushEventUpdateToGoogle(member, event) {
+  if (!member.google_calendar_id || !event.google_event_id) return false;
+
+  try {
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const gEvent = localEventToGoogle(event);
+    await updateGoogleEvent(accessToken, member.google_calendar_id, event.google_event_id, gEvent);
+    return true;
+  } catch (err) {
+    console.warn("[gcal] Direct update push failed:", err.message);
+    return false;
+  }
+}
+
+// ── Direct delete: remove event from Google immediately ──
+export async function pushEventDeleteToGoogle(member, googleEventId) {
+  if (!member.google_calendar_id || !googleEventId) return false;
+
+  try {
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    await deleteGoogleEvent(accessToken, member.google_calendar_id, googleEventId);
+    return true;
+  } catch (err) {
+    console.warn("[gcal] Direct delete push failed:", err.message);
+    return false;
+  }
+}
+
 // ── Two-way sync for a single member ──
 
 export async function syncMemberCalendar(member, localEvents, familyId, dispatch) {
@@ -279,10 +323,10 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
   let pushed = 0;
 
   try {
-    // ── PULL: Google → Local ──
+    // ── PULL: Google → Local (with conflict resolution) ──
     const gEvents = await fetchGoogleEvents(accessToken, calendarId, timeMin, timeMax);
     const memberLocalEvents = localEvents.filter(
-      (e) => e.member_id === member.id && e.source === "google"
+      (e) => e.member_id === member.id && (e.source === "google" || e.source === "synced")
     );
     const localByGoogleId = {};
     memberLocalEvents.forEach((e) => {
@@ -296,26 +340,67 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
       const converted = googleEventToLocal(gEvt, familyId, member.id);
 
       if (existing) {
-        // Update if changed
-        if (existing.title !== converted.title || existing.start !== converted.start || existing.end !== converted.end) {
-          dispatch({ type: "UPDATE_EVENT", value: { ...existing, ...converted, id: existing.id } });
-          pulled++;
+        // Conflict resolution: compare timestamps — latest wins
+        const googleUpdated = new Date(gEvt.updated || 0).getTime();
+        const localUpdated = new Date(existing.updated_at || 0).getTime();
+
+        if (googleUpdated > localUpdated) {
+          // Google is newer — update local
+          if (existing.title !== converted.title || existing.start !== converted.start || existing.end !== converted.end) {
+            dispatch({ type: "UPDATE_EVENT", value: { ...existing, ...converted, id: existing.id, updated_at: gEvt.updated } });
+            pulled++;
+          }
+        } else if (localUpdated > googleUpdated) {
+          // Local is newer — push to Google instead of overwriting
+          try {
+            const updatedGoogle = localEventToGoogle(existing);
+            await updateGoogleEvent(accessToken, calendarId, existing.google_event_id, updatedGoogle);
+            pushed++;
+          } catch (err) {
+            console.warn(`[gcal] Failed to push local update for "${existing.title}":`, err.message);
+          }
         }
+        // If timestamps are equal, no action needed
       } else {
         // New event from Google
         dispatch({
           type: "ADD_EVENT",
-          value: { id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, ...converted },
+          value: {
+            id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            ...converted,
+            updated_at: gEvt.updated || new Date().toISOString(),
+          },
         });
         pulled++;
       }
     }
 
     // Remove local events that were deleted in Google
+    // BUT only if they weren't recently updated locally (within last 2 minutes)
+    const twoMinAgo = Date.now() - 2 * 60 * 1000;
     for (const localEvt of memberLocalEvents) {
       if (localEvt.google_event_id && !remoteIds.has(localEvt.google_event_id)) {
-        dispatch({ type: "REMOVE_EVENT", value: localEvt.id });
-        pulled++;
+        const localUpdated = new Date(localEvt.updated_at || 0).getTime();
+        if (localUpdated < twoMinAgo) {
+          // Deleted from Google and not recently edited locally — remove
+          dispatch({ type: "REMOVE_EVENT", value: localEvt.id });
+          pulled++;
+        } else {
+          // Recently edited locally — re-push to Google instead
+          try {
+            const gEvent = localEventToGoogle(localEvt);
+            const created = await createGoogleEvent(accessToken, calendarId, gEvent);
+            if (created?.id) {
+              dispatch({
+                type: "UPDATE_EVENT",
+                value: { id: localEvt.id, google_event_id: created.id, source: "synced" },
+              });
+              pushed++;
+            }
+          } catch (err) {
+            console.warn(`[gcal] Failed to re-push event "${localEvt.title}":`, err.message);
+          }
+        }
       }
     }
 
@@ -337,33 +422,6 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
         }
       } catch (err) {
         console.warn(`[gcal] Failed to push event "${localEvt.title}":`, err.message);
-      }
-    }
-
-    // ── PUSH UPDATES: Local edits → Google ──
-    // Include both "synced" (locally created, pushed once) and "google" (pulled from Google) events
-    const memberSyncedEvents = localEvents.filter(
-      (e) => e.member_id === member.id && (e.source === "synced" || e.source === "google") && e.google_event_id
-    );
-
-    for (const localEvt of memberSyncedEvents) {
-      // Check if local event differs from what Google has
-      const gEvt = gEvents.find(g => g.id === localEvt.google_event_id);
-      if (!gEvt) continue;
-
-      const localTitle = localEvt.title;
-      const googleTitle = gEvt.summary || "(No title)";
-      const localStart = localEvt.allDay ? localEvt.start.split("T")[0] : localEvt.start;
-      const googleStart = gEvt.start?.date || gEvt.start?.dateTime;
-
-      if (localTitle !== googleTitle || localStart !== googleStart) {
-        try {
-          const updatedGoogle = localEventToGoogle(localEvt);
-          await updateGoogleEvent(accessToken, calendarId, localEvt.google_event_id, updatedGoogle);
-          pushed++;
-        } catch (err) {
-          console.warn(`[gcal] Failed to update event "${localEvt.title}":`, err.message);
-        }
       }
     }
   } catch (err) {

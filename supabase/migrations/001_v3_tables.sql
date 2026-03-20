@@ -77,6 +77,9 @@ ALTER TABLE families ADD COLUMN IF NOT EXISTS photo_interval INT DEFAULT 5;
 ALTER TABLE families ADD COLUMN IF NOT EXISTS idle_timeout INT DEFAULT 300;
 ALTER TABLE families ADD COLUMN IF NOT EXISTS font_scale FLOAT DEFAULT 1.0;
 
+-- Add updated_at to events table for conflict resolution
+ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Enable RLS on new tables
 ALTER TABLE meals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lists ENABLE ROW LEVEL SECURITY;

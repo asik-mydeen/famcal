@@ -276,6 +276,7 @@ function eventFromDb(row) {
     className: row.color || "info",
     source: row.source,
     google_event_id: row.google_event_id || null,
+    updated_at: row.updated_at || null,
   };
 }
 
@@ -289,6 +290,7 @@ function eventToDb(evt) {
     all_day: evt.allDay || false,
     color: evt.className || "info",
     source: evt.source || "manual",
+    updated_at: new Date().toISOString(),
   };
   if (evt.google_event_id) row.google_event_id = evt.google_event_id;
   if (evt.id && !evt.id.startsWith("evt-")) row.id = evt.id;
@@ -538,6 +540,7 @@ function FamilyProvider({ children }) {
           if (ev.google_event_id !== undefined) evUpdate.google_event_id = ev.google_event_id;
           if (ev.source !== undefined) evUpdate.source = ev.source;
           if (ev.className !== undefined) evUpdate.color = ev.className;
+          evUpdate.updated_at = new Date().toISOString();
           persist("events", "update", evUpdate);
           break;
         }

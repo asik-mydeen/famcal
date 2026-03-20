@@ -31,7 +31,7 @@ import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
-import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent } from "lib/googleCalendar";
+import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle } from "lib/googleCalendar";
 import { useThemeMode } from "context/ThemeContext";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
@@ -361,31 +361,41 @@ function FamilyCalendar() {
           google_event_id: existingEvent?.google_event_id || null
         }
       });
+      // Push update to Google directly if event is synced
+      if (existingEvent?.google_event_id) {
+        const memberForPush = members.find(m => m.id === (member_id || existingEvent.member_id));
+        if (memberForPush?.google_calendar_id) {
+          pushEventUpdateToGoogle(memberForPush, { ...existingEvent, title: title.trim(), start, end, allDay }).catch(() => {});
+        }
+      }
     } else {
+      const newEventId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const newEvent = {
+        id: newEventId,
+        family_id: family.id,
+        member_id: member_id || null,
+        title: title.trim(),
+        start,
+        end,
+        allDay,
+        className: gradient,
+        source: "manual",
+        google_event_id: null
+      };
       dispatch({
         type: "ADD_EVENT",
-        value: {
-          id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          family_id: family.id,
-          member_id: member_id || null,
-          title: title.trim(),
-          start,
-          end,
-          allDay,
-          className: gradient,
-          source: "manual",
-          google_event_id: null
-        }
+        value: newEvent
       });
+      // Push to Google directly if member has calendar connected
+      if (member?.google_calendar_id) {
+        pushEventToGoogle(member, newEvent).then(googleId => {
+          if (googleId) {
+            dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
+          }
+        });
+      }
     }
     setDialogOpen(false); setEditingEvent(null);
-    // Auto-sync after saving so changes push to Google immediately
-    const connectedCount = members.filter(m => m.google_calendar_id).length;
-    if (connectedCount > 0) {
-      setTimeout(() => {
-        syncAllMembers(members, events, family.id, dispatch).catch(() => {});
-      }, 500);
-    }
   }, [eventForm, editingEvent, members, family.id, events, dispatch]);
 
   const handleDeleteEvent = useCallback(async () => {
