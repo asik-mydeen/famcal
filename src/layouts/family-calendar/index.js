@@ -31,7 +31,7 @@ import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
-import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar } from "lib/googleCalendar";
+import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent } from "lib/googleCalendar";
 import { useThemeMode } from "context/ThemeContext";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
@@ -345,17 +345,56 @@ function FamilyCalendar() {
     const start = allDay ? startDate : `${startDate}T${startTime}:00`;
     const end = allDay ? endDate : `${endDate}T${endTime}:00`;
     if (editingEvent) {
-      dispatch({ type: "UPDATE_EVENT", value: { id: editingEvent.id, title: title.trim(), member_id: member_id || null, start, end, allDay, className: gradient } });
+      // Preserve source and google_event_id when editing
+      const existingEvent = events.find(e => e.id === editingEvent.id);
+      dispatch({
+        type: "UPDATE_EVENT",
+        value: {
+          id: editingEvent.id,
+          title: title.trim(),
+          member_id: member_id || null,
+          start,
+          end,
+          allDay,
+          className: gradient,
+          source: existingEvent?.source || "manual",
+          google_event_id: existingEvent?.google_event_id || null
+        }
+      });
     } else {
-      dispatch({ type: "ADD_EVENT", value: { id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, family_id: family.id, member_id: member_id || null, title: title.trim(), start, end, allDay, className: gradient, source: "manual" } });
+      dispatch({
+        type: "ADD_EVENT",
+        value: {
+          id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          family_id: family.id,
+          member_id: member_id || null,
+          title: title.trim(),
+          start,
+          end,
+          allDay,
+          className: gradient,
+          source: "manual",
+          google_event_id: null
+        }
+      });
     }
     setDialogOpen(false); setEditingEvent(null);
-  }, [eventForm, editingEvent, members, family.id, dispatch]);
+  }, [eventForm, editingEvent, members, family.id, events, dispatch]);
 
-  const handleDeleteEvent = useCallback(() => {
-    if (editingEvent) dispatch({ type: "REMOVE_EVENT", value: editingEvent.id });
+  const handleDeleteEvent = useCallback(async () => {
+    if (editingEvent) {
+      // If this was a synced event, delete from Google too
+      const evt = events.find(e => e.id === editingEvent.id);
+      if (evt?.google_event_id && evt.member_id) {
+        const member = members.find(m => m.id === evt.member_id);
+        if (member) {
+          await deleteSyncedEvent(member, evt.google_event_id);
+        }
+      }
+      dispatch({ type: "REMOVE_EVENT", value: editingEvent.id });
+    }
     setDialogOpen(false); setEditingEvent(null);
-  }, [editingEvent, dispatch]);
+  }, [editingEvent, events, members, dispatch]);
 
   const handleCloseDialog = useCallback(() => { setDialogOpen(false); setEditingEvent(null); setEventForm(defaultEventForm()); }, []);
 
