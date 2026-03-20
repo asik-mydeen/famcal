@@ -7,12 +7,12 @@ const FamilyContext = createContext(null);
 FamilyContext.displayName = "FamilyContext";
 
 const MEMBER_COLORS = [
-  { name: "Purple", value: "#7c3aed", gradient: "primary" },
-  { name: "Rose", value: "#f43f5e", gradient: "error" },
-  { name: "Green", value: "#22c55e", gradient: "success" },
-  { name: "Amber", value: "#f59e0b", gradient: "warning" },
+  { name: "Purple", value: "#6C5CE7", gradient: "primary" },
+  { name: "Coral", value: "#E17055", gradient: "error" },
+  { name: "Green", value: "#00B894", gradient: "success" },
+  { name: "Gold", value: "#FDCB6E", gradient: "warning" },
+  { name: "Blue", value: "#0984E3", gradient: "info" },
   { name: "Cyan", value: "#06b6d4", gradient: "secondary" },
-  { name: "Blue", value: "#3b82f6", gradient: "info" },
   { name: "Pink", value: "#ec4899", gradient: "error" },
   { name: "Teal", value: "#14b8a6", gradient: "success" },
 ];

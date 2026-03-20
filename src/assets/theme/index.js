@@ -25,30 +25,30 @@ function getPalette(mode) {
     mode,
     primary: dark
       ? { main: "#7c3aed", light: "#a855f7", dark: "#6d28d9", contrastText: "#fff" }
-      : { main: "#4ECDC4", light: "#7EDCD5", dark: "#3BA99C", contrastText: "#fff" },
+      : { main: "#6C5CE7", light: "#A29BFE", dark: "#5A4BD1", contrastText: "#fff" },
     secondary: dark
       ? { main: "#06b6d4", light: "#22d3ee", dark: "#0891b2", contrastText: "#fff" }
-      : { main: "#FF6B6B", light: "#FF8E8E", dark: "#E85555", contrastText: "#fff" },
+      : { main: "#00B894", light: "#55EFC4", dark: "#00A381", contrastText: "#fff" },
     success: { main: "#22c55e", light: "#4ade80", dark: "#16a34a", contrastText: "#fff" },
-    warning: { main: "#f59e0b", light: "#fbbf24", dark: "#d97706", contrastText: "#000" },
-    error: { main: "#f43f5e", light: "#fb7185", dark: "#e11d48", contrastText: "#fff" },
+    warning: { main: "#FDCB6E", light: "#FFEAA7", dark: "#E1B54A", contrastText: "#000" },
+    error: { main: "#E17055", light: "#FAB1A0", dark: "#C0392B", contrastText: "#fff" },
     info: dark
       ? { main: "#3b82f6", light: "#60a5fa", dark: "#2563eb", contrastText: "#fff" }
-      : { main: "#5B8DEF", light: "#7DA8F5", dark: "#4070D4", contrastText: "#fff" },
+      : { main: "#0984E3", light: "#74B9FF", dark: "#0767B5", contrastText: "#fff" },
     background: {
       default: dark ? "#0a0a1a" : "transparent",
       paper: dark ? "rgba(255,255,255,0.06)" : "#ffffff",
     },
     text: {
-      primary: dark ? "#ffffff" : "#2D3436",
-      secondary: dark ? "rgba(255,255,255,0.55)" : "#636e72",
+      primary: dark ? "#ffffff" : "#1A1A1A",
+      secondary: dark ? "rgba(255,255,255,0.55)" : "#8B8680",
       disabled: dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.3)",
     },
-    divider: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+    divider: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
     action: {
       hover: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)",
-      selected: dark ? "rgba(124,58,237,0.15)" : "rgba(78,205,196,0.12)",
-      focus: dark ? "rgba(124,58,237,0.2)" : "rgba(78,205,196,0.2)",
+      selected: dark ? "rgba(124,58,237,0.15)" : "rgba(108,92,231,0.12)",
+      focus: dark ? "rgba(124,58,237,0.2)" : "rgba(108,92,231,0.2)",
     },
   };
 }
@@ -60,11 +60,11 @@ function getComponents(mode) {
   const t = (d, l) => (dark ? d : l);
 
   // Primary accent for component styling
-  const accent = t("#7c3aed", "#4ECDC4");
-  const accentLight = t("#a855f7", "#7EDCD5");
-  const accentGradient = t("linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)", "linear-gradient(135deg, #4ECDC4 0%, #7EDCD5 100%)");
-  const accentShadow = t("rgba(124,58,237,0.35)", "rgba(78,205,196,0.3)");
-  const accentShadowHover = t("rgba(124,58,237,0.5)", "rgba(78,205,196,0.45)");
+  const accent = t("#7c3aed", "#6C5CE7");
+  const accentLight = t("#a855f7", "#A29BFE");
+  const accentGradient = t("linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)", "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)");
+  const accentShadow = t("rgba(124,58,237,0.35)", "rgba(108,92,231,0.3)");
+  const accentShadowHover = t("rgba(124,58,237,0.5)", "rgba(108,92,231,0.45)");
 
   // Card / surface values
   const glassBg = t("rgba(255,255,255,0.05)", "#ffffff");
@@ -85,8 +85,8 @@ function getComponents(mode) {
   const tooltipBg = t("rgba(20,20,40,0.95)", "#2D3436");
   const scrollThumb = t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.12)");
   const scrollThumbHover = t("rgba(255,255,255,0.22)", "rgba(0,0,0,0.2)");
-  const textPrimary = t("#ffffff", "#2D3436");
-  const textSecondary = t("rgba(255,255,255,0.55)", "#636e72");
+  const textPrimary = t("#ffffff", "#1A1A1A");
+  const textSecondary = t("rgba(255,255,255,0.55)", "#8B8680");
   const textMuted = t("rgba(255,255,255,0.4)", "rgba(0,0,0,0.35)");
   const textFaint = t("rgba(255,255,255,0.3)", "rgba(0,0,0,0.2)");
   const tabColor = t("rgba(255,255,255,0.4)", "rgba(0,0,0,0.4)");
@@ -97,7 +97,7 @@ function getComponents(mode) {
   // FullCalendar CSS for the current mode
   const fcBg = "transparent";
   const fcBorder = t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.06)");
-  const fcTodayBg = t("rgba(124,58,237,0.06)", "rgba(78,205,196,0.08)");
+  const fcTodayBg = t("rgba(124,58,237,0.06)", "rgba(108,92,231,0.06)");
   const fcHeaderCellBg = t("rgba(255,255,255,0.02)", "rgba(0,0,0,0.01)");
   const fcHeaderCellBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)");
   const fcHeaderText = t("rgba(255,255,255,0.45)", "rgba(0,0,0,0.4)");
@@ -142,7 +142,7 @@ function getComponents(mode) {
         .fc .fc-col-header-cell { background: ${fcHeaderCellBg}; border-bottom: 1px solid ${fcHeaderCellBorder} !important; }
         .fc .fc-col-header-cell-cushion { color: ${fcHeaderText}; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; padding: 10px 0; }
         .fc .fc-daygrid-day-number { color: ${fcDayNum}; font-weight: 500; font-size: 0.8125rem; padding: 8px; text-decoration: none; }
-        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%); color: #fff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
         .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number { color: ${fcOtherDay}; }
         .fc-event { border-radius: 6px !important; padding: 2px 8px !important; font-size: 0.75rem !important; font-weight: 500 !important; border: none !important; cursor: pointer; }
         .fc-event.event-primary { background: rgba(124,58,237,0.85) !important; }
@@ -158,7 +158,7 @@ function getComponents(mode) {
         .fc .fc-button-primary { background: ${fcBtnBg} !important; border: 1px solid ${fcBtnBorder} !important; border-radius: 10px !important; font-weight: 500 !important; text-transform: capitalize !important; color: ${fcBtnText} !important; font-size: 0.8125rem !important; padding: 6px 14px !important; transition: all 0.2s ease !important; }
         .fc .fc-button-primary:hover { background: ${fcBtnHover} !important; color: ${fcBtnActiveText} !important; }
         .fc .fc-button-primary:focus { box-shadow: none !important; }
-        .fc .fc-button-primary.fc-button-active { background: rgba(124,58,237,0.25) !important; border-color: rgba(124,58,237,0.5) !important; color: ${fcBtnActiveText} !important; }
+        .fc .fc-button-primary.fc-button-active { background: rgba(108,92,231,0.25) !important; border-color: rgba(108,92,231,0.5) !important; color: ${fcBtnActiveText} !important; }
         .fc .fc-daygrid-body-unbalanced .fc-daygrid-day-events { min-height: 1.5em; }
         .fc .fc-timegrid-slot { height: 48px; }
         .fc .fc-timegrid-slot-label-cushion { color: ${fcTimeLabel}; font-size: 0.75rem; }
