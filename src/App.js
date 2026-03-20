@@ -43,69 +43,164 @@ import Settings from "layouts/settings";
 function LoginScreen() {
   const { signIn } = useAuth();
 
+  const features = [
+    { icon: "calendar_today", label: "Shared Calendar", desc: "See everyone's schedule at a glance" },
+    { icon: "task_alt", label: "Chore Tracking", desc: "Gamified tasks with points and streaks" },
+    { icon: "restaurant", label: "Meal Planning", desc: "Weekly meals with grocery lists" },
+    { icon: "emoji_events", label: "Rewards Store", desc: "Earn and spend points on treats" },
+    { icon: "photo_library", label: "Photo Frame", desc: "Family slideshow when idle" },
+    { icon: "checklist", label: "Shared Lists", desc: "Groceries, to-dos, and more" },
+  ];
+
   return (
     <Box sx={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(180deg, #FFF8F0 0%, #FFFFFF 100%)",
+      minHeight: "100vh", display: "flex",
+      background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)",
+      overflow: "hidden", position: "relative",
     }}>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <Box sx={{
-          textAlign: "center", maxWidth: 400, mx: "auto", p: 4,
-        }}>
-          {/* Logo */}
-          <Box sx={{
-            width: 72, height: 72, borderRadius: "20px",
-            background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            mx: "auto", mb: 3, boxShadow: "0 8px 32px rgba(108,92,231,0.3)",
-          }}>
-            <Icon sx={{ color: "#fff", fontSize: "2rem" }}>calendar_month</Icon>
-          </Box>
+      {/* Decorative background orbs */}
+      <Box sx={{
+        position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw",
+        borderRadius: "50%", background: "radial-gradient(circle, rgba(108,92,231,0.06) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+      <Box sx={{
+        position: "absolute", bottom: "-15%", left: "-10%", width: "40vw", height: "40vw",
+        borderRadius: "50%", background: "radial-gradient(circle, rgba(0,184,148,0.05) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
 
-          <Typography sx={{ fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", mb: 0.5 }}>
-            FamCal
-          </Typography>
-          <Typography sx={{ color: "text.secondary", mb: 4, fontSize: "0.95rem" }}>
-            Your family command center
-          </Typography>
+      {/* Main content — two column on desktop, single on mobile */}
+      <Box sx={{
+        display: "flex", flex: 1, alignItems: "center", justifyContent: "center",
+        flexDirection: { xs: "column", md: "row" },
+        maxWidth: 1100, mx: "auto", px: { xs: 3, md: 6 }, py: { xs: 4, md: 0 },
+        gap: { xs: 4, md: 8 }, position: "relative", zIndex: 1,
+      }}>
 
-          {/* Features list */}
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mb: 4, flexWrap: "wrap" }}>
-            {[
-              { icon: "calendar_today", label: "Calendar" },
-              { icon: "task_alt", label: "Chores" },
-              { icon: "emoji_events", label: "Rewards" },
-              { icon: "restaurant", label: "Meals" },
-            ].map(f => (
-              <Box key={f.label} sx={{ textAlign: "center" }}>
-                <Icon sx={{ fontSize: "1.5rem", color: "primary.main", display: "block", mb: 0.5 }}>{f.icon}</Icon>
-                <Typography sx={{ fontSize: "0.7rem", color: "text.secondary" }}>{f.label}</Typography>
+        {/* Left: Hero section */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ flex: 1 }}
+        >
+          <Box sx={{ maxWidth: 480 }}>
+            {/* Logo */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 4 }}>
+              <Box sx={{
+                width: 56, height: 56, borderRadius: "16px",
+                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 8px 32px rgba(108,92,231,0.25)",
+              }}>
+                <Icon sx={{ color: "#fff", fontSize: "1.6rem" }}>calendar_month</Icon>
               </Box>
+              <Typography sx={{ fontWeight: 800, fontSize: "1.5rem", letterSpacing: "-0.03em", color: "#1A1A1A" }}>
+                FamCal
+              </Typography>
+            </Box>
+
+            {/* Headline */}
+            <Typography sx={{
+              fontWeight: 800, fontSize: { xs: "2rem", md: "2.75rem" },
+              letterSpacing: "-0.03em", lineHeight: 1.15, color: "#1A1A1A", mb: 2,
+            }}>
+              Your family,{" "}
+              <Box component="span" sx={{
+                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+              }}>
+                beautifully organized
+              </Box>
+            </Typography>
+
+            <Typography sx={{ fontSize: "1.1rem", color: "#8B8680", lineHeight: 1.6, mb: 4, maxWidth: 400 }}>
+              The all-in-one family hub for your wall display. Calendar, chores, meals, and more — designed for the whole family.
+            </Typography>
+
+            {/* Sign in button */}
+            <Button
+              onClick={signIn}
+              variant="contained"
+              size="large"
+              sx={{
+                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                borderRadius: "16px", px: 5, py: 2,
+                textTransform: "none", fontWeight: 700, fontSize: "1.1rem",
+                boxShadow: "0 8px 32px rgba(108,92,231,0.35)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  boxShadow: "0 12px 40px rgba(108,92,231,0.5)",
+                  transform: "translateY(-2px)",
+                },
+                "&:active": { transform: "translateY(0)" },
+              }}
+            >
+              <Box
+                component="img"
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt=""
+                sx={{ width: 20, height: 20, mr: 1.5 }}
+              />
+              Continue with Google
+            </Button>
+
+            <Typography sx={{ mt: 2.5, fontSize: "0.75rem", color: "#C4C0B8" }}>
+              Free for families. No credit card required.
+            </Typography>
+          </Box>
+        </motion.div>
+
+        {/* Right: Feature cards */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ flex: 1, maxWidth: 460 }}
+        >
+          <Box sx={{
+            display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5,
+          }}>
+            {features.map((f, i) => (
+              <motion.div
+                key={f.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
+              >
+                <Box sx={{
+                  p: 2.5, borderRadius: "16px",
+                  background: "rgba(255,255,255,0.7)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255,255,255,0.8)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.03)",
+                  transition: "all 0.25s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(108,92,231,0.1)",
+                    borderColor: "rgba(108,92,231,0.2)",
+                  },
+                }}>
+                  <Box sx={{
+                    width: 40, height: 40, borderRadius: "12px",
+                    background: `rgba(108,92,231,${0.08 + i * 0.02})`,
+                    display: "flex", alignItems: "center", justifyContent: "center", mb: 1.5,
+                  }}>
+                    <Icon sx={{ fontSize: "1.2rem", color: "#6C5CE7" }}>{f.icon}</Icon>
+                  </Box>
+                  <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: "#1A1A1A", mb: 0.5 }}>
+                    {f.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: "#8B8680", lineHeight: 1.4 }}>
+                    {f.desc}
+                  </Typography>
+                </Box>
+              </motion.div>
             ))}
           </Box>
-
-          {/* Sign in button */}
-          <Button
-            onClick={signIn}
-            variant="contained"
-            size="large"
-            startIcon={<Icon>login</Icon>}
-            sx={{
-              background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-              borderRadius: "14px", px: 4, py: 1.5,
-              textTransform: "none", fontWeight: 700, fontSize: "1rem",
-              boxShadow: "0 4px 20px rgba(108,92,231,0.35)",
-              "&:hover": { boxShadow: "0 6px 24px rgba(108,92,231,0.5)" },
-            }}
-          >
-            Sign in with Google
-          </Button>
-
-          <Typography sx={{ mt: 3, fontSize: "0.75rem", color: "text.disabled" }}>
-            Powered by Supabase
-          </Typography>
-        </Box>
-      </motion.div>
+        </motion.div>
+      </Box>
     </Box>
   );
 }
