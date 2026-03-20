@@ -348,18 +348,6 @@ export default function App() {
   const isLoggedIn = Boolean(user);
   const showSetup = isLoggedIn && !setupDone && members.length === 0;
 
-  // Show loading spinner while checking auth
-  if (loading) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-          <CircularProgress />
-        </Box>
-      </ThemeProvider>
-    );
-  }
-
   // Weather location from family settings or localStorage
   const weatherLocation = family?.weather_location || localStorage.getItem("famcal_weather_location") || "";
 
@@ -368,7 +356,7 @@ export default function App() {
   const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
   const fontScale = parseFloat(localStorage.getItem("famcal_font_scale") || "1.0");
 
-  // Idle timer for photo frame
+  // Idle timer for photo frame — MUST be called before any conditional returns (React hooks rules)
   const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
 
   // Weather data loading
@@ -383,6 +371,18 @@ export default function App() {
       });
     }
   }, [weatherLocation, dispatch]);
+
+  // Show loading spinner while checking auth — AFTER all hooks
+  if (loading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+          <CircularProgress />
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   // Derive active tab from location
   const activeTab = location.pathname.split("/")[1] || "calendar";
