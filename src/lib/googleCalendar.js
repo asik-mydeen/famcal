@@ -13,11 +13,12 @@ const SCOPES = "https://www.googleapis.com/auth/calendar";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
 // ── Client ID management ──
-
+// Client ID comes from environment variable, NOT from user input
 export function getGoogleClientId() {
-  return localStorage.getItem("famcal_google_client_id") || "";
+  return process.env.REACT_APP_GOOGLE_CLIENT_ID || localStorage.getItem("famcal_google_client_id") || "";
 }
 
+// Keep setGoogleClientId for backward compat but it's no longer needed in UI
 export function setGoogleClientId(clientId) {
   localStorage.setItem("famcal_google_client_id", clientId);
 }

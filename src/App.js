@@ -1,22 +1,23 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Icon from "@mui/material/Icon";
+import CircularProgress from "@mui/material/CircularProgress";
 import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
+import TextField from "@mui/material/TextField";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { createAppTheme } from "assets/theme";
 import { useThemeMode } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
-import { getGoogleClientId, setGoogleClientId } from "lib/googleCalendar";
+import { getGoogleClientId } from "lib/googleCalendar";
 import AnimatedBackground from "components/AnimatedBackground";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
@@ -37,146 +38,73 @@ import Family from "layouts/family";
 import Rewards from "layouts/rewards";
 import Settings from "layouts/settings";
 
-// ── Google Sign-In Screen ──
+// ── Supabase Auth Sign-In Screen ──
 
 function LoginScreen() {
   const { signIn } = useAuth();
-  const btnRef = useRef(null);
-  const [clientId, setClientIdLocal] = useState(getGoogleClientId());
-  const [showClientInput, setShowClientInput] = useState(!clientId);
-  const [error, setError] = useState("");
-
-  const initGoogleButton = useCallback(() => {
-    const cid = getGoogleClientId();
-    if (!cid || !window.google?.accounts?.id || !btnRef.current) return;
-
-    window.google.accounts.id.initialize({
-      client_id: cid,
-      callback: (response) => {
-        const ok = signIn(response);
-        if (!ok) setError("Sign in failed. Please try again.");
-      },
-    });
-    window.google.accounts.id.renderButton(btnRef.current, {
-      theme: "outline",
-      size: "large",
-      width: 320,
-      text: "signin_with",
-      shape: "pill",
-    });
-  }, [signIn]);
-
-  useEffect(() => {
-    // Wait for Google script to load
-    const timer = setInterval(() => {
-      if (window.google?.accounts?.id && getGoogleClientId()) {
-        initGoogleButton();
-        clearInterval(timer);
-      }
-    }, 200);
-    return () => clearInterval(timer);
-  }, [initGoogleButton]);
-
-  const handleSaveClientId = () => {
-    if (!clientId.trim()) return;
-    setGoogleClientId(clientId.trim());
-    setShowClientInput(false);
-    setTimeout(initGoogleButton, 300);
-  };
-
-  const features = [
-    { icon: "calendar_month", label: "Family Calendar" },
-    { icon: "checklist", label: "Tasks & Chores" },
-    { icon: "emoji_events", label: "Rewards & Points" },
-    { icon: "sync", label: "Google Calendar Sync" },
-  ];
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", p: 3 }}>
-      {/* Hero */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-        <Box sx={{ textAlign: "center", mb: 4 }}>
+    <Box sx={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(180deg, #FFF8F0 0%, #FFFFFF 100%)",
+    }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Box sx={{
+          textAlign: "center", maxWidth: 400, mx: "auto", p: 4,
+        }}>
+          {/* Logo */}
           <Box sx={{
-            width: 80, height: 80, borderRadius: "24px", mx: "auto", mb: 2,
-            background: "linear-gradient(135deg, #4ECDC4 0%, #44B09E 100%)",
+            width: 72, height: 72, borderRadius: "20px",
+            background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 12px 32px rgba(78,205,196,0.3)",
+            mx: "auto", mb: 3, boxShadow: "0 8px 32px rgba(108,92,231,0.3)",
           }}>
-            <Icon sx={{ fontSize: "2.5rem !important", color: "#fff" }}>calendar_month</Icon>
+            <Icon sx={{ color: "#fff", fontSize: "2rem" }}>calendar_month</Icon>
           </Box>
-          <Typography variant="h2" fontWeight={800} sx={{ color: "text.primary", letterSpacing: "-0.03em" }}>
+
+          <Typography sx={{ fontWeight: 800, fontSize: "2rem", letterSpacing: "-0.03em", mb: 0.5 }}>
             FamCal
           </Typography>
-          <Typography variant="body1" sx={{ color: "text.secondary", mt: 0.5, maxWidth: 320, mx: "auto" }}>
-            Your family hub for calendars, tasks, and rewards
+          <Typography sx={{ color: "text.secondary", mb: 4, fontSize: "0.95rem" }}>
+            Your family command center
+          </Typography>
+
+          {/* Features list */}
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 3, mb: 4, flexWrap: "wrap" }}>
+            {[
+              { icon: "calendar_today", label: "Calendar" },
+              { icon: "task_alt", label: "Chores" },
+              { icon: "emoji_events", label: "Rewards" },
+              { icon: "restaurant", label: "Meals" },
+            ].map(f => (
+              <Box key={f.label} sx={{ textAlign: "center" }}>
+                <Icon sx={{ fontSize: "1.5rem", color: "primary.main", display: "block", mb: 0.5 }}>{f.icon}</Icon>
+                <Typography sx={{ fontSize: "0.7rem", color: "text.secondary" }}>{f.label}</Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Sign in button */}
+          <Button
+            onClick={signIn}
+            variant="contained"
+            size="large"
+            startIcon={<Icon>login</Icon>}
+            sx={{
+              background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+              borderRadius: "14px", px: 4, py: 1.5,
+              textTransform: "none", fontWeight: 700, fontSize: "1rem",
+              boxShadow: "0 4px 20px rgba(108,92,231,0.35)",
+              "&:hover": { boxShadow: "0 6px 24px rgba(108,92,231,0.5)" },
+            }}
+          >
+            Sign in with Google
+          </Button>
+
+          <Typography sx={{ mt: 3, fontSize: "0.75rem", color: "text.disabled" }}>
+            Powered by Supabase
           </Typography>
         </Box>
-      </motion.div>
-
-      {/* Feature pills */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, delay: 0.2 }}>
-        <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 1, mb: 4, maxWidth: 400 }}>
-          {features.map((f) => (
-            <Box key={f.label} sx={{
-              display: "flex", alignItems: "center", gap: 0.75,
-              px: 1.5, py: 0.75, borderRadius: "20px",
-              bgcolor: "background.paper", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-            }}>
-              <Icon sx={{ fontSize: "1rem !important", color: "primary.main" }}>{f.icon}</Icon>
-              <Typography variant="caption" fontWeight={600} sx={{ color: "text.secondary" }}>{f.label}</Typography>
-            </Box>
-          ))}
-        </Box>
-      </motion.div>
-
-      {/* Sign-in card */}
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}>
-        <Box sx={{
-          width: { xs: "100%", sm: 400 }, bgcolor: "background.paper", borderRadius: "24px",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.08)", p: { xs: 3, sm: 4 }, textAlign: "center",
-        }}>
-          {showClientInput ? (
-            <Box>
-              <Icon sx={{ fontSize: "2rem !important", color: "primary.main", mb: 1.5 }}>settings</Icon>
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>First Time Setup</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Paste your Google OAuth Client ID to enable sign-in and calendar sync.
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="xxxxx.apps.googleusercontent.com"
-                value={clientId}
-                onChange={(e) => setClientIdLocal(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-              <Button fullWidth variant="contained" size="large" onClick={handleSaveClientId} disabled={!clientId.trim()}>
-                Continue
-              </Button>
-            </Box>
-          ) : (
-            <Box>
-              <Typography variant="h6" fontWeight={700} sx={{ mb: 0.5 }}>Welcome Back</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Sign in to access your family dashboard
-              </Typography>
-              <Box ref={btnRef} sx={{ display: "flex", justifyContent: "center", mb: 2, minHeight: 44 }} />
-              {error && (
-                <Typography variant="caption" color="error" sx={{ mb: 1, display: "block" }}>{error}</Typography>
-              )}
-              <Button size="small" onClick={() => setShowClientInput(true)} sx={{ color: "text.disabled", mt: 1, fontSize: "0.7rem" }}>
-                Change Client ID
-              </Button>
-            </Box>
-          )}
-        </Box>
-      </motion.div>
-
-      {/* Footer */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-        <Typography variant="caption" sx={{ color: "text.disabled", mt: 4, display: "block" }}>
-          FamCal v2.0
-        </Typography>
       </motion.div>
     </Box>
   );
@@ -216,9 +144,6 @@ function SetupWizard() {
     // Save family name + owner email
     const updates = { ...family, name: familyName.trim() || "My Family" };
     if (user?.email) updates.owner_email = user.email;
-    // Client ID is already saved from login screen
-    const existingClientId = getGoogleClientId();
-    if (existingClientId) updates.google_client_id = existingClientId;
     dispatch({ type: "SET_FAMILY", value: updates });
 
     // Create members and collect their temp IDs
@@ -348,11 +273,11 @@ function SetupWizard() {
           {/* Step 2: Connect Google Calendars */}
           {step === 2 && (
             <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>Connect Google Calendars</Typography>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>Connect Google Calendars (Optional)</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {hasClientId
-                  ? "Sign each member into their Google account to sync their calendar."
-                  : "Set up your Google OAuth Client ID in Settings to enable calendar sync."}
+                  ? "Connect each member's Google Calendar to sync events. You can also do this later from the Calendar page."
+                  : "Calendar sync requires REACT_APP_GOOGLE_CLIENT_ID environment variable. You can set this up later."}
               </Typography>
 
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 3 }}>
@@ -415,13 +340,25 @@ export default function App() {
   const navigate = useNavigate();
   const { darkMode } = useThemeMode();
   const theme = useMemo(() => createAppTheme(darkMode ? "dark" : "light"), [darkMode]);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
   const { members, photos, countdowns, family, weather } = state;
 
   const setupDone = localStorage.getItem("famcal_setup_done") === "true";
   const isLoggedIn = Boolean(user);
   const showSetup = isLoggedIn && !setupDone && members.length === 0;
+
+  // Show loading spinner while checking auth
+  if (loading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+          <CircularProgress />
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   // Weather location from family settings or localStorage
   const weatherLocation = family?.weather_location || localStorage.getItem("famcal_weather_location") || "";
