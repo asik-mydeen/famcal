@@ -7,7 +7,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useThemeMode } from "context/ThemeContext";
 
-function HeaderBar({ weather, topCountdown, members }) {
+function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget }) {
   const theme = useTheme();
   const { darkMode } = useThemeMode();
   const isMobile = useMediaQuery("(max-width:767px)");
@@ -84,8 +84,8 @@ function HeaderBar({ weather, topCountdown, members }) {
           gap: isMobile ? 1.5 : 2,
         }}
       >
-        {/* Weather Widget */}
-        {weather && (
+        {/* Weather Widget - prefer widget node, fallback to data-driven */}
+        {weatherWidget ? weatherWidget : weather && (
           <Box
             sx={{
               display: "flex",
@@ -135,8 +135,8 @@ function HeaderBar({ weather, topCountdown, members }) {
           </Box>
         )}
 
-        {/* Countdown Pill (hidden on mobile) */}
-        {topCountdown && !isMobile && (
+        {/* Countdown Pill (hidden on mobile) - prefer widget node, fallback to data-driven */}
+        {!isMobile && (countdownWidget ? countdownWidget : topCountdown && (
           <Box
             sx={{
               display: "flex",
@@ -180,7 +180,7 @@ function HeaderBar({ weather, topCountdown, members }) {
               {topCountdown.daysLeft}d
             </Typography>
           </Box>
-        )}
+        ))}
 
         {/* Family Avatars (hidden on mobile) */}
         {members && members.length > 0 && !isMobile && (
@@ -265,6 +265,8 @@ HeaderBar.propTypes = {
       avatar_url: PropTypes.string,
     })
   ),
+  weatherWidget: PropTypes.node,
+  countdownWidget: PropTypes.node,
 };
 
 export default memo(HeaderBar);
