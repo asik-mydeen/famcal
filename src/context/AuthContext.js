@@ -21,6 +21,9 @@ function AuthProvider({ children }) {
         });
       }
       setLoading(false);
+    }).catch((err) => {
+      console.error("Auth session check failed:", err);
+      setLoading(false); // Always unblock the app
     });
 
     // Listen for auth changes (sign in, sign out, token refresh)
