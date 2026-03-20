@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
+import Slider from "@mui/material/Slider";
 import GlassCard from "components/GlassCard";
 import Avatar from "@mui/material/Avatar";
 import { useFamilyController } from "context/FamilyContext";
@@ -36,6 +37,15 @@ function Settings() {
     const stored = localStorage.getItem("famcal_touch_mode");
     return stored === null ? true : stored === "true";
   });
+  const [kioskEnabled, setKioskEnabled] = useState(
+    localStorage.getItem("famcal_kiosk") === "true"
+  );
+  const [idleTimeout, setIdleTimeout] = useState(
+    parseInt(localStorage.getItem("famcal_idle_timeout") || "5")
+  );
+  const [fontScale, setFontScale] = useState(
+    parseFloat(localStorage.getItem("famcal_font_scale") || "1.0")
+  );
 
   const handleSaveAll = () => {
     const trimmedClientId = googleClientId.trim();
@@ -58,6 +68,22 @@ function Settings() {
   const handleTouchOptimizedChange = (e) => {
     setTouchOptimized(e.target.checked);
     localStorage.setItem("famcal_touch_mode", String(e.target.checked));
+  };
+
+  const handleKioskToggle = () => {
+    const next = !kioskEnabled;
+    setKioskEnabled(next);
+    localStorage.setItem("famcal_kiosk", String(next));
+  };
+
+  const handleIdleTimeoutChange = (e, newValue) => {
+    setIdleTimeout(newValue);
+    localStorage.setItem("famcal_idle_timeout", String(newValue));
+  };
+
+  const handleFontScaleChange = (e, newValue) => {
+    setFontScale(newValue);
+    localStorage.setItem("famcal_font_scale", String(newValue));
   };
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
@@ -261,18 +287,99 @@ function Settings() {
             <Typography variant="body2" color="text.secondary" mb={2}>
               Optimize for wall-mounted displays.
             </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-              <Typography variant="body2">Enable Kiosk Mode</Typography>
-              <Switch disabled />
+
+            <FormControlLabel
+              control={<Switch checked={kioskEnabled} onChange={handleKioskToggle} />}
+              label="Enable Kiosk Mode"
+              sx={{ display: "flex", mb: 2 }}
+            />
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ mb: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">Idle Timeout</Typography>
+                <Typography variant="body2" fontWeight="bold" color="primary.main">
+                  {idleTimeout} min
+                </Typography>
+              </Box>
+              <Slider
+                value={idleTimeout}
+                onChange={handleIdleTimeoutChange}
+                min={1}
+                max={30}
+                step={1}
+                marks={[
+                  { value: 1, label: "1m" },
+                  { value: 15, label: "15m" },
+                  { value: 30, label: "30m" },
+                ]}
+                valueLabelDisplay="auto"
+                disabled={!kioskEnabled}
+              />
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-              <Typography variant="body2">Idle Timeout (minutes)</Typography>
-              <Typography variant="body2" color="text.secondary">5</Typography>
+
+            <Box sx={{ mb: 2 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                <Typography variant="body2">Font Scale</Typography>
+                <Typography variant="body2" fontWeight="bold" color="primary.main">
+                  {Math.round(fontScale * 100)}%
+                </Typography>
+              </Box>
+              <Slider
+                value={fontScale}
+                onChange={handleFontScaleChange}
+                min={1.0}
+                max={1.5}
+                step={0.05}
+                marks={[
+                  { value: 1.0, label: "100%" },
+                  { value: 1.25, label: "125%" },
+                  { value: 1.5, label: "150%" },
+                ]}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
+                disabled={!kioskEnabled}
+              />
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-              <Typography variant="body2">Font Scale</Typography>
-              <Typography variant="body2" color="text.secondary">100%</Typography>
-            </Box>
+
+            {/* Browser support warnings */}
+            {!document.documentElement.requestFullscreen && (
+              <Box
+                sx={{
+                  bgcolor: "rgba(245, 158, 11, 0.1)",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  borderRadius: "8px",
+                  p: 1.5,
+                  mt: 2,
+                }}
+              >
+                <Box display="flex" alignItems="flex-start" gap={1}>
+                  <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
+                  <Typography variant="caption" color="warning.main">
+                    Fullscreen not supported. For best experience, add to Home Screen.
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            {!("wakeLock" in navigator) && (
+              <Box
+                sx={{
+                  bgcolor: "rgba(245, 158, 11, 0.1)",
+                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  borderRadius: "8px",
+                  p: 1.5,
+                  mt: 2,
+                }}
+              >
+                <Box display="flex" alignItems="flex-start" gap={1}>
+                  <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
+                  <Typography variant="caption" color="warning.main">
+                    Wake lock not available. Your device may sleep during use.
+                  </Typography>
+                </Box>
+              </Box>
+            )}
           </GlassCard>
         </Grid>
 
