@@ -88,6 +88,7 @@ const initialState = {
 };
 
 function reducer(state, action) {
+  const todayStr = new Date().toISOString().split("T")[0];
   switch (action.type) {
     case "SET_FAMILY":
       return { ...state, family: action.value };
