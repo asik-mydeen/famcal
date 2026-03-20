@@ -1,15 +1,24 @@
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import { useTheme } from "@mui/material/styles";
 import { motion } from "framer-motion";
 
 const navItems = [
   { path: "/calendar", label: "Calendar", icon: "calendar_month" },
-  { path: "/tasks", label: "Tasks", icon: "checklist" },
-  { path: "/family", label: "Family", icon: "people" },
+  { path: "/chores", label: "Chores", icon: "task_alt" },
+  { path: "/meals", label: "Meals", icon: "restaurant" },
+  { path: "/lists", label: "Lists", icon: "checklist" },
+  { path: null, label: "More", icon: "more_horiz" },
+];
+
+const moreMenuItems = [
   { path: "/rewards", label: "Rewards", icon: "emoji_events" },
+  { path: "/family", label: "Family", icon: "group" },
   { path: "/settings", label: "Settings", icon: "settings" },
 ];
 
@@ -19,6 +28,21 @@ export default function FloatingNav() {
   const theme = useTheme();
   const dark = theme.palette.mode === "dark";
   const accent = theme.palette.primary.main;
+  const [moreAnchorEl, setMoreAnchorEl] = useState(null);
+  const moreMenuOpen = Boolean(moreAnchorEl);
+
+  const handleMoreClick = (event) => {
+    setMoreAnchorEl(event.currentTarget);
+  };
+
+  const handleMoreClose = () => {
+    setMoreAnchorEl(null);
+  };
+
+  const handleMoreItemClick = (path) => {
+    navigate(path);
+    handleMoreClose();
+  };
 
   return (
     <motion.div
@@ -48,11 +72,12 @@ export default function FloatingNav() {
       >
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
+          const isMoreButton = item.path === null;
 
           return (
             <Box
-              key={item.path}
-              onClick={() => navigate(item.path)}
+              key={item.label}
+              onClick={isMoreButton ? handleMoreClick : () => navigate(item.path)}
               sx={{
                 display: "flex",
                 flexDirection: "column",
@@ -106,6 +131,47 @@ export default function FloatingNav() {
           );
         })}
       </Box>
+
+      {/* More Menu */}
+      <Menu
+        anchorEl={moreAnchorEl}
+        open={moreMenuOpen}
+        onClose={handleMoreClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        transformOrigin={{ vertical: "bottom", horizontal: "center" }}
+        sx={{
+          "& .MuiPaper-root": {
+            borderRadius: "12px",
+            minWidth: 160,
+            background: dark ? "#1A1A2E" : "#ffffff",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            mb: 1,
+          },
+        }}
+      >
+        {moreMenuItems.map((menuItem) => (
+          <MenuItem
+            key={menuItem.path}
+            onClick={() => handleMoreItemClick(menuItem.path)}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              py: 1.25,
+              px: 2,
+              color: dark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)",
+              "&:hover": {
+                backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              },
+            }}
+          >
+            <Icon sx={{ fontSize: 20, color: accent }}>{menuItem.icon}</Icon>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
+              {menuItem.label}
+            </Typography>
+          </MenuItem>
+        ))}
+      </Menu>
     </motion.div>
   );
 }

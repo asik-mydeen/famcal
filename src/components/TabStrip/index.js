@@ -1,4 +1,5 @@
 import { memo } from "react";
+import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
@@ -101,6 +102,12 @@ function TabStrip({ activeTab, onTabChange, rightSlot }) {
     </Box>
   );
 }
+
+TabStrip.propTypes = {
+  activeTab: PropTypes.string.isRequired,
+  onTabChange: PropTypes.func.isRequired,
+  rightSlot: PropTypes.node,
+};
 
 export { TABS };
 export default memo(TabStrip);

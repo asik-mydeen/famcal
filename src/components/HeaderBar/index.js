@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
@@ -244,5 +245,26 @@ function HeaderBar({ weather, topCountdown, members }) {
     </Box>
   );
 }
+
+HeaderBar.propTypes = {
+  weather: PropTypes.shape({
+    icon: PropTypes.string,
+    temp: PropTypes.string,
+    condition: PropTypes.string,
+  }),
+  topCountdown: PropTypes.shape({
+    icon: PropTypes.string,
+    title: PropTypes.string,
+    daysLeft: PropTypes.number,
+  }),
+  members: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string,
+      avatar_color: PropTypes.string,
+      avatar_url: PropTypes.string,
+    })
+  ),
+};
 
 export default memo(HeaderBar);
