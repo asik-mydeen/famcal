@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
@@ -203,5 +204,12 @@ function NotesWidget({ notes, members, dispatch, familyId }) {
     </Box>
   );
 }
+
+NotesWidget.propTypes = {
+  notes: PropTypes.array.isRequired,
+  members: PropTypes.array.isRequired,
+  dispatch: PropTypes.func.isRequired,
+  familyId: PropTypes.string,
+};
 
 export default memo(NotesWidget);

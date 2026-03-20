@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import { Box, Typography, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Grid } from "@mui/material";
 import Icon from "@mui/material/Icon";
 import { useThemeMode } from "context/ThemeContext";
@@ -346,5 +347,13 @@ function CountdownWidget({ variant = "sidebar", countdowns = [], members = [], d
     </Box>
   );
 }
+
+CountdownWidget.propTypes = {
+  variant: PropTypes.oneOf(["header", "sidebar"]),
+  countdowns: PropTypes.array,
+  members: PropTypes.array,
+  dispatch: PropTypes.func,
+  familyId: PropTypes.string,
+};
 
 export default CountdownWidget;

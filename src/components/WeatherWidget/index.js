@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from "react";
+import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
@@ -192,5 +193,10 @@ function WeatherWidget({ variant = "header", location }) {
     </Box>
   );
 }
+
+WeatherWidget.propTypes = {
+  variant: PropTypes.oneOf(["header", "sidebar"]),
+  location: PropTypes.string,
+};
 
 export default memo(WeatherWidget);
