@@ -13,11 +13,12 @@ const SCOPES = "https://www.googleapis.com/auth/calendar";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
 // ── Client ID management ──
-
+// Client ID comes from environment variable, NOT from user input
 export function getGoogleClientId() {
-  return localStorage.getItem("famcal_google_client_id") || "";
+  return process.env.REACT_APP_GOOGLE_CLIENT_ID || localStorage.getItem("famcal_google_client_id") || "";
 }
 
+// Keep setGoogleClientId for backward compat but it's no longer needed in UI
 export function setGoogleClientId(clientId) {
   localStorage.setItem("famcal_google_client_id", clientId);
 }
@@ -62,28 +63,39 @@ export function clearCachedToken(memberId) {
 export function requestAccessToken(memberId, loginHint) {
   return new Promise((resolve, reject) => {
     const clientId = getGoogleClientId();
-    if (!clientId) return reject(new Error("Google Client ID not configured"));
+    if (!clientId) return reject(new Error("Google Client ID not configured. Set REACT_APP_GOOGLE_CLIENT_ID environment variable."));
 
     if (!window.google?.accounts?.oauth2) {
-      return reject(new Error("Google Identity Services not loaded"));
+      return reject(new Error("Google Identity Services not loaded. Check your internet connection."));
     }
 
     // Check cache first
     const cached = getCachedToken(memberId);
     if (cached) return resolve(cached);
 
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPES,
-      hint: loginHint || undefined,
-      callback: (resp) => {
-        if (resp.error) return reject(new Error(resp.error));
-        setCachedToken(memberId, resp.access_token, resp.expires_in);
-        resolve(resp.access_token);
-      },
-    });
+    try {
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES,
+        hint: loginHint || undefined,
+        callback: (resp) => {
+          if (resp.error) {
+            console.warn("[gcal] Token request error:", resp.error, resp.error_description);
+            return reject(new Error(resp.error_description || resp.error));
+          }
+          setCachedToken(memberId, resp.access_token, resp.expires_in);
+          resolve(resp.access_token);
+        },
+        error_callback: (err) => {
+          console.warn("[gcal] Token client error:", err);
+          reject(new Error("Failed to get Google Calendar access. Try reconnecting."));
+        },
+      });
 
-    tokenClient.requestAccessToken({ prompt: "", login_hint: loginHint || "" });
+      tokenClient.requestAccessToken({ prompt: "", login_hint: loginHint || "" });
+    } catch (err) {
+      reject(new Error("Failed to initialize Google auth: " + err.message));
+    }
   });
 }
 
@@ -145,6 +157,11 @@ async function apiFetch(url, accessToken, options = {}) {
       ...options.headers,
     },
   });
+
+  if (res.status === 401) {
+    throw new Error("AUTH_EXPIRED");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error?.message || `Google API error ${res.status}`);
@@ -302,7 +319,7 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
       }
     }
 
-    // ── PUSH: Local → Google ──
+    // ── PUSH: Local → Google (new events) ──
     const memberManualEvents = localEvents.filter(
       (e) => e.member_id === member.id && e.source === "manual" && !e.google_event_id
     );
@@ -322,11 +339,54 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
         console.warn(`[gcal] Failed to push event "${localEvt.title}":`, err.message);
       }
     }
+
+    // ── PUSH UPDATES: Local edits → Google ──
+    const memberSyncedEvents = localEvents.filter(
+      (e) => e.member_id === member.id && e.source === "synced" && e.google_event_id
+    );
+
+    for (const localEvt of memberSyncedEvents) {
+      // Check if local event differs from what Google has
+      const gEvt = gEvents.find(g => g.id === localEvt.google_event_id);
+      if (!gEvt) continue;
+
+      const localTitle = localEvt.title;
+      const googleTitle = gEvt.summary || "(No title)";
+      const localStart = localEvt.allDay ? localEvt.start.split("T")[0] : localEvt.start;
+      const googleStart = gEvt.start?.date || gEvt.start?.dateTime;
+
+      if (localTitle !== googleTitle || localStart !== googleStart) {
+        try {
+          const updatedGoogle = localEventToGoogle(localEvt);
+          await updateGoogleEvent(accessToken, calendarId, localEvt.google_event_id, updatedGoogle);
+          pushed++;
+        } catch (err) {
+          console.warn(`[gcal] Failed to update event "${localEvt.title}":`, err.message);
+        }
+      }
+    }
   } catch (err) {
+    if (err.message === "AUTH_EXPIRED") {
+      clearCachedToken(member.id);
+      return { pulled, pushed, error: "Session expired — tap avatar to reconnect" };
+    }
     return { pulled, pushed, error: err.message };
   }
 
   return { pulled, pushed };
+}
+
+// ── Delete a synced event from Google ──
+
+export async function deleteSyncedEvent(member, eventGoogleId) {
+  if (!member.google_calendar_id || !eventGoogleId) return;
+
+  try {
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    await deleteGoogleEvent(accessToken, member.google_calendar_id, eventGoogleId);
+  } catch (err) {
+    console.warn("[gcal] Failed to delete from Google:", err.message);
+  }
 }
 
 // ── Sync all connected members ──

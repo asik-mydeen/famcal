@@ -9,15 +9,14 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Grid from "@mui/material/Grid";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
-import InputAdornment from "@mui/material/InputAdornment";
-import IconButton from "@mui/material/IconButton";
 import Slider from "@mui/material/Slider";
+import IconButton from "@mui/material/IconButton";
 import GlassCard from "components/GlassCard";
 import Avatar from "@mui/material/Avatar";
 import { useFamilyController } from "context/FamilyContext";
 import { useThemeMode } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
-import { getGoogleClientId, setGoogleClientId as saveGoogleClientId } from "lib/googleCalendar";
+import { getGoogleClientId } from "lib/googleCalendar";
 import { uploadPhoto, deletePhoto } from "lib/supabase";
 
 function Settings() {
@@ -27,8 +26,6 @@ function Settings() {
   const { user, signOut } = useAuth();
 
   const [familyName, setFamilyName] = useState(family.name);
-  const [googleClientId, setGoogleClientId] = useState(getGoogleClientId() || family.google_client_id || "");
-  const [showClientId, setShowClientId] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [animations, setAnimations] = useState(() => {
@@ -50,13 +47,8 @@ function Settings() {
   );
 
   const handleSaveAll = () => {
-    const trimmedClientId = googleClientId.trim();
-    // Save family name + google client ID together
+    // Save family name
     const updates = { ...family, name: familyName.trim() || family.name };
-    if (trimmedClientId) {
-      updates.google_client_id = trimmedClientId;
-      saveGoogleClientId(trimmedClientId);
-    }
     dispatch({ type: "SET_FAMILY", value: updates });
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -211,29 +203,11 @@ function Settings() {
               )}
             </Box>
 
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-              Connect Google Calendar to sync events with family members.
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
+              {clientIdConfigured
+                ? "Google Calendar sync is configured. Tap a family member's avatar on the Calendar page to connect their account."
+                : "Google Calendar sync requires REACT_APP_GOOGLE_CLIENT_ID environment variable. Contact your administrator to enable calendar sync."}
             </Typography>
-
-            <TextField
-              fullWidth
-              size="small"
-              label="OAuth Client ID"
-              type={showClientId ? "text" : "password"}
-              value={googleClientId}
-              onChange={(e) => setGoogleClientId(e.target.value)}
-              placeholder="xxxxx.apps.googleusercontent.com"
-              sx={{ mb: 3 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowClientId((p) => !p)} edge="end">
-                      <Icon sx={{ fontSize: "1.2rem !important" }}>{showClientId ? "visibility_off" : "visibility"}</Icon>
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
 
             {/* Single Save button */}
             <Box display="flex" alignItems="center" gap={1.5}>
