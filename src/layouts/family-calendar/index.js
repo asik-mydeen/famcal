@@ -379,6 +379,13 @@ function FamilyCalendar() {
       });
     }
     setDialogOpen(false); setEditingEvent(null);
+    // Auto-sync after saving so changes push to Google immediately
+    const connectedCount = members.filter(m => m.google_calendar_id).length;
+    if (connectedCount > 0) {
+      setTimeout(() => {
+        syncAllMembers(members, events, family.id, dispatch).catch(() => {});
+      }, 500);
+    }
   }, [eventForm, editingEvent, members, family.id, events, dispatch]);
 
   const handleDeleteEvent = useCallback(async () => {

@@ -341,8 +341,9 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
     }
 
     // ── PUSH UPDATES: Local edits → Google ──
+    // Include both "synced" (locally created, pushed once) and "google" (pulled from Google) events
     const memberSyncedEvents = localEvents.filter(
-      (e) => e.member_id === member.id && e.source === "synced" && e.google_event_id
+      (e) => e.member_id === member.id && (e.source === "synced" || e.source === "google") && e.google_event_id
     );
 
     for (const localEvt of memberSyncedEvents) {
