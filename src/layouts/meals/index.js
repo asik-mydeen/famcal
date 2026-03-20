@@ -257,7 +257,7 @@ function Meals() {
               <Icon sx={{ color: darkMode ? "#a855f7" : "#0f766e", fontSize: "1.5rem" }}>restaurant</Icon>
               <Box>
                 <Typography variant="caption" fontWeight={600} color="text.secondary">
-                  Tonight's Dinner
+                  Tonight&apos;s Dinner
                 </Typography>
                 <Typography variant="body1" fontWeight={700} color={darkMode ? "#e9d5ff" : "#0f766e"}>
                   {tonightsDinner.title}

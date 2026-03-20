@@ -1,14 +1,1006 @@
+import { useState, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import Icon from "@mui/material/Icon";
+import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Grid from "@mui/material/Grid";
+import Fab from "@mui/material/Fab";
+import Tooltip from "@mui/material/Tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "components/PageTransition";
+import GlassCard from "components/GlassCard";
+import ChoreGrid from "components/ChoreGrid";
+import { useFamilyController, TASK_CATEGORIES } from "context/FamilyContext";
+import { useThemeMode } from "context/ThemeContext";
 
-export default function Chores() {
+const PRIORITY_OPTIONS = [
+  { value: "low", label: "Low", color: "#22c55e" },
+  { value: "medium", label: "Medium", color: "#f59e0b" },
+  { value: "high", label: "High", color: "#ef4444" },
+];
+
+const RECURRING_PATTERNS = [
+  { value: "daily", label: "Daily" },
+  { value: "weekdays", label: "Weekdays" },
+  { value: "weekends", label: "Weekends" },
+  { value: "weekly", label: "Weekly" },
+];
+
+function Chores() {
+  const [state, dispatch] = useFamilyController();
+  const { tasks, members } = state;
+  const { darkMode } = useThemeMode();
+
+  // View state
+  const [viewMode, setViewMode] = useState("grid"); // grid | list
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
+  const [listFilter, setListFilter] = useState("all"); // all, today, upcoming, done
+
+  // Week navigation (for grid view)
+  const [weekStart, setWeekStart] = useState(() => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = day === 0 ? -6 : 1 - day; // Monday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  });
+
+  // Dialog state
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    assigned_to: "",
+    category: "chores",
+    due_date: "",
+    due_time: "",
+    priority: "medium",
+    points_value: 10,
+    recurring: false,
+    recurring_pattern: "daily",
+  });
+
+  // --- Computed Stats ---
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const todayTasks = tasks.filter((t) => t.due_date === today);
+    const completed = todayTasks.filter((t) => t.completed).length;
+    const pending = todayTasks.filter((t) => !t.completed).length;
+    const pointsToday = todayTasks
+      .filter((t) => t.completed)
+      .reduce((sum, t) => sum + (t.points_value || 0), 0);
+
+    return {
+      progress: todayTasks.length > 0 ? Math.round((completed / todayTasks.length) * 100) : 0,
+      pending,
+      completed,
+      pointsToday,
+    };
+  }, [tasks]);
+
+  // --- Filtered Tasks ---
+  const filteredTasks = useMemo(() => {
+    let filtered = tasks;
+
+    // Filter by selected member
+    if (selectedMemberId) {
+      filtered = filtered.filter((t) => t.assigned_to === selectedMemberId);
+    }
+
+    // Filter by list view tab
+    if (viewMode === "list") {
+      const today = new Date().toISOString().split("T")[0];
+      if (listFilter === "today") {
+        filtered = filtered.filter((t) => t.due_date === today);
+      } else if (listFilter === "upcoming") {
+        filtered = filtered.filter((t) => t.due_date > today && !t.completed);
+      } else if (listFilter === "done") {
+        filtered = filtered.filter((t) => t.completed);
+      }
+    }
+
+    // Sort by due date
+    return filtered.sort((a, b) => {
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return a.due_date.localeCompare(b.due_date);
+    });
+  }, [tasks, selectedMemberId, viewMode, listFilter]);
+
+  // --- Handlers ---
+
+  const handlePrevWeek = () => {
+    const prev = new Date(weekStart);
+    prev.setDate(prev.getDate() - 7);
+    setWeekStart(prev);
+  };
+
+  const handleNextWeek = () => {
+    const next = new Date(weekStart);
+    next.setDate(next.getDate() + 7);
+    setWeekStart(next);
+  };
+
+  const handleThisWeek = () => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diff);
+    monday.setHours(0, 0, 0, 0);
+    setWeekStart(monday);
+  };
+
+  const getWeekLabel = () => {
+    const end = new Date(weekStart);
+    end.setDate(end.getDate() + 6);
+    return `${weekStart.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  };
+
+  const handleToggleComplete = (taskId, date, memberId) => {
+    dispatch({
+      type: "COMPLETE_TASK",
+      value: { taskId, memberId },
+    });
+  };
+
+  const handleOpenAddDialog = () => {
+    setEditingTask(null);
+    setFormData({
+      title: "",
+      description: "",
+      assigned_to: members[0]?.id || "",
+      category: "chores",
+      due_date: new Date().toISOString().split("T")[0],
+      due_time: "",
+      priority: "medium",
+      points_value: 10,
+      recurring: false,
+      recurring_pattern: "daily",
+    });
+    setOpenDialog(true);
+  };
+
+  const handleOpenEditDialog = (task) => {
+    setEditingTask(task);
+    setFormData({
+      title: task.title || "",
+      description: task.description || "",
+      assigned_to: task.assigned_to || "",
+      category: task.category || "chores",
+      due_date: task.due_date || "",
+      due_time: task.due_time || "",
+      priority: task.priority || "medium",
+      points_value: task.points_value || 10,
+      recurring: task.recurring || false,
+      recurring_pattern: task.recurring_pattern || "daily",
+    });
+    setOpenDialog(true);
+  };
+
+  const handleSubmitTask = () => {
+    if (!formData.title.trim()) return;
+
+    const taskData = {
+      ...formData,
+      family_id: state.family.id,
+      completed: false,
+      completed_at: null,
+      completed_by: null,
+    };
+
+    if (editingTask) {
+      dispatch({
+        type: "UPDATE_TASK",
+        value: { id: editingTask.id, ...taskData },
+      });
+    } else {
+      dispatch({
+        type: "ADD_TASK",
+        value: { id: `task-${Date.now()}`, ...taskData },
+      });
+    }
+
+    setOpenDialog(false);
+  };
+
+  const handleDeleteTask = (taskId) => {
+    dispatch({ type: "REMOVE_TASK", value: taskId });
+  };
+
+  const getMemberById = (id) => members.find((m) => m.id === id);
+
+  const getPriorityColor = (priority) => {
+    return PRIORITY_OPTIONS.find((p) => p.value === priority)?.color || "#94a3b8";
+  };
+
   return (
     <PageTransition>
-      <Box p={3} sx={{ textAlign: "center", mt: 8 }}>
-        <Typography variant="h4" fontWeight={700}>Chores</Typography>
-        <Typography color="text.secondary" mt={1}>Coming soon...</Typography>
+      <Box sx={{ p: { xs: 2, sm: 3 }, pb: 10 }}>
+        {/* Stats Cards */}
+        <Grid container spacing={2} mb={3}>
+          <Grid item xs={6} md={3}>
+            <GlassCard delay={0} hover={false}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    background: darkMode ? "rgba(124,58,237,0.15)" : "rgba(108,92,231,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon sx={{ fontSize: "20px", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>
+                    trending_up
+                  </Icon>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="h5" fontWeight={700} color={darkMode ? "#fff" : "#1a1a1a"}>
+                    {stats.progress}%
+                  </Typography>
+                  <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                    Today&apos;s Progress
+                  </Typography>
+                </Box>
+              </Box>
+            </GlassCard>
+          </Grid>
+
+          <Grid item xs={6} md={3}>
+            <GlassCard delay={0.1} hover={false}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    background: darkMode ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon sx={{ fontSize: "20px", color: "#f59e0b" }}>
+                    pending_actions
+                  </Icon>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="h5" fontWeight={700} color={darkMode ? "#fff" : "#1a1a1a"}>
+                    {stats.pending}
+                  </Typography>
+                  <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                    Pending
+                  </Typography>
+                </Box>
+              </Box>
+            </GlassCard>
+          </Grid>
+
+          <Grid item xs={6} md={3}>
+            <GlassCard delay={0.2} hover={false}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    background: darkMode ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon sx={{ fontSize: "20px", color: "#22c55e" }}>
+                    check_circle
+                  </Icon>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="h5" fontWeight={700} color={darkMode ? "#fff" : "#1a1a1a"}>
+                    {stats.completed}
+                  </Typography>
+                  <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                    Completed
+                  </Typography>
+                </Box>
+              </Box>
+            </GlassCard>
+          </Grid>
+
+          <Grid item xs={6} md={3}>
+            <GlassCard delay={0.3} hover={false}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "12px",
+                    background: darkMode ? "rgba(251,191,36,0.15)" : "rgba(251,191,36,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Icon sx={{ fontSize: "20px", color: "#fbbf24" }}>
+                    star
+                  </Icon>
+                </Box>
+                <Box flex={1}>
+                  <Typography variant="h5" fontWeight={700} color={darkMode ? "#fff" : "#1a1a1a"}>
+                    {stats.pointsToday}
+                  </Typography>
+                  <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                    Points Today
+                  </Typography>
+                </Box>
+              </Box>
+            </GlassCard>
+          </Grid>
+        </Grid>
+
+        {/* Controls Bar */}
+        <GlassCard sx={{ mb: 3 }}>
+          <Box display="flex" flexWrap="wrap" alignItems="center" gap={2}>
+            {/* View Toggle */}
+            <Box display="flex" gap={0.5}>
+              <Tooltip title="Grid View">
+                <IconButton
+                  size="small"
+                  onClick={() => setViewMode("grid")}
+                  sx={{
+                    background:
+                      viewMode === "grid"
+                        ? darkMode
+                          ? "rgba(124,58,237,0.2)"
+                          : "rgba(108,92,231,0.1)"
+                        : "transparent",
+                    color: viewMode === "grid" ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    "&:hover": {
+                      background:
+                        viewMode === "grid"
+                          ? darkMode
+                            ? "rgba(124,58,237,0.3)"
+                            : "rgba(108,92,231,0.15)"
+                          : darkMode
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(0,0,0,0.05)",
+                    },
+                  }}
+                >
+                  <Icon>grid_view</Icon>
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="List View">
+                <IconButton
+                  size="small"
+                  onClick={() => setViewMode("list")}
+                  sx={{
+                    background:
+                      viewMode === "list"
+                        ? darkMode
+                          ? "rgba(124,58,237,0.2)"
+                          : "rgba(108,92,231,0.1)"
+                        : "transparent",
+                    color: viewMode === "list" ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    "&:hover": {
+                      background:
+                        viewMode === "list"
+                          ? darkMode
+                            ? "rgba(124,58,237,0.3)"
+                            : "rgba(108,92,231,0.15)"
+                          : darkMode
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(0,0,0,0.05)",
+                    },
+                  }}
+                >
+                  <Icon>list</Icon>
+                </IconButton>
+              </Tooltip>
+            </Box>
+
+            {/* Member Filters */}
+            <Box display="flex" gap={1} flexWrap="wrap">
+              <Chip
+                label="All"
+                size="small"
+                onClick={() => setSelectedMemberId(null)}
+                sx={{
+                  background: !selectedMemberId
+                    ? darkMode
+                      ? "rgba(124,58,237,0.2)"
+                      : "rgba(108,92,231,0.1)"
+                    : darkMode
+                    ? "rgba(255,255,255,0.05)"
+                    : "#f1f5f9",
+                  color: !selectedMemberId ? (darkMode ? "#a78bfa" : "#6C5CE7") : "inherit",
+                  fontWeight: !selectedMemberId ? 600 : 400,
+                  borderRadius: "19px",
+                  touchAction: "manipulation",
+                }}
+              />
+              {members.map((member) => (
+                <Chip
+                  key={member.id}
+                  avatar={
+                    <Avatar
+                      src={member.avatar_url}
+                      sx={{
+                        width: 24,
+                        height: 24,
+                        bgcolor: member.avatar_color,
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      {!member.avatar_url && (member.avatar_emoji || member.name[0])}
+                    </Avatar>
+                  }
+                  label={member.name}
+                  size="small"
+                  onClick={() => setSelectedMemberId(selectedMemberId === member.id ? null : member.id)}
+                  sx={{
+                    background:
+                      selectedMemberId === member.id
+                        ? darkMode
+                          ? "rgba(124,58,237,0.2)"
+                          : "rgba(108,92,231,0.1)"
+                        : darkMode
+                        ? "rgba(255,255,255,0.05)"
+                        : "#f1f5f9",
+                    color: selectedMemberId === member.id ? (darkMode ? "#a78bfa" : "#6C5CE7") : "inherit",
+                    fontWeight: selectedMemberId === member.id ? 600 : 400,
+                    borderRadius: "19px",
+                    touchAction: "manipulation",
+                  }}
+                />
+              ))}
+            </Box>
+
+            {/* Week Navigation (Grid View Only) */}
+            {viewMode === "grid" && (
+              <Box display="flex" alignItems="center" gap={1} ml="auto">
+                <IconButton size="small" onClick={handlePrevWeek}>
+                  <Icon>chevron_left</Icon>
+                </IconButton>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={handleThisWeek}
+                  sx={{
+                    minWidth: "auto",
+                    px: 2,
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: darkMode ? "#fff" : "#1a1a1a",
+                  }}
+                >
+                  {getWeekLabel()}
+                </Button>
+                <IconButton size="small" onClick={handleNextWeek}>
+                  <Icon>chevron_right</Icon>
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+        </GlassCard>
+
+        {/* Grid View */}
+        {viewMode === "grid" && (
+          <GlassCard>
+            <ChoreGrid
+              tasks={filteredTasks}
+              members={members}
+              weekStart={weekStart}
+              onToggleComplete={handleToggleComplete}
+              darkMode={darkMode}
+            />
+          </GlassCard>
+        )}
+
+        {/* List View */}
+        {viewMode === "list" && (
+          <>
+            {/* Filter Tabs */}
+            <Box display="flex" gap={1} mb={2}>
+              {[
+                { key: "all", label: "All", icon: "list" },
+                { key: "today", label: "Today", icon: "today" },
+                { key: "upcoming", label: "Upcoming", icon: "event" },
+                { key: "done", label: "Done", icon: "check_circle" },
+              ].map((tab) => (
+                <Button
+                  key={tab.key}
+                  size="small"
+                  startIcon={<Icon>{tab.icon}</Icon>}
+                  onClick={() => setListFilter(tab.key)}
+                  sx={{
+                    background:
+                      listFilter === tab.key
+                        ? darkMode
+                          ? "rgba(124,58,237,0.2)"
+                          : "rgba(108,92,231,0.1)"
+                        : "transparent",
+                    color: listFilter === tab.key ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    fontWeight: listFilter === tab.key ? 600 : 400,
+                    borderRadius: "12px",
+                    px: 2,
+                    "&:hover": {
+                      background:
+                        listFilter === tab.key
+                          ? darkMode
+                            ? "rgba(124,58,237,0.3)"
+                            : "rgba(108,92,231,0.15)"
+                          : darkMode
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(0,0,0,0.05)",
+                    },
+                  }}
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </Box>
+
+            {/* Task List */}
+            <AnimatePresence mode="popLayout">
+              {filteredTasks.map((task, idx) => {
+                const member = getMemberById(task.assigned_to);
+                const category = TASK_CATEGORIES.find((c) => c.key === task.category);
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.3, delay: idx * 0.05 }}
+                  >
+                    <GlassCard
+                      sx={{
+                        mb: 2,
+                        borderLeft: member
+                          ? `4px solid ${member.avatar_color}`
+                          : darkMode
+                          ? "4px solid rgba(255,255,255,0.1)"
+                          : "4px solid #e2e8f0",
+                      }}
+                    >
+                      <Box display="flex" alignItems="flex-start" gap={2}>
+                        <Box flex={1}>
+                          <Typography
+                            variant="h6"
+                            fontSize="1rem"
+                            fontWeight={600}
+                            color={darkMode ? "#fff" : "#1a1a1a"}
+                            sx={{
+                              textDecoration: task.completed ? "line-through" : "none",
+                              opacity: task.completed ? 0.6 : 1,
+                            }}
+                          >
+                            {task.title}
+                          </Typography>
+                          {task.description && (
+                            <Typography
+                              fontSize="0.85rem"
+                              color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}
+                              mt={0.5}
+                            >
+                              {task.description}
+                            </Typography>
+                          )}
+
+                          {/* Meta row */}
+                          <Box display="flex" flexWrap="wrap" alignItems="center" gap={1.5} mt={1.5}>
+                            {member && (
+                              <Chip
+                                avatar={
+                                  <Avatar
+                                    src={member.avatar_url}
+                                    sx={{
+                                      width: 20,
+                                      height: 20,
+                                      bgcolor: member.avatar_color,
+                                      fontSize: "0.7rem",
+                                    }}
+                                  >
+                                    {!member.avatar_url && (member.avatar_emoji || member.name[0])}
+                                  </Avatar>
+                                }
+                                label={member.name}
+                                size="small"
+                                sx={{
+                                  height: "24px",
+                                  fontSize: "0.75rem",
+                                  borderRadius: "12px",
+                                }}
+                              />
+                            )}
+                            {category && (
+                              <Box display="flex" alignItems="center" gap={0.5}>
+                                <Icon sx={{ fontSize: "16px", color: category.color }}>
+                                  {category.icon}
+                                </Icon>
+                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                  {category.label}
+                                </Typography>
+                              </Box>
+                            )}
+                            {task.due_date && (
+                              <Box display="flex" alignItems="center" gap={0.5}>
+                                <Icon sx={{ fontSize: "16px", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                  event
+                                </Icon>
+                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                  {new Date(task.due_date).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </Typography>
+                              </Box>
+                            )}
+                            {task.due_time && (
+                              <Box display="flex" alignItems="center" gap={0.5}>
+                                <Icon sx={{ fontSize: "16px", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                  schedule
+                                </Icon>
+                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                  {task.due_time}
+                                </Typography>
+                              </Box>
+                            )}
+                            <Box
+                              sx={{
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "50%",
+                                background: getPriorityColor(task.priority),
+                              }}
+                            />
+                            <Box
+                              sx={{
+                                background: darkMode ? "rgba(255,255,255,0.08)" : "#f8f9fa",
+                                borderRadius: "12px",
+                                px: 1.5,
+                                py: 0.25,
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                color: darkMode ? "#a78bfa" : "#7c3aed",
+                              }}
+                            >
+                              {task.points_value}pt
+                            </Box>
+                            {task.recurring && (
+                              <Chip
+                                icon={<Icon sx={{ fontSize: "14px !important" }}>loop</Icon>}
+                                label={task.recurring_pattern || "Daily"}
+                                size="small"
+                                sx={{
+                                  height: "24px",
+                                  fontSize: "0.7rem",
+                                  borderRadius: "12px",
+                                }}
+                              />
+                            )}
+                          </Box>
+                        </Box>
+
+                        {/* Actions */}
+                        <Box display="flex" gap={1}>
+                          {!task.completed && (
+                            <Tooltip title="Complete">
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  handleToggleComplete(task.id, new Date(), task.assigned_to)
+                                }
+                                sx={{
+                                  color: "#22c55e",
+                                }}
+                              >
+                                <Icon>check_circle</Icon>
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenEditDialog(task)}
+                              sx={{
+                                color: darkMode ? "rgba(255,255,255,0.6)" : "#64748b",
+                              }}
+                            >
+                              <Icon>edit</Icon>
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteTask(task.id)}
+                              sx={{
+                                color: "#ef4444",
+                              }}
+                            >
+                              <Icon>delete</Icon>
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                    </GlassCard>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Empty State */}
+            {filteredTasks.length === 0 && (
+              <GlassCard>
+                <Box py={6} textAlign="center">
+                  <Icon
+                    sx={{
+                      fontSize: "64px",
+                      color: darkMode ? "rgba(255,255,255,0.2)" : "#cbd5e1",
+                      mb: 2,
+                    }}
+                  >
+                    event_busy
+                  </Icon>
+                  <Typography
+                    variant="h6"
+                    fontWeight={600}
+                    color={darkMode ? "rgba(255,255,255,0.5)" : "text.secondary"}
+                    mb={1}
+                  >
+                    No tasks found
+                  </Typography>
+                  <Typography fontSize="0.9rem" color={darkMode ? "rgba(255,255,255,0.4)" : "text.secondary"}>
+                    Try changing the filters or add a new task
+                  </Typography>
+                </Box>
+              </GlassCard>
+            )}
+          </>
+        )}
+
+        {/* Add Task FAB */}
+        <Fab
+          color="primary"
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
+            boxShadow: "0 8px 24px rgba(108, 92, 231, 0.35)",
+            "&:hover": {
+              background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
+              boxShadow: "0 12px 32px rgba(108, 92, 231, 0.45)",
+            },
+          }}
+          onClick={handleOpenAddDialog}
+        >
+          <Icon>add</Icon>
+        </Fab>
+
+        {/* Add/Edit Task Dialog */}
+        <Dialog
+          open={openDialog}
+          onClose={() => setOpenDialog(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: "20px",
+              background: darkMode ? "#1a1a1a" : "#fff",
+            },
+          }}
+        >
+          <DialogTitle>
+            <Typography variant="h5" fontWeight={700}>
+              {editingTask ? "Edit Task" : "Add Task"}
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Task Title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  autoFocus
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Assign To"
+                  value={formData.assigned_to}
+                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                >
+                  {members.map((member) => (
+                    <MenuItem key={member.id} value={member.id}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar
+                          src={member.avatar_url}
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            bgcolor: member.avatar_color,
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          {!member.avatar_url && (member.avatar_emoji || member.name[0])}
+                        </Avatar>
+                        {member.name}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                >
+                  {TASK_CATEGORIES.map((cat) => (
+                    <MenuItem key={cat.key} value={cat.key}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Icon sx={{ fontSize: "20px", color: cat.color }}>{cat.icon}</Icon>
+                        {cat.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Due Date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="time"
+                  label="Due Time"
+                  value={formData.due_time}
+                  onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Priority"
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                >
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <MenuItem key={p.value} value={p.value}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            background: p.color,
+                          }}
+                        />
+                        {p.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Points"
+                  value={formData.points_value}
+                  onChange={(e) =>
+                    setFormData({ ...formData, points_value: parseInt(e.target.value, 10) || 0 })
+                  }
+                  inputProps={{ min: 0, max: 100 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Recurring"
+                  value={formData.recurring ? "yes" : "no"}
+                  onChange={(e) => setFormData({ ...formData, recurring: e.target.value === "yes" })}
+                >
+                  <MenuItem value="no">No</MenuItem>
+                  <MenuItem value="yes">Yes</MenuItem>
+                </TextField>
+              </Grid>
+              {formData.recurring && (
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    select
+                    label="Recurring Pattern"
+                    value={formData.recurring_pattern}
+                    onChange={(e) => setFormData({ ...formData, recurring_pattern: e.target.value })}
+                  >
+                    {RECURRING_PATTERNS.map((p) => (
+                      <MenuItem key={p.value} value={p.value}>
+                        {p.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setOpenDialog(false)}
+              sx={{
+                borderRadius: "12px",
+                px: 3,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmitTask}
+              disabled={!formData.title.trim()}
+              sx={{
+                borderRadius: "12px",
+                px: 3,
+                background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
+                },
+              }}
+            >
+              {editingTask ? "Update" : "Add"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </PageTransition>
   );
 }
+
+export default Chores;
