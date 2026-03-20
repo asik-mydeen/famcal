@@ -79,6 +79,12 @@ const initialState = {
   selectedMembers: INITIAL_MEMBERS.map((m) => m.id),
   isSupabaseConnected: false,
   loading: false,
+  meals: [],
+  lists: [],
+  notes: [],
+  countdowns: [],
+  photos: [],
+  weather: null,
 };
 
 function reducer(state, action) {
@@ -179,6 +185,77 @@ function reducer(state, action) {
       return { ...state, isSupabaseConnected: action.value };
     case "SET_LOADING":
       return { ...state, loading: action.value };
+    // Meals
+    case "SET_MEALS":
+      return { ...state, meals: action.value };
+    case "ADD_MEAL":
+      return { ...state, meals: [...state.meals, action.value] };
+    case "UPDATE_MEAL":
+      return { ...state, meals: state.meals.map((m) => (m.id === action.value.id ? action.value : m)) };
+    case "REMOVE_MEAL":
+      return { ...state, meals: state.meals.filter((m) => m.id !== action.value) };
+    // Lists (nested items)
+    case "SET_LISTS":
+      return { ...state, lists: action.value };
+    case "ADD_LIST":
+      return { ...state, lists: [...state.lists, action.value] };
+    case "REMOVE_LIST":
+      return { ...state, lists: state.lists.filter((l) => l.id !== action.value) };
+    case "UPDATE_LIST":
+      return { ...state, lists: state.lists.map((l) => (l.id === action.value.id ? action.value : l)) };
+    case "ADD_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) =>
+          l.id === action.value.listId ? { ...l, items: [...(l.items || []), action.value.item] } : l
+        ),
+      };
+    case "TOGGLE_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) => ({
+          ...l,
+          items: (l.items || []).map((i) =>
+            i.id === action.value
+              ? { ...i, checked: !i.checked, checked_at: !i.checked ? new Date().toISOString() : null }
+              : i
+          ),
+        })),
+      };
+    case "REMOVE_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) => ({
+          ...l,
+          items: (l.items || []).filter((i) => i.id !== action.value),
+        })),
+      };
+    // Notes
+    case "SET_NOTES":
+      return { ...state, notes: action.value };
+    case "ADD_NOTE":
+      return { ...state, notes: [action.value, ...state.notes] };
+    case "UPDATE_NOTE":
+      return { ...state, notes: state.notes.map((n) => (n.id === action.value.id ? action.value : n)) };
+    case "REMOVE_NOTE":
+      return { ...state, notes: state.notes.filter((n) => n.id !== action.value) };
+    // Countdowns
+    case "SET_COUNTDOWNS":
+      return { ...state, countdowns: action.value };
+    case "ADD_COUNTDOWN":
+      return { ...state, countdowns: [...state.countdowns, action.value] };
+    case "REMOVE_COUNTDOWN":
+      return { ...state, countdowns: state.countdowns.filter((c) => c.id !== action.value) };
+    // Photos
+    case "SET_PHOTOS":
+      return { ...state, photos: action.value };
+    case "ADD_PHOTO":
+      return { ...state, photos: [...state.photos, action.value] };
+    case "REMOVE_PHOTO":
+      return { ...state, photos: state.photos.filter((p) => p.id !== action.value) };
+    // Weather
+    case "SET_WEATHER":
+      return { ...state, weather: action.value };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
