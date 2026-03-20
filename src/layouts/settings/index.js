@@ -227,6 +227,78 @@ function Settings() {
             </Box>
           </GlassCard>
         </Grid>
+
+        {/* Weather Settings */}
+        <Grid item xs={12} md={6}>
+          <GlassCard delay={0.4}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "primary.main" }}>wb_sunny</Icon>
+              <Typography variant="h6" fontWeight="bold">Weather</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Set your location to see weather in the header.
+            </Typography>
+            <TextField
+              fullWidth
+              label="City or Location"
+              placeholder="e.g., San Francisco, CA"
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              Requires REACT_APP_WEATHER_API_KEY environment variable
+            </Typography>
+          </GlassCard>
+        </Grid>
+
+        {/* Kiosk Mode */}
+        <Grid item xs={12} md={6}>
+          <GlassCard delay={0.5}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "primary.main" }}>fullscreen</Icon>
+              <Typography variant="h6" fontWeight="bold">Kiosk Mode</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Optimize for wall-mounted displays.
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
+              <Typography variant="body2">Enable Kiosk Mode</Typography>
+              <Switch disabled />
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
+              <Typography variant="body2">Idle Timeout (minutes)</Typography>
+              <Typography variant="body2" color="text.secondary">5</Typography>
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
+              <Typography variant="body2">Font Scale</Typography>
+              <Typography variant="body2" color="text.secondary">100%</Typography>
+            </Box>
+          </GlassCard>
+        </Grid>
+
+        {/* Photo Frame */}
+        <Grid item xs={12} md={6}>
+          <GlassCard delay={0.6}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "primary.main" }}>photo_library</Icon>
+              <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Display family photos when the screen is idle.
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
+              <Typography variant="body2">Enable Photo Frame</Typography>
+              <Switch disabled />
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
+              <Typography variant="body2">Slideshow Interval</Typography>
+              <Typography variant="body2" color="text.secondary">5 seconds</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mt={1}>
+              Photo upload coming soon
+            </Typography>
+          </GlassCard>
+        </Grid>
       </Grid>
     </Box>
   );
