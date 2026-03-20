@@ -18,10 +18,11 @@ import { useFamilyController } from "context/FamilyContext";
 import { useThemeMode } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
 import { getGoogleClientId, setGoogleClientId as saveGoogleClientId } from "lib/googleCalendar";
+import { uploadPhoto, deletePhoto } from "lib/supabase";
 
 function Settings() {
   const [state, dispatch] = useFamilyController();
-  const { family, isSupabaseConnected } = state;
+  const { family, isSupabaseConnected, photos } = state;
   const { darkMode, setMode: setDarkModeValue } = useThemeMode();
   const { user, signOut } = useAuth();
 
@@ -29,6 +30,7 @@ function Settings() {
   const [googleClientId, setGoogleClientId] = useState(getGoogleClientId() || family.google_client_id || "");
   const [showClientId, setShowClientId] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [animations, setAnimations] = useState(() => {
     const stored = localStorage.getItem("famcal_animations");
     return stored === null ? true : stored === "true";
@@ -84,6 +86,89 @@ function Settings() {
   const handleFontScaleChange = (e, newValue) => {
     setFontScale(newValue);
     localStorage.setItem("famcal_font_scale", String(newValue));
+  };
+
+  // Compress image before upload
+  const compressImage = async (file, maxWidth = 1920, maxHeight = 1080) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        canvas.toBlob(resolve, "image/jpeg", 0.85);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handlePhotoUpload = async (e) => {
+    if (!isSupabaseConnected) {
+      alert("Supabase not connected. Please configure Supabase in Settings.");
+      return;
+    }
+
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate file count
+    if (photos.length + files.length > 100) {
+      alert(`Maximum 100 photos allowed. You have ${photos.length} photos. Remove some before uploading more.`);
+      return;
+    }
+
+    setUploading(true);
+
+    for (const file of files) {
+      try {
+        // Validate file type
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          alert(`${file.name}: Invalid file type. Only JPEG, PNG, and WebP are supported.`);
+          continue;
+        }
+
+        // Validate file size (5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`${file.name}: File too large. Maximum size is 5MB.`);
+          continue;
+        }
+
+        // Compress image
+        const compressedBlob = await compressImage(file);
+        const compressedFile = new File([compressedBlob], file.name, { type: "image/jpeg" });
+
+        // Upload to Supabase
+        const photo = await uploadPhoto(family.id, compressedFile, "");
+        dispatch({ type: "ADD_PHOTO", value: photo });
+      } catch (err) {
+        console.error("Failed to upload photo:", err);
+        alert(`${file.name}: Upload failed. ${err.message}`);
+      }
+    }
+
+    setUploading(false);
+    e.target.value = ""; // Reset input
+  };
+
+  const handleDeletePhoto = async (photo) => {
+    if (!window.confirm("Delete this photo?")) return;
+
+    try {
+      if (isSupabaseConnected) {
+        await deletePhoto(photo);
+      }
+      dispatch({ type: "REMOVE_PHOTO", value: photo.id });
+    } catch (err) {
+      console.error("Failed to delete photo:", err);
+      alert("Failed to delete photo. Please try again.");
+    }
   };
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
@@ -384,26 +469,107 @@ function Settings() {
         </Grid>
 
         {/* Photo Frame */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12}>
           <GlassCard delay={0.6}>
             <Box display="flex" alignItems="center" gap={1} mb={2}>
               <Icon sx={{ color: "primary.main" }}>photo_library</Icon>
               <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Display family photos when the screen is idle.
+              Display family photos when the screen is idle. Upload photos to create a slideshow.
             </Typography>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-              <Typography variant="body2">Enable Photo Frame</Typography>
-              <Switch disabled />
+
+            {/* Upload area */}
+            <Box
+              component="label"
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px dashed",
+                borderColor: "divider",
+                borderRadius: "16px",
+                p: 3,
+                cursor: uploading ? "not-allowed" : "pointer",
+                mb: 2,
+                "&:hover": uploading
+                  ? {}
+                  : { borderColor: "primary.main", background: "rgba(108,92,231,0.04)" },
+                opacity: uploading ? 0.5 : 1,
+              }}
+            >
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                hidden
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+              />
+              <Icon sx={{ fontSize: "2rem", color: "text.secondary", mb: 1 }}>
+                {uploading ? "hourglass_empty" : "add_photo_alternate"}
+              </Icon>
+              <Typography variant="body2" color="text.secondary">
+                {uploading ? "Uploading..." : "Click to upload photos"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                JPEG, PNG, WebP · Max 5MB · {photos.length}/100
+              </Typography>
             </Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}>
-              <Typography variant="body2">Slideshow Interval</Typography>
-              <Typography variant="body2" color="text.secondary">5 seconds</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" mt={1}>
-              Photo upload coming soon
-            </Typography>
+
+            {/* Photo grid */}
+            {photos.length > 0 && (
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 1 }}>
+                {photos.map((photo) => (
+                  <Box
+                    key={photo.id}
+                    sx={{
+                      position: "relative",
+                      paddingTop: "100%",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={photo.url}
+                      alt={photo.caption || "Family photo"}
+                      sx={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                    <IconButton
+                      onClick={() => handleDeletePhoto(photo)}
+                      sx={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        background: "rgba(0,0,0,0.6)",
+                        color: "white",
+                        p: 0.5,
+                        "&:hover": { background: "rgba(220,38,38,0.8)" },
+                      }}
+                      size="small"
+                    >
+                      <Icon sx={{ fontSize: "1rem" }}>close</Icon>
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+
+            {photos.length === 0 && !uploading && (
+              <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                No photos uploaded yet
+              </Typography>
+            )}
           </GlassCard>
         </Grid>
       </Grid>
