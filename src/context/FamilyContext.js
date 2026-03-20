@@ -7,12 +7,12 @@ const FamilyContext = createContext(null);
 FamilyContext.displayName = "FamilyContext";
 
 const MEMBER_COLORS = [
-  { name: "Purple", value: "#7c3aed", gradient: "primary" },
-  { name: "Rose", value: "#f43f5e", gradient: "error" },
-  { name: "Green", value: "#22c55e", gradient: "success" },
-  { name: "Amber", value: "#f59e0b", gradient: "warning" },
+  { name: "Purple", value: "#6C5CE7", gradient: "primary" },
+  { name: "Coral", value: "#E17055", gradient: "error" },
+  { name: "Green", value: "#00B894", gradient: "success" },
+  { name: "Gold", value: "#FDCB6E", gradient: "warning" },
+  { name: "Blue", value: "#0984E3", gradient: "info" },
   { name: "Cyan", value: "#06b6d4", gradient: "secondary" },
-  { name: "Blue", value: "#3b82f6", gradient: "info" },
   { name: "Pink", value: "#ec4899", gradient: "error" },
   { name: "Teal", value: "#14b8a6", gradient: "success" },
 ];
@@ -79,9 +79,16 @@ const initialState = {
   selectedMembers: INITIAL_MEMBERS.map((m) => m.id),
   isSupabaseConnected: false,
   loading: false,
+  meals: [],
+  lists: [],
+  notes: [],
+  countdowns: [],
+  photos: [],
+  weather: null,
 };
 
 function reducer(state, action) {
+  const todayStr = new Date().toISOString().split("T")[0];
   switch (action.type) {
     case "SET_FAMILY":
       return { ...state, family: action.value };
@@ -179,6 +186,77 @@ function reducer(state, action) {
       return { ...state, isSupabaseConnected: action.value };
     case "SET_LOADING":
       return { ...state, loading: action.value };
+    // Meals
+    case "SET_MEALS":
+      return { ...state, meals: action.value };
+    case "ADD_MEAL":
+      return { ...state, meals: [...state.meals, action.value] };
+    case "UPDATE_MEAL":
+      return { ...state, meals: state.meals.map((m) => (m.id === action.value.id ? action.value : m)) };
+    case "REMOVE_MEAL":
+      return { ...state, meals: state.meals.filter((m) => m.id !== action.value) };
+    // Lists (nested items)
+    case "SET_LISTS":
+      return { ...state, lists: action.value };
+    case "ADD_LIST":
+      return { ...state, lists: [...state.lists, action.value] };
+    case "REMOVE_LIST":
+      return { ...state, lists: state.lists.filter((l) => l.id !== action.value) };
+    case "UPDATE_LIST":
+      return { ...state, lists: state.lists.map((l) => (l.id === action.value.id ? action.value : l)) };
+    case "ADD_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) =>
+          l.id === action.value.listId ? { ...l, items: [...(l.items || []), action.value.item] } : l
+        ),
+      };
+    case "TOGGLE_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) => ({
+          ...l,
+          items: (l.items || []).map((i) =>
+            i.id === action.value
+              ? { ...i, checked: !i.checked, checked_at: !i.checked ? new Date().toISOString() : null }
+              : i
+          ),
+        })),
+      };
+    case "REMOVE_LIST_ITEM":
+      return {
+        ...state,
+        lists: state.lists.map((l) => ({
+          ...l,
+          items: (l.items || []).filter((i) => i.id !== action.value),
+        })),
+      };
+    // Notes
+    case "SET_NOTES":
+      return { ...state, notes: action.value };
+    case "ADD_NOTE":
+      return { ...state, notes: [action.value, ...state.notes] };
+    case "UPDATE_NOTE":
+      return { ...state, notes: state.notes.map((n) => (n.id === action.value.id ? action.value : n)) };
+    case "REMOVE_NOTE":
+      return { ...state, notes: state.notes.filter((n) => n.id !== action.value) };
+    // Countdowns
+    case "SET_COUNTDOWNS":
+      return { ...state, countdowns: action.value };
+    case "ADD_COUNTDOWN":
+      return { ...state, countdowns: [...state.countdowns, action.value] };
+    case "REMOVE_COUNTDOWN":
+      return { ...state, countdowns: state.countdowns.filter((c) => c.id !== action.value) };
+    // Photos
+    case "SET_PHOTOS":
+      return { ...state, photos: action.value };
+    case "ADD_PHOTO":
+      return { ...state, photos: [...state.photos, action.value] };
+    case "REMOVE_PHOTO":
+      return { ...state, photos: state.photos.filter((p) => p.id !== action.value) };
+    // Weather
+    case "SET_WEATHER":
+      return { ...state, weather: action.value };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -351,6 +429,34 @@ function FamilyProvider({ children }) {
           }));
           const { data: seeded } = await supabase.from("rewards").insert(rewardRows).select();
           if (seeded) dispatch({ type: "SET_REWARDS", value: seeded });
+        }
+
+        // Load v3 data (meals, lists, notes, countdowns, photos) in parallel
+        try {
+          const { fetchMeals, fetchLists, fetchNotes, fetchCountdowns, fetchPhotos } = await import("lib/supabase");
+
+          // Calculate current week for meals
+          const now = new Date();
+          const weekStart = new Date(now);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+          const [mealsData, listsData, notesData, countdownsData, photosData] = await Promise.all([
+            fetchMeals(family.id, weekStart.toISOString().split("T")[0], weekEnd.toISOString().split("T")[0]),
+            fetchLists(family.id),
+            fetchNotes(family.id),
+            fetchCountdowns(family.id),
+            fetchPhotos(family.id),
+          ]);
+
+          dispatch({ type: "SET_MEALS", value: mealsData });
+          dispatch({ type: "SET_LISTS", value: listsData });
+          dispatch({ type: "SET_NOTES", value: notesData });
+          dispatch({ type: "SET_COUNTDOWNS", value: countdownsData });
+          dispatch({ type: "SET_PHOTOS", value: photosData });
+        } catch (e) {
+          console.log("[supabase] v3 tables not available yet:", e.message);
         }
       } catch (e) {
         console.warn("[supabase] Load failed, using local state:", e.message);

@@ -495,7 +495,7 @@ function Family() {
                       onClick={() => openEditDialog(member)}
                       sx={{
                         color: "text.secondary",
-                        "&:hover": { color: "#7c3aed", backgroundColor: "rgba(124,58,237,0.1)" },
+                        "&:hover": { color: "#6C5CE7", backgroundColor: "rgba(108,92,231,0.1)" },
                       }}
                     >
                       <Icon sx={{ fontSize: "1.1rem !important" }}>edit</Icon>
@@ -527,12 +527,12 @@ function Family() {
           position: "fixed",
           bottom: 76,
           right: 20,
-          background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
-          color: "text.primary",
+          background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
+          color: "#fff",
           "&:hover": {
-            background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+            background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
           },
-          boxShadow: "0 8px 32px rgba(124,58,237,0.4)",
+          boxShadow: "0 8px 32px rgba(108,92,231,0.4)",
           zIndex: 1000,
         }}
       >
@@ -840,12 +840,13 @@ function Family() {
             onClick={handleSave}
             fullWidth={isSmall}
             sx={{
-              background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+              background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
+              color: "#fff",
               textTransform: "none",
               borderRadius: "12px",
               fontWeight: 600,
               "&:hover": {
-                background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+                background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
               },
             }}
           >

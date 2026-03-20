@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
@@ -18,11 +18,21 @@ import { useAuth } from "context/AuthContext";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { getGoogleClientId, setGoogleClientId } from "lib/googleCalendar";
 import AnimatedBackground from "components/AnimatedBackground";
+import HeaderBar from "components/HeaderBar";
+import TabStrip from "components/TabStrip";
 import FloatingNav from "components/FloatingNav";
 import PageTransition from "components/PageTransition";
+import PhotoFrame from "components/PhotoFrame";
+import KioskWrapper from "components/KioskWrapper";
+import WeatherWidget from "components/WeatherWidget";
+import CountdownWidget from "components/CountdownWidget";
+import useIdleTimer from "hooks/useIdleTimer";
+import { fetchWeather } from "lib/weather";
 
 import FamilyCalendar from "layouts/family-calendar";
-import Tasks from "layouts/tasks";
+import Chores from "layouts/chores";
+import Meals from "layouts/meals";
+import Lists from "layouts/lists";
 import Family from "layouts/family";
 import Rewards from "layouts/rewards";
 import Settings from "layouts/settings";
@@ -402,15 +412,57 @@ function SetupWizard() {
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { darkMode } = useThemeMode();
   const theme = useMemo(() => createAppTheme(darkMode ? "dark" : "light"), [darkMode]);
   const { user } = useAuth();
-  const [state] = useFamilyController();
-  const { members } = state;
+  const [state, dispatch] = useFamilyController();
+  const { members, photos, countdowns, family, weather } = state;
 
   const setupDone = localStorage.getItem("famcal_setup_done") === "true";
   const isLoggedIn = Boolean(user);
   const showSetup = isLoggedIn && !setupDone && members.length === 0;
+
+  // Weather location from family settings or localStorage
+  const weatherLocation = family?.weather_location || localStorage.getItem("famcal_weather_location") || "";
+
+  // Kiosk settings from localStorage
+  const kioskEnabled = localStorage.getItem("famcal_kiosk") === "true";
+  const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
+  const fontScale = parseFloat(localStorage.getItem("famcal_font_scale") || "1.0");
+
+  // Idle timer for photo frame
+  const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
+
+  // Weather data loading
+  const [weatherData, setWeatherData] = useState(null);
+  useEffect(() => {
+    if (weatherLocation) {
+      fetchWeather(weatherLocation).then(data => {
+        if (data) {
+          setWeatherData(data);
+          dispatch({ type: "SET_WEATHER", value: data });
+        }
+      });
+    }
+  }, [weatherLocation, dispatch]);
+
+  // Derive active tab from location
+  const activeTab = location.pathname.split("/")[1] || "calendar";
+
+  // Handle tab change
+  const handleTabChange = (key, path) => {
+    navigate(path);
+  };
+
+  // Header widgets
+  const headerWeatherWidget = weatherLocation ? (
+    <WeatherWidget variant="header" location={weatherLocation} />
+  ) : null;
+
+  const headerCountdownWidget = countdowns.length > 0 ? (
+    <CountdownWidget variant="header" countdowns={countdowns} members={members} dispatch={dispatch} familyId={family?.id} />
+  ) : null;
 
   return (
     <ThemeProvider theme={theme}>
@@ -422,17 +474,55 @@ export default function App() {
         <SetupWizard />
       ) : (
         <>
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route path="/calendar" element={<PageTransition><FamilyCalendar /></PageTransition>} />
-              <Route path="/tasks" element={<PageTransition><Tasks /></PageTransition>} />
-              <Route path="/family" element={<PageTransition><Family /></PageTransition>} />
-              <Route path="/rewards" element={<PageTransition><Rewards /></PageTransition>} />
-              <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
-              <Route path="*" element={<Navigate to="/calendar" replace />} />
-            </Routes>
-          </AnimatePresence>
-          <FloatingNav />
+          {/* Photo Frame overlay when idle */}
+          {isIdle && photos.length > 0 && (
+            <PhotoFrame
+              photos={photos}
+              interval={parseInt(localStorage.getItem("famcal_photo_interval") || "5")}
+              weather={weatherData}
+              onDismiss={resetTimer}
+            />
+          )}
+
+          {/* Main app wrapped in KioskWrapper */}
+          <KioskWrapper
+            enabled={kioskEnabled}
+            fontScale={fontScale}
+            onToggle={() => {
+              localStorage.setItem("famcal_kiosk", String(!kioskEnabled));
+              window.location.reload();
+            }}
+          >
+            <HeaderBar
+              members={members}
+              weatherWidget={headerWeatherWidget}
+              countdownWidget={headerCountdownWidget}
+            />
+            <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
+              <TabStrip
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </Box>
+            <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/calendar" element={<PageTransition><FamilyCalendar /></PageTransition>} />
+                  <Route path="/chores" element={<PageTransition><Chores /></PageTransition>} />
+                  <Route path="/meals" element={<PageTransition><Meals /></PageTransition>} />
+                  <Route path="/lists" element={<PageTransition><Lists /></PageTransition>} />
+                  <Route path="/tasks" element={<Navigate to="/chores" replace />} />
+                  <Route path="/family" element={<PageTransition><Family /></PageTransition>} />
+                  <Route path="/rewards" element={<PageTransition><Rewards /></PageTransition>} />
+                  <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
+                  <Route path="*" element={<Navigate to="/calendar" replace />} />
+                </Routes>
+              </AnimatePresence>
+            </Box>
+            <Box sx={{ display: { xs: "flex", md: "none" } }}>
+              <FloatingNav />
+            </Box>
+          </KioskWrapper>
         </>
       )}
     </ThemeProvider>

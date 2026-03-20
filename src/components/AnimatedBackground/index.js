@@ -38,7 +38,7 @@ export default function AnimatedBackground() {
         position: "fixed",
         top: 0, left: 0, right: 0, bottom: 0,
         zIndex: -1,
-        background: "linear-gradient(180deg, #FF9A76 0%, #FFDCB8 18%, #FFF5EE 35%, #F8F9FA 50%, #F8F9FA 100%)",
+        background: "linear-gradient(180deg, #FFF8F0 0%, #FFFFFF 50%, #FFFFFF 100%)",
       }}
     />
   );

@@ -396,7 +396,7 @@ function Rewards() {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Icon sx={{ fontSize: "1.5rem !important", color: "#a855f7" }}>storefront</Icon>
+              <Icon sx={{ fontSize: "1.5rem !important", color: "#6C5CE7" }}>storefront</Icon>
               <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
                 Rewards Store
               </Typography>
@@ -407,13 +407,13 @@ function Rewards() {
               startIcon={<Icon>add</Icon>}
               onClick={() => setAddDialog(true)}
               sx={{
-                bgcolor: "#7c3aed",
-                color: "text.primary",
+                bgcolor: "#6C5CE7",
+                color: "#fff",
                 fontWeight: 600,
                 borderRadius: "12px",
                 textTransform: "none",
                 px: 2,
-                "&:hover": { bgcolor: "#6d28d9" },
+                "&:hover": { bgcolor: "#5A4BD1" },
               }}
             >
               {isSmall ? "" : "Add"}
@@ -584,7 +584,7 @@ function Rewards() {
                     color: "text.primary",
                     "& fieldset": { borderColor: "divider" },
                     "&:hover fieldset": { borderColor: "text.disabled" },
-                    "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                    "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
                   },
                   "& .MuiInputLabel-root": { color: "text.secondary" },
                   "& .MuiSelect-icon": { color: "text.secondary" },
@@ -744,11 +744,11 @@ function Rewards() {
                     cursor: "pointer",
                     border:
                       newReward.icon === iconName
-                        ? "2px solid #4ECDC4"
+                        ? "2px solid #6C5CE7"
                         : "1px solid rgba(0,0,0,0.06)",
                     bgcolor:
                       newReward.icon === iconName
-                        ? "rgba(78,205,196,0.15)"
+                        ? "rgba(108,92,231,0.15)"
                         : "rgba(0,0,0,0.02)",
                     transition: "all 0.2s",
                     touchAction: "manipulation",
@@ -777,7 +777,7 @@ function Rewards() {
                   color: "text.primary",
                   "& fieldset": { borderColor: "divider" },
                   "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
                 },
                 "& .MuiInputLabel-root": { color: "text.secondary" },
               }}
@@ -799,7 +799,7 @@ function Rewards() {
                   color: "text.primary",
                   "& fieldset": { borderColor: "divider" },
                   "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
                 },
                 "& .MuiInputLabel-root": { color: "text.secondary" },
               }}
@@ -821,7 +821,7 @@ function Rewards() {
                   color: "text.primary",
                   "& fieldset": { borderColor: "divider" },
                   "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
                 },
                 "& .MuiInputLabel-root": { color: "text.secondary" },
               }}
@@ -853,12 +853,12 @@ function Rewards() {
             onClick={handleAddReward}
             fullWidth={isSmall}
             sx={{
-              bgcolor: "#7c3aed",
+              bgcolor: "#6C5CE7",
               color: "text.primary",
               fontWeight: 600,
               borderRadius: "12px",
               textTransform: "none",
-              "&:hover": { bgcolor: "#6d28d9" },
+              "&:hover": { bgcolor: "#5A4BD1" },
               "&.Mui-disabled": {
                 bgcolor: "action.hover",
                 color: "text.disabled",
