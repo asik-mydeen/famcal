@@ -166,7 +166,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
           {hours.map((h) => (
             <Box key={h} sx={{ position: "absolute", top: (h - DAY_START) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT, display: "flex" }}>
               <Box sx={{ width: timeColW, flexShrink: 0, pr: 0.75, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", pt: "2px" }}>
-                <Typography sx={{ color: "text.disabled", fontSize: "0.65rem", fontWeight: 600, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
+                <Typography sx={{ color: "#8B8680", fontSize: "0.72rem", fontWeight: 500, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
                   {fmtTimeLabel(h)}
                 </Typography>
               </Box>
@@ -184,8 +184,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
           {isToday && currentHour >= DAY_START && currentHour <= DAY_END && (
             <Box sx={{ position: "absolute", top: (currentHour - DAY_START) * HOUR_HEIGHT, left: timeColW - 6, right: 0, zIndex: 10, pointerEvents: "none" }}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#f43f5e", flexShrink: 0 }} />
-                <Box sx={{ flex: 1, height: 2, bgcolor: "#f43f5e" }} />
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#E17055", flexShrink: 0 }} />
+                <Box sx={{ flex: 1, height: 2, bgcolor: "#E17055" }} />
               </Box>
             </Box>
           )}
@@ -206,20 +206,22 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
                     position: "absolute", top, height,
                     left: `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`,
                     width: `calc(${colWidth} - 6px)`,
-                    bgcolor: m.avatar_color, color: "#fff",
-                    borderRadius: "10px", px: 1, py: 0.5,
-                    cursor: "pointer", overflow: "hidden", zIndex: 4,
-                    boxShadow: `0 2px 10px ${m.avatar_color}50`,
+                    background: `${m.avatar_color}18`,
+                    color: m.avatar_color,
                     borderLeft: `4px solid ${m.avatar_color}`,
+                    borderRadius: "10px",
+                    px: "14px", py: "10px",
+                    cursor: "pointer", overflow: "hidden", zIndex: 4,
+                    boxShadow: `0 2px 8px ${m.avatar_color}20`,
                     transition: "transform 0.15s, box-shadow 0.15s",
-                    "&:hover": { transform: "scale(1.02)", boxShadow: `0 6px 20px ${m.avatar_color}60`, zIndex: 6 },
+                    "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${m.avatar_color}30`, zIndex: 6 },
                   }}
                 >
                   <Typography sx={{ fontWeight: 700, fontSize: height > 40 ? "0.75rem" : "0.65rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
                     {evt.title}
                   </Typography>
                   {height > 36 && (
-                    <Typography sx={{ fontSize: "0.6rem", opacity: 0.9, mt: 0.25 }}>
+                    <Typography sx={{ fontSize: "0.6rem", opacity: 0.7, mt: 0.25 }}>
                       {fmtTime(s)} - {fmtTime(e)}
                     </Typography>
                   )}
@@ -236,9 +238,9 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
             const height = Math.max(28, ((e.getHours() + e.getMinutes() / 60) - (s.getHours() + s.getMinutes() / 60)) * HOUR_HEIGHT);
             return (
               <Box key={evt.id} onClick={() => onEventClick(evt)}
-                sx={{ position: "absolute", top, height, left: `calc(${timeColW}px + 3px)`, right: 3, bgcolor: "primary.main", opacity: 0.15, border: "2px solid", borderColor: "primary.main", color: "text.primary", borderRadius: "10px", px: 1, py: 0.5, cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center" }}
+                sx={{ position: "absolute", top, height, left: `calc(${timeColW}px + 3px)`, right: 3, background: "rgba(108,92,231,0.05)", border: "1px dashed rgba(108,92,231,0.15)", borderLeft: "4px dashed rgba(108,92,231,0.3)", color: "#6C5CE7", borderRadius: "10px", px: "14px", py: "10px", cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center" }}
               >
-                <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: "primary.main" }}>{evt.title}</Typography>
+                <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: "#6C5CE7" }}>{evt.title}</Typography>
               </Box>
             );
           })}
@@ -420,34 +422,33 @@ function FamilyCalendar() {
   }, [connectedCount, members.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Box>
-      {/* Header */}
+    <Box sx={{ flex: 1 }}>
+      {/* Header - simplified (date now in HeaderBar) */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1 }}>
-          {/* Left: title + date nav */}
-          <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
-              <IconButton size="small" onClick={goPrev} sx={{ bgcolor: "action.hover" }}><Icon>chevron_left</Icon></IconButton>
-              <Typography variant={isSmall ? "h6" : "h5"} fontWeight={800}>{dateLabel}</Typography>
-              <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover" }}><Icon>chevron_right</Icon></IconButton>
-              {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer" }} />}
-            </Box>
-            <Typography variant="caption" color="text.secondary">
+          {/* Left: compact date nav */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton size="small" onClick={goPrev} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_left</Icon></IconButton>
+            <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_right</Icon></IconButton>
+            {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: "#6C5CE7", color: "#fff", "&:hover": { bgcolor: "#5B4BC7" } }} />}
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
               {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap avatars to connect calendars")}
             </Typography>
           </Box>
 
           {/* Right: view toggle + sync */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
-              sx={{ minHeight: 34, bgcolor: "action.hover", borderRadius: "10px", p: "2px",
-                "& .MuiTabs-indicator": { borderRadius: "8px", height: "100%", bgcolor: "background.paper", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" },
-                "& .MuiTab-root": { minHeight: 30, py: 0, px: 2, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", "&.Mui-selected": { color: "text.primary" } },
-              }}
-            >
-              <Tab label="Day" />
-              <Tab label="Month" />
-            </Tabs>
+            <Box sx={{ bgcolor: "rgba(108,92,231,0.08)", borderRadius: "12px", p: "3px", display: "inline-flex" }}>
+              <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
+                sx={{ minHeight: 34,
+                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", bgcolor: "#fff", boxShadow: "0 2px 8px rgba(108,92,231,0.15)" },
+                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "#8B8680", transition: "color 0.2s", "&.Mui-selected": { color: "#6C5CE7" } },
+                }}
+              >
+                <Tab label="Day" />
+                <Tab label="Month" />
+              </Tabs>
+            </Box>
             <Tooltip title={syncTooltip} arrow>
               <span>
                 <IconButton size="small" onClick={handleSync} disabled={syncing || connectedCount === 0}
