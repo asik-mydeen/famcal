@@ -164,7 +164,12 @@ async function apiFetch(url, accessToken, options = {}) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Google API error ${res.status}`);
+    const message = err.error?.message || `Google API error ${res.status}`;
+    const reason = err.error?.errors?.[0]?.reason || "";
+    const error = new Error(message);
+    error.reason = reason;
+    error.status = res.status;
+    throw error;
   }
   return res.status === 204 ? null : res.json();
 }
@@ -280,6 +285,11 @@ export async function pushEventUpdateToGoogle(member, event) {
     await updateGoogleEvent(accessToken, member.google_calendar_id, event.google_event_id, gEvent);
     return true;
   } catch (err) {
+    // Skip events that can't be modified (flights, hotels from Gmail)
+    if (err.reason === "eventTypeRestriction" || (err.status === 400 && err.message?.includes("Event type"))) {
+      console.log("[gcal] Skipping non-modifiable event:", event.title);
+      return false;
+    }
     console.warn("[gcal] Direct update push failed:", err.message);
     return false;
   }
@@ -357,7 +367,12 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
             await updateGoogleEvent(accessToken, calendarId, existing.google_event_id, updatedGoogle);
             pushed++;
           } catch (err) {
-            console.warn(`[gcal] Failed to push local update for "${existing.title}":`, err.message);
+            // Skip non-modifiable events (flights, hotels from Gmail)
+            if (err.reason === "eventTypeRestriction" || (err.status === 400 && err.message?.includes("Event type"))) {
+              console.log(`[gcal] Skipping non-modifiable event: "${existing.title}"`);
+            } else {
+              console.warn(`[gcal] Failed to push local update for "${existing.title}":`, err.message);
+            }
           }
         }
         // If timestamps are equal, no action needed
