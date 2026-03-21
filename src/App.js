@@ -296,6 +296,8 @@ function SetupWizard() {
 
   const handleFinish = () => {
     localStorage.setItem("famcal_setup_done", "true");
+    // Also mark in Supabase
+    dispatch({ type: "SET_FAMILY", value: { ...family, setup_done: true } });
     window.location.reload();
   };
 
@@ -439,11 +441,11 @@ export default function App() {
   const theme = useMemo(() => createAppTheme(darkMode ? "dark" : "light"), [darkMode]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
-  const { members, photos, countdowns, family, weather } = state;
+  const { members, photos, countdowns, family, weather, dataLoaded } = state;
 
-  const setupDone = localStorage.getItem("famcal_setup_done") === "true";
+  const setupDone = localStorage.getItem("famcal_setup_done") === "true" || family?.setup_done === true;
   const isLoggedIn = Boolean(user);
-  const showSetup = isLoggedIn && !setupDone && members.length === 0;
+  const showSetup = isLoggedIn && dataLoaded && !setupDone && members.length === 0;
 
   // Weather location from family settings or localStorage
   const weatherLocation = family?.weather_location || localStorage.getItem("famcal_weather_location") || "";
@@ -517,6 +519,12 @@ export default function App() {
       <AnimatedBackground />
       {!isLoggedIn ? (
         <LoginScreen />
+      ) : !dataLoaded ? (
+        // Data loading from Supabase
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", flexDirection: "column", gap: 2 }}>
+          <CircularProgress sx={{ color: "#6C5CE7" }} />
+          <Typography sx={{ color: "text.secondary", fontSize: "0.9rem" }}>Loading your family data...</Typography>
+        </Box>
       ) : showSetup ? (
         <SetupWizard />
       ) : (

@@ -60,7 +60,8 @@ export function clearCachedToken(memberId) {
 // Request token for sync — uses login_hint to silently target the right Google account.
 // If the member previously consented, GIS will not show a popup.
 // Falls back to showing consent if needed (e.g., first time or revoked access).
-export function requestAccessToken(memberId, loginHint) {
+// If silentOnly=true, only uses cached tokens (no popup attempts) — for background sync.
+export function requestAccessToken(memberId, loginHint, silentOnly = false) {
   return new Promise((resolve, reject) => {
     const clientId = getGoogleClientId();
     if (!clientId) return reject(new Error("Google Client ID not configured. Set REACT_APP_GOOGLE_CLIENT_ID environment variable."));
@@ -72,6 +73,11 @@ export function requestAccessToken(memberId, loginHint) {
     // Check cache first
     const cached = getCachedToken(memberId);
     if (cached) return resolve(cached);
+
+    // If silentOnly mode and no cached token, fail immediately
+    if (silentOnly) {
+      return reject(new Error("Token expired — tap avatar to reconnect"));
+    }
 
     try {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -265,7 +271,7 @@ export async function pushEventToGoogle(member, event) {
   if (!member.google_calendar_id || !event.member_id) return null;
 
   try {
-    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
     const gEvent = localEventToGoogle(event);
     const created = await createGoogleEvent(accessToken, member.google_calendar_id, gEvent);
     return created?.id || null; // Return the google_event_id
@@ -280,7 +286,7 @@ export async function pushEventUpdateToGoogle(member, event) {
   if (!member.google_calendar_id || !event.google_event_id) return false;
 
   try {
-    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
     const gEvent = localEventToGoogle(event);
     await updateGoogleEvent(accessToken, member.google_calendar_id, event.google_event_id, gEvent);
     return true;
@@ -300,7 +306,7 @@ export async function pushEventDeleteToGoogle(member, googleEventId) {
   if (!member.google_calendar_id || !googleEventId) return false;
 
   try {
-    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
     await deleteGoogleEvent(accessToken, member.google_calendar_id, googleEventId);
     return true;
   } catch (err) {
@@ -311,13 +317,13 @@ export async function pushEventDeleteToGoogle(member, googleEventId) {
 
 // ── Two-way sync for a single member ──
 
-export async function syncMemberCalendar(member, localEvents, familyId, dispatch) {
+export async function syncMemberCalendar(member, localEvents, familyId, dispatch, silentOnly = false) {
   if (!member.google_calendar_id) return { pulled: 0, pushed: 0 };
 
   let accessToken;
   try {
     // Use google_calendar_id as login_hint — it's the member's email
-    accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    accessToken = await requestAccessToken(member.id, member.google_calendar_id, silentOnly);
   } catch {
     return { pulled: 0, pushed: 0, error: "Auth required — tap avatar to reconnect" };
   }
@@ -456,7 +462,7 @@ export async function deleteSyncedEvent(member, eventGoogleId) {
   if (!member.google_calendar_id || !eventGoogleId) return;
 
   try {
-    const accessToken = await requestAccessToken(member.id, member.google_calendar_id);
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
     await deleteGoogleEvent(accessToken, member.google_calendar_id, eventGoogleId);
   } catch (err) {
     console.warn("[gcal] Failed to delete from Google:", err.message);
@@ -465,12 +471,12 @@ export async function deleteSyncedEvent(member, eventGoogleId) {
 
 // ── Sync all connected members ──
 
-export async function syncAllMembers(members, localEvents, familyId, dispatch) {
+export async function syncAllMembers(members, localEvents, familyId, dispatch, silentOnly = false) {
   const results = {};
   const connected = members.filter((m) => m.google_calendar_id);
 
   for (const member of connected) {
-    results[member.id] = await syncMemberCalendar(member, localEvents, familyId, dispatch);
+    results[member.id] = await syncMemberCalendar(member, localEvents, familyId, dispatch, silentOnly);
   }
   return results;
 }

@@ -79,6 +79,7 @@ const initialState = {
   selectedMembers: INITIAL_MEMBERS.map((m) => m.id),
   isSupabaseConnected: false,
   loading: false,
+  dataLoaded: false,
   meals: [],
   lists: [],
   notes: [],
@@ -257,6 +258,9 @@ function reducer(state, action) {
     // Weather
     case "SET_WEATHER":
       return { ...state, weather: action.value };
+    // Data loaded state
+    case "SET_DATA_LOADED":
+      return { ...state, dataLoaded: action.value };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -460,8 +464,13 @@ function FamilyProvider({ children }) {
         } catch (e) {
           console.log("[supabase] v3 tables not available yet:", e.message);
         }
+
+        // Mark data as loaded after all queries complete
+        dispatch({ type: "SET_DATA_LOADED", value: true });
       } catch (e) {
         console.warn("[supabase] Load failed, using local state:", e.message);
+        // Still mark as loaded even on error, so app doesn't stay in loading state
+        dispatch({ type: "SET_DATA_LOADED", value: true });
       }
     }
     loadFromSupabase();
@@ -569,6 +578,9 @@ function FamilyProvider({ children }) {
             if (action.value.google_client_id !== undefined) {
               famUpdate.google_client_id = action.value.google_client_id;
               localStorage.setItem("famcal_google_client_id", action.value.google_client_id);
+            }
+            if (action.value.setup_done !== undefined) {
+              famUpdate.setup_done = action.value.setup_done;
             }
             persist("families", "update", famUpdate);
           }
