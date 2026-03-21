@@ -153,6 +153,15 @@ function LoginScreen() {
             <Typography sx={{ mt: 2.5, fontSize: "0.75rem", color: "#C4C0B8" }}>
               Free for families. No credit card required.
             </Typography>
+
+            <Box sx={{ mt: 2, display: "flex", gap: 2, justifyContent: "center" }}>
+              <a href="/privacy" style={{ fontSize: "0.72rem", color: "#8B8680", textDecoration: "none" }}>
+                Privacy Policy
+              </a>
+              <a href="/tos" style={{ fontSize: "0.72rem", color: "#8B8680", textDecoration: "none" }}>
+                Terms of Service
+              </a>
+            </Box>
           </Box>
         </motion.div>
 
