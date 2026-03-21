@@ -51,7 +51,6 @@ function Settings() {
     parseFloat(localStorage.getItem("famcal_font_scale") || "1.0")
   );
 
-  // Google Photos state
   const [photosConnected, setPhotosConnected] = useState(isGooglePhotosConnected());
   const [albums, setAlbums] = useState([]);
   const [selectedAlbumIds, setSelectedAlbumIds] = useState(() => {
@@ -63,6 +62,22 @@ function Settings() {
   const [photoInterval, setPhotoInterval] = useState(() => {
     return parseInt(localStorage.getItem("famcal_photo_interval") || "10");
   });
+
+  // Load albums via serverless proxy (no CORS issues)
+  useEffect(() => {
+    if (photosConnected) {
+      setLoadingAlbums(true);
+      setPhotosError("");
+      fetchAlbums()
+        .then(setAlbums)
+        .catch((err) => {
+          console.error("[photos]", err.message);
+          setPhotosConnected(false);
+          setPhotosError(err.message);
+        })
+        .finally(() => setLoadingAlbums(false));
+    }
+  }, [photosConnected]);
 
   // Load albums automatically (uses provider token from sign-in)
   useEffect(() => {
@@ -558,7 +573,7 @@ function Settings() {
               <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" mb={2}>
-              Display family photos when the screen is idle. Connect Google Photos or upload manually.
+              Display family photos when the screen is idle. Upload your favorite family photos below.
             </Typography>
 
             {/* Slideshow interval slider */}
@@ -586,19 +601,14 @@ function Settings() {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Google Photos Section */}
+            {/* Photo Upload Section */}
             <Box mb={3}>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Icon sx={{ fontSize: "1.2rem" }}>photo_library</Icon>
-                  <Typography variant="body1" fontWeight={600}>Google Photos</Typography>
-                </Box>
-                {photosConnected && (
-                  <Chip label="Connected" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
-                )}
+              <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                <Icon sx={{ fontSize: "1.2rem" }}>add_photo_alternate</Icon>
+                <Typography variant="body1" fontWeight={600}>Upload Photos</Typography>
               </Box>
 
-              {!clientIdConfigured && (
+              {!isSupabaseConnected && (
                 <Box sx={{
                   bgcolor: "rgba(245, 158, 11, 0.1)",
                   border: "1px solid rgba(245, 158, 11, 0.3)",
@@ -609,13 +619,12 @@ function Settings() {
                   <Box display="flex" alignItems="flex-start" gap={1}>
                     <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
                     <Typography variant="caption" color="warning.main">
-                      Requires REACT_APP_GOOGLE_CLIENT_ID environment variable and Photos Library API enabled in Google Cloud Console
+                      Connect Supabase to enable photo uploads
                     </Typography>
                   </Box>
                 </Box>
               )}
 
-              {/* Error message */}
               {photosError && (
                 <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: "rgba(225,112,85,0.08)", border: "1px solid rgba(225,112,85,0.2)" }}>
                   <Typography sx={{ fontSize: "0.8rem", color: "#E17055", lineHeight: 1.5 }}>
@@ -633,106 +642,54 @@ function Settings() {
                 >
                   Load Google Photos Albums
                 </Button>
-              ) : (
+              ) : loadingAlbums ? (
+                <Box display="flex" alignItems="center" justifyContent="center" py={3}>
+                  <CircularProgress size={24} sx={{ mr: 1.5 }} />
+                  <Typography variant="body2" color="text.secondary">Loading albums...</Typography>
+                </Box>
+              ) : albums.length > 0 ? (
                 <>
-                  {loadingAlbums ? (
-                    <Box display="flex" alignItems="center" justifyContent="center" py={3}>
-                      <CircularProgress size={24} sx={{ mr: 1.5 }} />
-                      <Typography variant="body2" color="text.secondary">Loading albums...</Typography>
-                    </Box>
-                  ) : albums.length > 0 ? (
-                    <>
-                      <Typography variant="body2" color="text.secondary" mb={1.5}>
-                        Select albums to include in slideshow ({selectedAlbumIds.length} selected)
-                      </Typography>
-                      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5, mb: 2 }}>
-                        {albums.map((album) => {
-                          const isSelected = selectedAlbumIds.includes(album.id);
-                          return (
-                            <Box
-                              key={album.id}
-                              onClick={() => toggleAlbum(album.id)}
-                              sx={{
-                                position: "relative",
-                                cursor: "pointer",
-                                borderRadius: "12px",
-                                overflow: "hidden",
-                                border: "2px solid",
-                                borderColor: isSelected ? "primary.main" : "divider",
-                                transition: "all 0.2s ease",
-                                "&:hover": {
-                                  borderColor: isSelected ? "primary.dark" : "primary.light",
-                                  transform: "translateY(-2px)",
-                                },
-                              }}
-                            >
-                              {album.coverUrl ? (
-                                <Box
-                                  component="img"
-                                  src={album.coverUrl}
-                                  alt={album.title}
-                                  sx={{
-                                    width: "100%",
-                                    aspectRatio: "1",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                <Box sx={{
-                                  width: "100%",
-                                  aspectRatio: "1",
-                                  bgcolor: "action.hover",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}>
-                                  <Icon sx={{ fontSize: "2rem", color: "text.disabled" }}>photo</Icon>
-                                </Box>
-                              )}
-                              {isSelected && (
-                                <Box sx={{
-                                  position: "absolute",
-                                  top: 8,
-                                  right: 8,
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: "50%",
-                                  bgcolor: "primary.main",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}>
-                                  <Icon sx={{ fontSize: "1rem", color: "white" }}>check</Icon>
-                                </Box>
-                              )}
-                              <Box sx={{ p: 1, bgcolor: "background.paper" }}>
-                                <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.25 }}>
-                                  {album.title}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {album.itemCount} photos
-                                </Typography>
-                              </Box>
+                  <Typography variant="body2" color="text.secondary" mb={1.5}>
+                    Select albums for slideshow ({selectedAlbumIds.length} selected)
+                  </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5, mb: 2 }}>
+                    {albums.map((album) => {
+                      const isSelected = selectedAlbumIds.includes(album.id);
+                      return (
+                        <Box key={album.id} onClick={() => toggleAlbum(album.id)} sx={{
+                          position: "relative", cursor: "pointer", borderRadius: "12px", overflow: "hidden",
+                          border: "2px solid", borderColor: isSelected ? "primary.main" : "divider",
+                          transition: "all 0.2s ease",
+                          "&:hover": { borderColor: isSelected ? "primary.dark" : "primary.light", transform: "translateY(-2px)" },
+                        }}>
+                          {album.coverUrl ? (
+                            <Box component="img" src={album.coverUrl} alt={album.title} sx={{ width: "100%", aspectRatio: "1", objectFit: "cover" }} />
+                          ) : (
+                            <Box sx={{ width: "100%", aspectRatio: "1", bgcolor: "action.hover", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <Icon sx={{ fontSize: "2rem", color: "text.disabled" }}>photo</Icon>
                             </Box>
-                          );
-                        })}
-                      </Box>
-                      <Button
-                        variant="text"
-                        size="small"
-                        color="error"
-                        onClick={handleDisconnectPhotos}
-                        startIcon={<Icon>link_off</Icon>}
-                      >
-                        Disconnect Google Photos
-                      </Button>
-                    </>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" py={2}>
-                      No albums found in your Google Photos
-                    </Typography>
-                  )}
+                          )}
+                          {isSelected && (
+                            <Box sx={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <Icon sx={{ fontSize: "1rem", color: "white" }}>check</Icon>
+                            </Box>
+                          )}
+                          <Box sx={{ p: 1, bgcolor: "background.paper" }}>
+                            <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.25 }}>{album.title}</Typography>
+                            <Typography variant="caption" color="text.secondary">{album.itemCount} photos</Typography>
+                          </Box>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <Button variant="text" size="small" color="error" onClick={handleDisconnectPhotos} startIcon={<Icon>link_off</Icon>}>
+                    Disconnect
+                  </Button>
                 </>
+              ) : (
+                <Typography variant="body2" color="text.secondary" py={2}>
+                  No albums found. Make sure you have albums in Google Photos.
+                </Typography>
               )}
             </Box>
 

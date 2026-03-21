@@ -1,88 +1,39 @@
 /**
  * Google Photos Library API integration.
- * Uses the provider_token from Supabase Auth (Google OAuth) instead of separate GIS popups.
- * The token is captured during sign-in and stored in localStorage.
+ *
+ * Calls go through /api/photos serverless function because the Photos Library API
+ * does NOT support CORS for direct browser requests.
+ * Uses the provider_token from Supabase Auth (Google OAuth) for authentication.
  */
 
-const PHOTOS_API = "https://photoslibrary.googleapis.com/v1";
-
-// Get the Google provider token (from Supabase Auth sign-in)
 function getProviderToken() {
   return localStorage.getItem("famcal_provider_token") || null;
 }
 
-// Check if Google Photos is accessible (has a provider token)
 export function isGooglePhotosConnected() {
   return Boolean(getProviderToken());
 }
 
-// No separate "connect" needed — photos access comes from the main Google sign-in.
-// If the user signed in with the photos scope, the provider token has access.
-// If not, they need to sign out and sign in again.
 export async function connectGooglePhotos() {
   const token = getProviderToken();
-  console.log("[photos] Provider token available:", Boolean(token), token ? `(${token.substring(0, 20)}...)` : "");
-
   if (!token) {
-    // No provider token — this means either:
-    // 1. User hasn't signed in yet
-    // 2. The provider_token wasn't captured during sign-in (Supabase only returns it once)
-    // 3. localStorage was cleared
-    throw new Error(
-      "No Google access token found. This can happen if the token wasn't captured during sign-in. " +
-      "Please sign out completely, then sign in again. The Google consent screen should ask for Photos access."
-    );
+    throw new Error("No Google token available. Please sign out and sign in again to grant Photos access.");
   }
-
-  // Verify the token works by making a test call
-  console.log("[photos] Testing token against Photos API...");
-  const res = await fetch(`${PHOTOS_API}/albums?pageSize=1`, {
+  // Test via serverless proxy
+  const res = await fetch("/api/photos?action=albums", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  console.log("[photos] Photos API response status:", res.status);
-
   if (res.status === 403) {
     const errBody = await res.json().catch(() => ({}));
-    console.error("[photos] 403 response:", JSON.stringify(errBody));
-
-    // Check what scopes the token actually has
-    let hasScope = false;
-    try {
-      const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
-      const info = await tokenInfo.json();
-      console.log("[photos] Token scopes:", info.scope);
-      hasScope = info.scope?.includes("photoslibrary");
-      console.log("[photos] Token has photoslibrary?", hasScope);
-    } catch (e) {
-      console.log("[photos] Could not check token scopes");
-    }
-
-    if (hasScope) {
-      // Token HAS the scope but API still returns 403
-      // This means the Photos Library API is NOT enabled in the Google Cloud project
-      throw new Error(
-        "API_NOT_ENABLED: Your token has the Photos scope, but the API returned 403. " +
-        "This means the 'Photos Library API' is NOT enabled in your Google Cloud project. " +
-        "Go to Google Cloud Console → APIs & Services → Library → search 'Photos Library API' → Enable it. " +
-        "Make sure you're in the correct project (the one with your OAuth Client ID)."
-      );
-    } else {
-      // Token doesn't have the scope
-      localStorage.removeItem("famcal_provider_token");
-      throw new Error(
-        "SCOPE_ERROR: Your Google token doesn't include Photos access. " +
-        "Please sign out and sign in again."
-      );
-    }
-  }
-  if (res.status === 401) {
-    localStorage.removeItem("famcal_provider_token");
-    throw new Error("TOKEN_EXPIRED: Your Google token has expired. Please sign out and sign in again.");
+    console.error("[photos] 403 via proxy:", JSON.stringify(errBody));
+    throw new Error(
+      "SCOPE_ERROR: Google Photos permission issue. Check that Photos Library API is enabled " +
+      "and photoslibrary.readonly scope is granted during sign-in."
+    );
   }
   if (!res.ok) {
     throw new Error("Failed to verify Google Photos access: " + res.status);
   }
-  console.log("[photos] Token verified — Photos API accessible!");
   return token;
 }
 
@@ -90,23 +41,23 @@ export function disconnectGooglePhotos() {
   localStorage.removeItem("famcal_photos_selected_albums");
 }
 
-// Fetch albums
 export async function fetchAlbums() {
   const token = getProviderToken();
   if (!token) throw new Error("Not signed in with Google. Sign out and sign in again.");
 
-  const res = await fetch(`${PHOTOS_API}/albums?pageSize=50`, {
+  const res = await fetch("/api/photos?action=albums", {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (res.status === 403) {
+    const err = await res.json().catch(() => ({}));
+    console.error("[photos] Albums 403:", JSON.stringify(err));
     throw new Error(
-      "SCOPE_ERROR: Google Photos permission not granted during sign-in. " +
-      "Please sign out and sign in again — the consent screen will ask for Photos access."
+      "PHOTOS_ACCESS_DENIED: " + (err.error?.message || "Google Photos access denied. " +
+      "Ensure Photos Library API is enabled in Google Cloud Console.")
     );
   }
   if (res.status === 401) {
-    // Token expired — user needs to sign in again
     throw new Error("TOKEN_EXPIRED: Google token expired. Please sign out and sign in again.");
   }
   if (!res.ok) throw new Error("Failed to fetch albums: " + res.status);
@@ -120,7 +71,6 @@ export async function fetchAlbums() {
   }));
 }
 
-// Fetch photos from selected albums
 export async function fetchPhotosFromAlbums(albumIds) {
   if (!albumIds || albumIds.length === 0) return [];
 
@@ -131,13 +81,13 @@ export async function fetchPhotosFromAlbums(albumIds) {
 
   for (const albumId of albumIds) {
     try {
-      const res = await fetch(`${PHOTOS_API}/mediaItems:search`, {
+      const res = await fetch("/api/photos?action=photos", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ albumId, pageSize: 50 }),
+        body: JSON.stringify({ albumId }),
       });
       if (!res.ok) continue;
       const data = await res.json();
