@@ -21,22 +21,47 @@ export function isGooglePhotosConnected() {
 // If not, they need to sign out and sign in again.
 export async function connectGooglePhotos() {
   const token = getProviderToken();
+  console.log("[photos] Provider token available:", Boolean(token), token ? `(${token.substring(0, 20)}...)` : "");
+
   if (!token) {
-    throw new Error("No Google token available. Please sign out and sign in again to grant Photos access.");
+    // No provider token — this means either:
+    // 1. User hasn't signed in yet
+    // 2. The provider_token wasn't captured during sign-in (Supabase only returns it once)
+    // 3. localStorage was cleared
+    throw new Error(
+      "No Google access token found. This can happen if the token wasn't captured during sign-in. " +
+      "Please sign out completely, then sign in again. The Google consent screen should ask for Photos access."
+    );
   }
+
   // Verify the token works by making a test call
+  console.log("[photos] Testing token against Photos API...");
   const res = await fetch(`${PHOTOS_API}/albums?pageSize=1`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log("[photos] Photos API response status:", res.status);
+
   if (res.status === 403) {
+    const errBody = await res.json().catch(() => ({}));
+    console.error("[photos] 403 response:", JSON.stringify(errBody));
+    // The token exists but doesn't have photos scope.
+    // This means the sign-in didn't include the photos scope.
+    // Clear the token so user is prompted to sign in again.
+    localStorage.removeItem("famcal_provider_token");
     throw new Error(
-      "SCOPE_ERROR: Photos permission not granted. Please sign out, then sign in again — " +
-      "you'll be prompted to grant Google Photos access."
+      "SCOPE_ERROR: Your Google sign-in token doesn't include Photos access. " +
+      "This usually means the consent screen didn't show Photos permission. " +
+      "To fix: 1) Sign out below, 2) Sign in again — look for 'Google Photos' in the consent screen permissions."
     );
+  }
+  if (res.status === 401) {
+    localStorage.removeItem("famcal_provider_token");
+    throw new Error("TOKEN_EXPIRED: Your Google token has expired. Please sign out and sign in again.");
   }
   if (!res.ok) {
     throw new Error("Failed to verify Google Photos access: " + res.status);
   }
+  console.log("[photos] Token verified — Photos API accessible!");
   return token;
 }
 
