@@ -44,10 +44,12 @@ function AuthProvider({ children }) {
   }, []);
 
   const signIn = useCallback(async () => {
+    // Use production URL for redirect to avoid Vercel deployment protection on preview URLs
+    const prodUrl = process.env.REACT_APP_SITE_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: prodUrl,
       },
     });
     if (error) console.error("Sign in error:", error.message);
