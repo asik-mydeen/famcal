@@ -76,8 +76,10 @@ function Settings() {
           if (err.message?.includes("SCOPE_ERROR") || err.message?.includes("TOKEN_EXPIRED")) {
             setPhotosConnected(false);
             setPhotosError(
-              "Google Photos access not available. Please sign out and sign in again — " +
-              "you'll be prompted to grant Google Photos access during sign-in."
+              "Google Photos scope missing from your sign-in token. " +
+              "Go to Supabase Dashboard → Authentication → Providers → Google → " +
+              "add 'https://www.googleapis.com/auth/photoslibrary.readonly' to Scopes. " +
+              "Then sign out and sign in again."
             );
           } else {
             setPhotosError("Failed to load albums: " + err.message);

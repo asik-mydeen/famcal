@@ -44,14 +44,23 @@ export async function connectGooglePhotos() {
   if (res.status === 403) {
     const errBody = await res.json().catch(() => ({}));
     console.error("[photos] 403 response:", JSON.stringify(errBody));
-    // The token exists but doesn't have photos scope.
-    // This means the sign-in didn't include the photos scope.
-    // Clear the token so user is prompted to sign in again.
+
+    // Check what scopes the token actually has
+    try {
+      const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
+      const info = await tokenInfo.json();
+      console.log("[photos] Token scopes:", info.scope);
+      console.log("[photos] Token has photoslibrary?", info.scope?.includes("photoslibrary"));
+    } catch (e) {
+      console.log("[photos] Could not check token scopes");
+    }
+
     localStorage.removeItem("famcal_provider_token");
     throw new Error(
-      "SCOPE_ERROR: Your Google sign-in token doesn't include Photos access. " +
-      "This usually means the consent screen didn't show Photos permission. " +
-      "To fix: 1) Sign out below, 2) Sign in again — look for 'Google Photos' in the consent screen permissions."
+      "SCOPE_ERROR: Your Google token doesn't include Photos access. " +
+      "Fix in Supabase Dashboard: Authentication → Providers → Google → " +
+      "add 'https://www.googleapis.com/auth/photoslibrary.readonly' to the Scopes field. " +
+      "Then sign out and sign in again."
     );
   }
   if (res.status === 401) {
