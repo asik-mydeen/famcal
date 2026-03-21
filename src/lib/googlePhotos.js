@@ -46,22 +46,34 @@ export async function connectGooglePhotos() {
     console.error("[photos] 403 response:", JSON.stringify(errBody));
 
     // Check what scopes the token actually has
+    let hasScope = false;
     try {
       const tokenInfo = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
       const info = await tokenInfo.json();
       console.log("[photos] Token scopes:", info.scope);
-      console.log("[photos] Token has photoslibrary?", info.scope?.includes("photoslibrary"));
+      hasScope = info.scope?.includes("photoslibrary");
+      console.log("[photos] Token has photoslibrary?", hasScope);
     } catch (e) {
       console.log("[photos] Could not check token scopes");
     }
 
-    localStorage.removeItem("famcal_provider_token");
-    throw new Error(
-      "SCOPE_ERROR: Your Google token doesn't include Photos access. " +
-      "Fix in Supabase Dashboard: Authentication → Providers → Google → " +
-      "add 'https://www.googleapis.com/auth/photoslibrary.readonly' to the Scopes field. " +
-      "Then sign out and sign in again."
-    );
+    if (hasScope) {
+      // Token HAS the scope but API still returns 403
+      // This means the Photos Library API is NOT enabled in the Google Cloud project
+      throw new Error(
+        "API_NOT_ENABLED: Your token has the Photos scope, but the API returned 403. " +
+        "This means the 'Photos Library API' is NOT enabled in your Google Cloud project. " +
+        "Go to Google Cloud Console → APIs & Services → Library → search 'Photos Library API' → Enable it. " +
+        "Make sure you're in the correct project (the one with your OAuth Client ID)."
+      );
+    } else {
+      // Token doesn't have the scope
+      localStorage.removeItem("famcal_provider_token");
+      throw new Error(
+        "SCOPE_ERROR: Your Google token doesn't include Photos access. " +
+        "Please sign out and sign in again."
+      );
+    }
   }
   if (res.status === 401) {
     localStorage.removeItem("famcal_provider_token");

@@ -73,13 +73,18 @@ function Settings() {
         .then(setAlbums)
         .catch((err) => {
           console.error("[photos]", err.message);
-          if (err.message?.includes("SCOPE_ERROR") || err.message?.includes("TOKEN_EXPIRED")) {
+          if (err.message?.includes("API_NOT_ENABLED")) {
             setPhotosConnected(false);
             setPhotosError(
-              "Google Photos scope missing from your sign-in token. " +
-              "Go to Supabase Dashboard → Authentication → Providers → Google → " +
-              "add 'https://www.googleapis.com/auth/photoslibrary.readonly' to Scopes. " +
-              "Then sign out and sign in again."
+              "The Photos Library API is not enabled in your Google Cloud project. " +
+              "Go to Google Cloud Console → APIs & Services → Library → " +
+              "search 'Photos Library API' → click Enable. " +
+              "Make sure you select the correct project (the one with your OAuth Client ID)."
+            );
+          } else if (err.message?.includes("SCOPE_ERROR") || err.message?.includes("TOKEN_EXPIRED")) {
+            setPhotosConnected(false);
+            setPhotosError(
+              "Google Photos permission missing. Please sign out and sign in again."
             );
           } else {
             setPhotosError("Failed to load albums: " + err.message);
