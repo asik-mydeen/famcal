@@ -481,7 +481,7 @@ function FamilyCalendar() {
     if (syncingRef.current || connectedCount === 0) return;
     syncingRef.current = true;
     try {
-      const results = await syncAllMembers(members, events, family.id, dispatch);
+      const results = await syncAllMembers(members, events, family.id, dispatch, true);
       setLastSyncTime(new Date());
       const totalChanges = Object.values(results).reduce((sum, r) => sum + (r.pulled || 0) + (r.pushed || 0), 0);
       if (totalChanges > 0) {
