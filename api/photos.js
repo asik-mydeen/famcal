@@ -16,13 +16,29 @@ export default async function handler(req, res) {
   const { action } = req.query;
   const PHOTOS_API = "https://photoslibrary.googleapis.com/v1";
 
+  // Health check — verify the function is reachable
+  if (action === "ping") {
+    return res.status(200).json({ ok: true, message: "Photos API proxy is working" });
+  }
+
   try {
     if (action === "albums") {
       // List albums
+      const token = authHeader.replace("Bearer ", "");
+      console.log("[photos-api] Fetching albums, token starts with:", token.substring(0, 20));
+
+      // First verify token scopes server-side
+      const tokenInfoRes = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
+      const tokenInfo = await tokenInfoRes.json();
+      console.log("[photos-api] Token scopes:", tokenInfo.scope);
+      console.log("[photos-api] Has photoslibrary?", tokenInfo.scope?.includes("photoslibrary"));
+
       const response = await fetch(`${PHOTOS_API}/albums?pageSize=50`, {
-        headers: { Authorization: authHeader },
+        headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("[photos-api] Google Photos response status:", response.status);
       const data = await response.json();
+      console.log("[photos-api] Response body:", JSON.stringify(data).substring(0, 500));
       if (!response.ok) {
         return res.status(response.status).json(data);
       }
