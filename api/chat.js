@@ -13,8 +13,9 @@ export default async function handler(req, res) {
   const { message, context } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
-  const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "AI Gateway not configured" });
+  // Support multiple env var names for the AI Gateway key
+  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "AI Gateway not configured. Set AI_GATEWAY_API_KEY in Vercel env vars." });
 
   const systemPrompt = `You are FamCal AI, a helpful assistant for a family calendar app. You help manage the family's schedule, chores, meals, and lists.
 
