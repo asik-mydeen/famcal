@@ -38,6 +38,7 @@ export function requestPhotosToken() {
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: PHOTOS_SCOPE,
+      include_granted_scopes: true,
       callback: (resp) => {
         if (resp.error) return reject(new Error(resp.error_description || resp.error));
         photosToken = resp.access_token;
@@ -45,7 +46,7 @@ export function requestPhotosToken() {
         localStorage.setItem("famcal_photos_token", JSON.stringify({ token: photosToken, expiry: photosTokenExpiry }));
         resolve(photosToken);
       },
-      error_callback: (err) => reject(new Error("Google Photos auth failed")),
+      error_callback: () => reject(new Error("Google Photos auth failed — try reconnecting in Settings")),
     });
 
     tokenClient.requestAccessToken({ prompt: "" });
@@ -59,17 +60,28 @@ export function connectGooglePhotos() {
     if (!clientId) return reject(new Error("Google Client ID not configured"));
     if (!window.google?.accounts?.oauth2) return reject(new Error("Google Identity Services not loaded"));
 
+    // Clear any cached token so we get a fresh one with the photos scope
+    photosToken = null;
+    photosTokenExpiry = 0;
+    localStorage.removeItem("famcal_photos_token");
+
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: PHOTOS_SCOPE,
+      include_granted_scopes: true,
       callback: (resp) => {
         if (resp.error) return reject(new Error(resp.error_description || resp.error));
+        // Verify the granted scope includes photos
+        const grantedScopes = (resp.scope || "").split(" ");
+        if (!grantedScopes.some(s => s.includes("photoslibrary"))) {
+          return reject(new Error("Photos permission was not granted. Please allow access to Google Photos."));
+        }
         photosToken = resp.access_token;
         photosTokenExpiry = Date.now() + resp.expires_in * 1000 - 60000;
         localStorage.setItem("famcal_photos_token", JSON.stringify({ token: photosToken, expiry: photosTokenExpiry }));
         resolve(photosToken);
       },
-      error_callback: (err) => reject(new Error("Google Photos auth failed")),
+      error_callback: () => reject(new Error("Google Photos auth was cancelled or failed")),
     });
 
     tokenClient.requestAccessToken({ prompt: "consent" });

@@ -30,6 +30,9 @@ function Settings() {
   const [familyName, setFamilyName] = useState(family.name);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [weatherLocation, setWeatherLocation] = useState(
+    family?.weather_location || localStorage.getItem("famcal_weather_location") || ""
+  );
   const [animations, setAnimations] = useState(() => {
     const stored = localStorage.getItem("famcal_animations");
     return stored === null ? true : stored === "true";
@@ -377,16 +380,37 @@ function Settings() {
             <Typography variant="body2" color="text.secondary" mb={2}>
               Set your location to see weather in the header.
             </Typography>
-            <TextField
-              fullWidth
-              label="City or Location"
-              placeholder="e.g., San Francisco, CA"
-              size="small"
-              sx={{ mb: 1 }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              Requires REACT_APP_WEATHER_API_KEY environment variable
-            </Typography>
+            <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+              <TextField
+                fullWidth
+                label="City or Location"
+                placeholder="e.g., San Francisco, CA"
+                size="small"
+                value={weatherLocation}
+                onChange={(e) => setWeatherLocation(e.target.value)}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => {
+                  const loc = weatherLocation.trim();
+                  if (!loc) return;
+                  localStorage.setItem("famcal_weather_location", loc);
+                  // Also save to family record in Supabase
+                  dispatch({ type: "SET_FAMILY", value: { ...family, weather_location: loc } });
+                  setSaved(true);
+                  setTimeout(() => setSaved(false), 3000);
+                }}
+                sx={{ minWidth: 80, borderRadius: "10px", textTransform: "none" }}
+              >
+                Save
+              </Button>
+            </Box>
+            {!process.env.REACT_APP_WEATHER_API_KEY && (
+              <Typography variant="caption" color="warning.main">
+                Set REACT_APP_WEATHER_API_KEY in your environment for weather to work
+              </Typography>
+            )}
           </GlassCard>
         </Grid>
 
