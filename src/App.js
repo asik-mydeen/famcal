@@ -28,6 +28,7 @@ import PhotoFrame from "components/PhotoFrame";
 import KioskWrapper from "components/KioskWrapper";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
+import AICommandBar from "components/AICommandBar";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
@@ -568,6 +569,12 @@ export default function App() {
             <Box sx={{ display: { xs: "flex", md: "none" } }}>
               <FloatingNav />
             </Box>
+            <AICommandBar
+              members={members}
+              familyId={family?.id}
+              dispatch={dispatch}
+              lists={state.lists}
+            />
           </KioskWrapper>
         </>
       )}
