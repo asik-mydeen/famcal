@@ -472,18 +472,60 @@ function FamilyCalendar() {
   const connectedCount = members.filter((m) => m.google_calendar_id).length;
   const syncTooltip = lastSyncTime ? `Last: ${lastSyncTime.toLocaleTimeString()}` : "Sync calendars";
 
-  // Auto-sync on first load when calendars are connected
-  const autoSyncDone = useRef(false);
-  useEffect(() => {
-    if (connectedCount > 0 && !autoSyncDone.current && !syncing && members.length > 0) {
-      autoSyncDone.current = true;
-      // Small delay to let the page render first
-      const timer = setTimeout(() => {
-        handleSync();
-      }, 1500);
-      return () => clearTimeout(timer);
+  // Auto-sync: initial sync on load + background polling every 30s
+  const syncingRef = useRef(false);
+  const pollRef = useRef(null);
+
+  // Silent sync (no UI feedback unless changes found)
+  const silentSync = useCallback(async () => {
+    if (syncingRef.current || connectedCount === 0) return;
+    syncingRef.current = true;
+    try {
+      const results = await syncAllMembers(members, events, family.id, dispatch);
+      setLastSyncTime(new Date());
+      const totalChanges = Object.values(results).reduce((sum, r) => sum + (r.pulled || 0) + (r.pushed || 0), 0);
+      if (totalChanges > 0) {
+        setSyncMessage(`${totalChanges} events synced`);
+        setTimeout(() => setSyncMessage(""), 5000);
+      }
+    } catch (err) {
+      console.warn("[auto-sync]", err.message);
     }
-  }, [connectedCount, members.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    syncingRef.current = false;
+  }, [members, events, family.id, dispatch, connectedCount]);
+
+  useEffect(() => {
+    if (connectedCount === 0 || members.length === 0) return;
+
+    // Initial sync after 1.5s
+    const initTimer = setTimeout(silentSync, 1500);
+
+    // Poll every 30 seconds while page is visible
+    const startPolling = () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(silentSync, 30000);
+    };
+    const stopPolling = () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        silentSync(); // Sync immediately when tab becomes visible
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearTimeout(initTimer);
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [connectedCount, members.length, silentSync]);
 
   // ── Widget Definitions ──
 
