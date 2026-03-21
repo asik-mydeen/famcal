@@ -39,6 +39,8 @@ import Lists from "layouts/lists";
 import Family from "layouts/family";
 import Rewards from "layouts/rewards";
 import Settings from "layouts/settings";
+import PrivacyPolicy from "layouts/legal/privacy";
+import TermsOfService from "layouts/legal/tos";
 
 // ── Supabase Auth Sign-In Screen ──
 
@@ -512,6 +514,24 @@ export default function App() {
   const headerCountdownWidget = countdowns.length > 0 ? (
     <CountdownWidget variant="header" countdowns={countdowns} members={members} dispatch={dispatch} familyId={family?.id} />
   ) : null;
+
+  // Legal pages are public (no login required) — needed for Google verification
+  if (location.pathname === "/privacy") {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <PrivacyPolicy />
+      </ThemeProvider>
+    );
+  }
+  if (location.pathname === "/tos") {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <TermsOfService />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
