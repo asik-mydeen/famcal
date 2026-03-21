@@ -69,6 +69,16 @@ function AuthProvider({ children }) {
           console.log("[auth] NEW provider token captured from", event, "event");
           setProviderToken(session.provider_token);
           localStorage.setItem("famcal_provider_token", session.provider_token);
+          // Check what scopes the token actually has
+          fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${session.provider_token}`)
+            .then(r => r.json())
+            .then(info => {
+              console.log("[auth] Token scopes:", info.scope);
+              console.log("[auth] Has photoslibrary?", info.scope?.includes("photoslibrary"));
+              console.log("[auth] Has calendar?", info.scope?.includes("calendar"));
+              console.log("[auth] Full tokeninfo:", JSON.stringify(info, null, 2));
+            })
+            .catch(() => console.log("[auth] Could not verify token scopes"));
         }
         if (session?.provider_refresh_token) {
           console.log("[auth] NEW provider refresh token captured");
@@ -85,7 +95,9 @@ function AuthProvider({ children }) {
 
   const signIn = useCallback(async () => {
     const prodUrl = process.env.REACT_APP_SITE_URL || window.location.origin;
-    const { error } = await supabase.auth.signInWithOAuth({
+    console.log("[auth] Signing in with scopes:", GOOGLE_SCOPES);
+    console.log("[auth] Redirect URL:", prodUrl);
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: prodUrl,
@@ -94,9 +106,23 @@ function AuthProvider({ children }) {
           access_type: "offline",
           prompt: "consent",
         },
+        skipBrowserRedirect: true, // Don't redirect — capture the URL first
       },
     });
-    if (error) console.error("Sign in error:", error.message);
+    if (error) {
+      console.error("Sign in error:", error.message);
+      return;
+    }
+    // Log the OAuth URL so we can verify scopes are included
+    console.log("[auth] OAuth URL:", data?.url);
+    if (data?.url) {
+      const urlObj = new URL(data.url);
+      const scopeParam = urlObj.searchParams.get("scope") || urlObj.searchParams.get("scopes");
+      console.log("[auth] Scopes in OAuth URL:", scopeParam);
+      console.log("[auth] Has photoslibrary in URL?", data.url.includes("photoslibrary"));
+      // Now actually redirect
+      window.location.href = data.url;
+    }
   }, []);
 
   const signOut = useCallback(async () => {
