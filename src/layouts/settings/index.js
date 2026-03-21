@@ -59,6 +59,7 @@ function Settings() {
     return stored ? JSON.parse(stored) : [];
   });
   const [loadingAlbums, setLoadingAlbums] = useState(false);
+  const [photosError, setPhotosError] = useState("");
   const [photoInterval, setPhotoInterval] = useState(() => {
     return parseInt(localStorage.getItem("famcal_photo_interval") || "10");
   });
@@ -67,7 +68,25 @@ function Settings() {
   useEffect(() => {
     if (photosConnected) {
       setLoadingAlbums(true);
-      fetchAlbums().then(setAlbums).catch(console.error).finally(() => setLoadingAlbums(false));
+      setPhotosError("");
+      fetchAlbums()
+        .then(setAlbums)
+        .catch((err) => {
+          console.error("[photos]", err.message);
+          if (err.message?.includes("SCOPE_ERROR")) {
+            // Token didn't have photos scope — auto-disconnected by fetchAlbums
+            setPhotosConnected(false);
+            setPhotosError(
+              "Google Photos permission was not granted. In Google Cloud Console: " +
+              "1) Enable 'Photos Library API', " +
+              "2) Go to OAuth consent screen → Scopes → Add 'photoslibrary.readonly', " +
+              "3) Then reconnect here."
+            );
+          } else {
+            setPhotosError("Failed to load albums: " + err.message);
+          }
+        })
+        .finally(() => setLoadingAlbums(false));
     }
   }, [photosConnected]);
 
@@ -585,11 +604,20 @@ function Settings() {
                 </Box>
               )}
 
+              {/* Error message */}
+              {photosError && (
+                <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: "rgba(225,112,85,0.08)", border: "1px solid rgba(225,112,85,0.2)" }}>
+                  <Typography sx={{ fontSize: "0.8rem", color: "#E17055", lineHeight: 1.5 }}>
+                    {photosError}
+                  </Typography>
+                </Box>
+              )}
+
               {!photosConnected ? (
                 <Button
                   variant="outlined"
                   startIcon={<Icon>link</Icon>}
-                  onClick={handleConnectPhotos}
+                  onClick={() => { setPhotosError(""); handleConnectPhotos(); }}
                   disabled={!clientIdConfigured}
                   sx={{ mb: 2 }}
                 >

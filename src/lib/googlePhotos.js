@@ -117,7 +117,16 @@ export async function fetchAlbums() {
   const res = await fetch(`${PHOTOS_API}/albums?pageSize=50`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error("Failed to fetch albums");
+  if (res.status === 403) {
+    // Token doesn't have photos scope — clear it and force reconnect
+    disconnectGooglePhotos();
+    throw new Error(
+      "SCOPE_ERROR: Google Photos permission not granted. " +
+      "Please ensure 'Photos Library API' is enabled in Google Cloud Console AND " +
+      "'photoslibrary.readonly' scope is added to your OAuth consent screen (OAuth consent screen → Scopes → Add scope)."
+    );
+  }
+  if (!res.ok) throw new Error("Failed to fetch albums: " + res.status);
   const data = await res.json();
   return (data.albums || []).map(a => ({
     id: a.id,
