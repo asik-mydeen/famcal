@@ -64,7 +64,7 @@ function Settings() {
     return parseInt(localStorage.getItem("famcal_photo_interval") || "10");
   });
 
-  // Load albums when connected
+  // Load albums automatically (uses provider token from sign-in)
   useEffect(() => {
     if (photosConnected) {
       setLoadingAlbums(true);
@@ -73,14 +73,11 @@ function Settings() {
         .then(setAlbums)
         .catch((err) => {
           console.error("[photos]", err.message);
-          if (err.message?.includes("SCOPE_ERROR")) {
-            // Token didn't have photos scope — auto-disconnected by fetchAlbums
+          if (err.message?.includes("SCOPE_ERROR") || err.message?.includes("TOKEN_EXPIRED")) {
             setPhotosConnected(false);
             setPhotosError(
-              "Google Photos permission was not granted. In Google Cloud Console: " +
-              "1) Enable 'Photos Library API', " +
-              "2) Go to OAuth consent screen → Scopes → Add 'photoslibrary.readonly', " +
-              "3) Then reconnect here."
+              "Google Photos access not available. Please sign out and sign in again — " +
+              "you'll be prompted to grant Google Photos access during sign-in."
             );
           } else {
             setPhotosError("Failed to load albums: " + err.message);
@@ -209,17 +206,24 @@ function Settings() {
 
   // Google Photos handlers
   const handleConnectPhotos = async () => {
+    setPhotosError("");
     try {
       await connectGooglePhotos();
       setPhotosConnected(true);
     } catch (err) {
       console.error("Failed to connect Google Photos:", err);
-      alert(`Failed to connect Google Photos: ${err.message}`);
+      if (err.message?.includes("SCOPE_ERROR") || err.message?.includes("sign out")) {
+        setPhotosError(
+          "Google Photos access not available with current sign-in. " +
+          "Sign out from the Account section below, then sign in again to grant Photos access."
+        );
+      } else {
+        setPhotosError(err.message);
+      }
     }
   };
 
   const handleDisconnectPhotos = () => {
-    if (!window.confirm("Disconnect Google Photos? Selected albums will be cleared.")) return;
     disconnectGooglePhotos();
     setPhotosConnected(false);
     setAlbums([]);
@@ -616,12 +620,11 @@ function Settings() {
               {!photosConnected ? (
                 <Button
                   variant="outlined"
-                  startIcon={<Icon>link</Icon>}
+                  startIcon={<Icon>photo_library</Icon>}
                   onClick={() => { setPhotosError(""); handleConnectPhotos(); }}
-                  disabled={!clientIdConfigured}
                   sx={{ mb: 2 }}
                 >
-                  Connect Google Photos
+                  Load Google Photos Albums
                 </Button>
               ) : (
                 <>
