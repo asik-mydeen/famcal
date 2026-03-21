@@ -33,11 +33,23 @@ function AuthProvider({ children }) {
       const userData = extractUser(session);
       if (userData) setUser(userData);
       // Restore provider token from session if available
+      // NOTE: provider_token is only in the session right after OAuth redirect, not on subsequent getSession() calls
       if (session?.provider_token) {
+        console.log("[auth] Provider token captured from session (has photos+calendar scopes)");
         setProviderToken(session.provider_token);
         localStorage.setItem("famcal_provider_token", session.provider_token);
+      } else {
+        // Check localStorage fallback
+        const storedToken = localStorage.getItem("famcal_provider_token");
+        if (storedToken) {
+          console.log("[auth] Provider token restored from localStorage");
+          setProviderToken(storedToken);
+        } else {
+          console.log("[auth] No provider token available — photos won't work until re-sign-in");
+        }
       }
       if (session?.provider_refresh_token) {
+        console.log("[auth] Provider refresh token captured");
         localStorage.setItem("famcal_provider_refresh_token", session.provider_refresh_token);
       }
       setLoading(false);
@@ -48,15 +60,18 @@ function AuthProvider({ children }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[auth] onAuthStateChange:", event, "provider_token:", Boolean(session?.provider_token));
       const userData = extractUser(session);
       if (userData) {
         setUser(userData);
-        // Capture provider token on sign-in (only available at sign-in time)
+        // Capture provider token on sign-in (only available at sign-in time, SIGNED_IN event)
         if (session?.provider_token) {
+          console.log("[auth] NEW provider token captured from", event, "event");
           setProviderToken(session.provider_token);
           localStorage.setItem("famcal_provider_token", session.provider_token);
         }
         if (session?.provider_refresh_token) {
+          console.log("[auth] NEW provider refresh token captured");
           localStorage.setItem("famcal_provider_refresh_token", session.provider_refresh_token);
         }
       } else {
