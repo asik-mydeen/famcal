@@ -18,6 +18,7 @@ import { useThemeMode } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { getGoogleClientId } from "lib/googleCalendar";
+import { fetchPhotosFromAlbums } from "lib/googlePhotos";
 import AnimatedBackground from "components/AnimatedBackground";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
@@ -454,6 +455,19 @@ export default function App() {
   // Idle timer for photo frame — MUST be called before any conditional returns (React hooks rules)
   const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
 
+  // Google Photos state and loading
+  const [googlePhotos, setGooglePhotos] = useState([]);
+  const selectedAlbumIds = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem("famcal_photos_selected_albums") || "[]"); }
+    catch { return []; }
+  }, []);
+
+  useEffect(() => {
+    if (isIdle && selectedAlbumIds.length > 0 && googlePhotos.length === 0) {
+      fetchPhotosFromAlbums(selectedAlbumIds).then(setGooglePhotos).catch(console.error);
+    }
+  }, [isIdle, selectedAlbumIds, googlePhotos.length]);
+
   // Weather data loading
   const [weatherData, setWeatherData] = useState(null);
   useEffect(() => {
@@ -507,12 +521,12 @@ export default function App() {
       ) : (
         <>
           {/* Photo Frame overlay when idle */}
-          {isIdle && photos.length > 0 && (
+          {isIdle && (googlePhotos.length > 0 || photos.length > 0) && (
             <PhotoFrame
-              photos={photos}
-              interval={parseInt(localStorage.getItem("famcal_photo_interval") || "5")}
+              photos={googlePhotos.length > 0 ? googlePhotos : photos}
+              interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
               weather={weatherData}
-              onDismiss={resetTimer}
+              onDismiss={() => { resetTimer(); setGooglePhotos([]); }}
             />
           )}
 
