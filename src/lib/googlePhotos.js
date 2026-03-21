@@ -1,123 +1,70 @@
 /**
  * Google Photos Library API integration.
- * Uses GIS (Google Identity Services) for OAuth tokens with photos scope.
+ * Uses the provider_token from Supabase Auth (Google OAuth) instead of separate GIS popups.
+ * The token is captured during sign-in and stored in localStorage.
  */
 
-const PHOTOS_SCOPE = "https://www.googleapis.com/auth/photoslibrary.readonly";
 const PHOTOS_API = "https://photoslibrary.googleapis.com/v1";
 
-// Token management (separate from calendar tokens)
-let photosToken = null;
-let photosTokenExpiry = 0;
-
-function getGoogleClientId() {
-  return process.env.REACT_APP_GOOGLE_CLIENT_ID || localStorage.getItem("famcal_google_client_id") || "";
+// Get the Google provider token (from Supabase Auth sign-in)
+function getProviderToken() {
+  return localStorage.getItem("famcal_provider_token") || null;
 }
 
-// Request access token for Google Photos
-export function requestPhotosToken() {
-  return new Promise((resolve, reject) => {
-    const clientId = getGoogleClientId();
-    if (!clientId) return reject(new Error("Google Client ID not configured"));
-    if (!window.google?.accounts?.oauth2) return reject(new Error("Google Identity Services not loaded"));
-
-    // Check cache
-    if (photosToken && photosTokenExpiry > Date.now()) return resolve(photosToken);
-
-    // Check localStorage
-    const stored = localStorage.getItem("famcal_photos_token");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed.expiry > Date.now()) {
-        photosToken = parsed.token;
-        photosTokenExpiry = parsed.expiry;
-        return resolve(photosToken);
-      }
-    }
-
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: PHOTOS_SCOPE,
-      include_granted_scopes: true,
-      callback: (resp) => {
-        if (resp.error) return reject(new Error(resp.error_description || resp.error));
-        photosToken = resp.access_token;
-        photosTokenExpiry = Date.now() + resp.expires_in * 1000 - 60000;
-        localStorage.setItem("famcal_photos_token", JSON.stringify({ token: photosToken, expiry: photosTokenExpiry }));
-        resolve(photosToken);
-      },
-      error_callback: () => reject(new Error("Google Photos auth failed — try reconnecting in Settings")),
-    });
-
-    tokenClient.requestAccessToken({ prompt: "" });
-  });
-}
-
-// Connect Google Photos (with consent prompt)
-export function connectGooglePhotos() {
-  return new Promise((resolve, reject) => {
-    const clientId = getGoogleClientId();
-    if (!clientId) return reject(new Error("Google Client ID not configured"));
-    if (!window.google?.accounts?.oauth2) return reject(new Error("Google Identity Services not loaded"));
-
-    // Clear any cached token so we get a fresh one with the photos scope
-    photosToken = null;
-    photosTokenExpiry = 0;
-    localStorage.removeItem("famcal_photos_token");
-
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: PHOTOS_SCOPE,
-      include_granted_scopes: true,
-      callback: (resp) => {
-        if (resp.error) return reject(new Error(resp.error_description || resp.error));
-        // Verify the granted scope includes photos
-        const grantedScopes = (resp.scope || "").split(" ");
-        if (!grantedScopes.some(s => s.includes("photoslibrary"))) {
-          return reject(new Error("Photos permission was not granted. Please allow access to Google Photos."));
-        }
-        photosToken = resp.access_token;
-        photosTokenExpiry = Date.now() + resp.expires_in * 1000 - 60000;
-        localStorage.setItem("famcal_photos_token", JSON.stringify({ token: photosToken, expiry: photosTokenExpiry }));
-        resolve(photosToken);
-      },
-      error_callback: () => reject(new Error("Google Photos auth was cancelled or failed")),
-    });
-
-    tokenClient.requestAccessToken({ prompt: "consent" });
-  });
-}
-
-// Disconnect
-export function disconnectGooglePhotos() {
-  if (photosToken) {
-    window.google?.accounts?.oauth2?.revoke?.(photosToken);
-  }
-  photosToken = null;
-  photosTokenExpiry = 0;
-  localStorage.removeItem("famcal_photos_token");
-  localStorage.removeItem("famcal_photos_albums");
-  localStorage.removeItem("famcal_photos_selected_albums");
-}
-
-// Check if connected
+// Check if Google Photos is accessible (has a provider token)
 export function isGooglePhotosConnected() {
-  if (photosToken && photosTokenExpiry > Date.now()) return true;
-  const stored = localStorage.getItem("famcal_photos_token");
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    return parsed.expiry > Date.now();
+  return Boolean(getProviderToken());
+}
+
+// No separate "connect" needed — photos access comes from the main Google sign-in.
+// If the user signed in with the photos scope, the provider token has access.
+// If not, they need to sign out and sign in again.
+export async function connectGooglePhotos() {
+  const token = getProviderToken();
+  if (!token) {
+    throw new Error("No Google token available. Please sign out and sign in again to grant Photos access.");
   }
-  return false;
+  // Verify the token works by making a test call
+  const res = await fetch(`${PHOTOS_API}/albums?pageSize=1`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 403) {
+    throw new Error(
+      "SCOPE_ERROR: Photos permission not granted. Please sign out, then sign in again — " +
+      "you'll be prompted to grant Google Photos access."
+    );
+  }
+  if (!res.ok) {
+    throw new Error("Failed to verify Google Photos access: " + res.status);
+  }
+  return token;
+}
+
+export function disconnectGooglePhotos() {
+  localStorage.removeItem("famcal_photos_selected_albums");
 }
 
 // Fetch albums
 export async function fetchAlbums() {
-  const token = await requestPhotosToken();
+  const token = getProviderToken();
+  if (!token) throw new Error("Not signed in with Google. Sign out and sign in again.");
+
   const res = await fetch(`${PHOTOS_API}/albums?pageSize=50`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error("Failed to fetch albums");
+
+  if (res.status === 403) {
+    throw new Error(
+      "SCOPE_ERROR: Google Photos permission not granted during sign-in. " +
+      "Please sign out and sign in again — the consent screen will ask for Photos access."
+    );
+  }
+  if (res.status === 401) {
+    // Token expired — user needs to sign in again
+    throw new Error("TOKEN_EXPIRED: Google token expired. Please sign out and sign in again.");
+  }
+  if (!res.ok) throw new Error("Failed to fetch albums: " + res.status);
+
   const data = await res.json();
   return (data.albums || []).map(a => ({
     id: a.id,
@@ -131,7 +78,9 @@ export async function fetchAlbums() {
 export async function fetchPhotosFromAlbums(albumIds) {
   if (!albumIds || albumIds.length === 0) return [];
 
-  const token = await requestPhotosToken();
+  const token = getProviderToken();
+  if (!token) return [];
+
   const photos = [];
 
   for (const albumId of albumIds) {
@@ -150,7 +99,6 @@ export async function fetchPhotosFromAlbums(albumIds) {
         .filter(item => item.mimeType?.startsWith("image/"))
         .map(item => ({
           id: item.id,
-          // Google Photos URLs need size params. =w1920-h1080 gets a 1080p version
           url: `${item.baseUrl}=w1920-h1080`,
           caption: item.description || "",
           width: parseInt(item.mediaMetadata?.width || "1920"),
