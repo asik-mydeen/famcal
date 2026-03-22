@@ -734,7 +734,6 @@ function Family() {
               />
             </Box>
           </Box>
-        </Box>
 
         {/* Color Picker */}
         <Box>
@@ -808,7 +807,6 @@ function Family() {
                 )}
               </Box>
             </Box>
-          </Box>
         </Box>
 
         {/* Google Calendar ID */}
