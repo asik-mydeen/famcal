@@ -66,11 +66,11 @@ Match member names to IDs. Be warm and family-friendly.`;
       if (!resp.ok) {
         const errText = await resp.text();
         console.error("[ai] Gateway error:", resp.status, errText);
-        // If gateway fails, try fallback
-        if (!anthropicKey && !openaiKey) {
+        // If gateway fails and no fallback keys, return error
+        if (!glmKey && !anthropicKey && !openaiKey) {
           return res.status(502).json({ error: "AI Gateway error", status: resp.status, details: errText });
         }
-        // Fall through to fallback
+        // Fall through to fallback providers
       } else {
         const data = await resp.json();
         responseText = data.choices?.[0]?.message?.content || "";
