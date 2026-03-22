@@ -12,15 +12,16 @@ export default async function handler(req, res) {
   const { message, context } = req.body || {};
   if (!message) return res.status(400).json({ error: "Message required" });
 
-  // Check for API keys
+  // Check for API keys — support multiple providers
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
+  const glmKey = process.env.GLM_API_KEY || process.env.ZHIPU_API_KEY;
 
-  if (!gatewayKey && !anthropicKey && !openaiKey) {
+  if (!gatewayKey && !anthropicKey && !openaiKey && !glmKey) {
     return res.status(500).json({
       error: "No AI API key configured",
-      hint: "Set AI_GATEWAY_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY in Vercel env vars",
+      hint: "Set one of: ANTHROPIC_API_KEY, OPENAI_API_KEY, GLM_API_KEY, or AI_GATEWAY_API_KEY in Vercel env vars",
     });
   }
 
@@ -73,6 +74,32 @@ Match member names to IDs. Be warm and family-friendly.`;
       } else {
         const data = await resp.json();
         responseText = data.choices?.[0]?.message?.content || "";
+      }
+    }
+
+    // Fallback: Zhipu GLM (OpenAI-compatible API)
+    if (!responseText && glmKey) {
+      const resp = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${glmKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "glm-4-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          max_tokens: 1024,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        responseText = data.choices?.[0]?.message?.content || "";
+      } else {
+        const errText = await resp.text();
+        console.error("[ai] GLM error:", resp.status, errText);
       }
     }
 
