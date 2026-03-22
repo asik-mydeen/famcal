@@ -16,7 +16,8 @@ export default async function handler(req, res) {
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
-  const glmKey = process.env.GLM_API_KEY || process.env.ZHIPU_API_KEY;
+  // GLM key might be stored as AI_GATEWAY_API_KEY (user set it up through Vercel AI BYOK)
+  const glmKey = process.env.GLM_API_KEY || process.env.ZHIPU_API_KEY || process.env.AI_GATEWAY_API_KEY;
 
   if (!gatewayKey && !anthropicKey && !openaiKey && !glmKey) {
     return res.status(500).json({
@@ -155,7 +156,15 @@ Match member names to IDs. Be warm and family-friendly.`;
     }
 
     if (!responseText) {
-      return res.status(502).json({ error: "All AI providers failed" });
+      return res.status(502).json({
+        error: "All AI providers failed",
+        tried: {
+          gateway: !!gatewayKey,
+          glm: !!glmKey,
+          anthropic: !!anthropicKey,
+          openai: !!openaiKey,
+        },
+      });
     }
 
     // Parse JSON from response
