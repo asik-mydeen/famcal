@@ -7,10 +7,7 @@ import CardContent from "@mui/material/CardContent";
 import IconButton from "@mui/material/IconButton";
 import Icon from "@mui/material/Icon";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
+import SlidePanel from "components/SlidePanel";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Tabs from "@mui/material/Tabs";
@@ -723,52 +720,50 @@ function FamilyCalendar() {
 
       {/* FAB */}
       <Fab color="primary" onClick={() => { setEditingEvent(null); setEventForm(defaultEventForm(fmtDate(currentDate))); setDialogOpen(true); }}
-        sx={{ position: "fixed", bottom: 76, right: 20, zIndex: 1200 }}
+        sx={{ position: "fixed", bottom: 100, right: 20, zIndex: 1200 }}
       >
         <Icon>add</Icon>
       </Fab>
 
-      {/* Event Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth fullScreen={isSmall}>
-        <DialogTitle>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="h5" fontWeight="bold">{editingEvent ? "Edit Event" : "New Event"}</Typography>
-            <IconButton onClick={handleCloseDialog} size="small"><Icon>close</Icon></IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 1 }}>
-            <TextField label="Event Title" value={eventForm.title} onChange={(e) => handleFormChange("title", e.target.value)} fullWidth autoFocus placeholder="What's happening?" />
-            <TextField label="Assign to" value={eventForm.member_id} onChange={(e) => handleFormChange("member_id", e.target.value)} select fullWidth>
-              <MenuItem value=""><em>Family Event</em></MenuItem>
-              {members.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: m.avatar_color }} />
-                    {m.name}
-                  </Box>
-                </MenuItem>
-              ))}
-            </TextField>
-            <FormControlLabel control={<Switch checked={eventForm.allDay} onChange={(e) => handleFormChange("allDay", e.target.checked)} />} label="All Day" />
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <TextField label="Start Date" type="date" value={eventForm.startDate} onChange={(e) => handleFormChange("startDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-              {!eventForm.allDay && <TextField label="Start Time" type="time" value={eventForm.startTime} onChange={(e) => handleFormChange("startTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
-            </Box>
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <TextField label="End Date" type="date" value={eventForm.endDate} onChange={(e) => handleFormChange("endDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} inputProps={{ min: eventForm.startDate }} />
-              {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: editingEvent ? "space-between" : "flex-end" }}>
-          {editingEvent && <Button onClick={handleDeleteEvent} color="error" variant="outlined" startIcon={<Icon>delete</Icon>}>Delete</Button>}
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button onClick={handleCloseDialog} variant="outlined">Cancel</Button>
-            <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()}>{editingEvent ? "Save" : "Add Event"}</Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
+      {/* Event Panel */}
+      <SlidePanel
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        title={editingEvent ? "Edit Event" : "New Event"}
+        subtitle={editingEvent ? "Update event details" : "Create a new calendar event"}
+        icon="calendar_today"
+        actions={
+          <>
+            {editingEvent && <Button onClick={handleDeleteEvent} color="error" variant="outlined" startIcon={<Icon>delete</Icon>} sx={{ mr: "auto" }}>Delete</Button>}
+            <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: "12px" }}>Cancel</Button>
+            <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()} sx={{ borderRadius: "12px", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)" }}>
+              {editingEvent ? "Save" : "Add Event"}
+            </Button>
+          </>
+        }
+      >
+        <TextField label="Event Title" value={eventForm.title} onChange={(e) => handleFormChange("title", e.target.value)} fullWidth autoFocus placeholder="What's happening?" />
+        <TextField label="Assign to" value={eventForm.member_id} onChange={(e) => handleFormChange("member_id", e.target.value)} select fullWidth>
+          <MenuItem value=""><em>Family Event</em></MenuItem>
+          {members.map((m) => (
+            <MenuItem key={m.id} value={m.id}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: m.avatar_color }} />
+                {m.name}
+              </Box>
+            </MenuItem>
+          ))}
+        </TextField>
+        <FormControlLabel control={<Switch checked={eventForm.allDay} onChange={(e) => handleFormChange("allDay", e.target.checked)} />} label="All Day" />
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField label="Start Date" type="date" value={eventForm.startDate} onChange={(e) => handleFormChange("startDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+          {!eventForm.allDay && <TextField label="Start Time" type="time" value={eventForm.startTime} onChange={(e) => handleFormChange("startTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
+        </Box>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <TextField label="End Date" type="date" value={eventForm.endDate} onChange={(e) => handleFormChange("endDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} inputProps={{ min: eventForm.startDate }} />
+          {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
+        </Box>
+      </SlidePanel>
     </Box>
   );
 }
