@@ -561,7 +561,7 @@ function Tasks() {
         onClick={handleOpenDialog}
         sx={{
           position: "fixed",
-          bottom: 76,
+          bottom: 160,
           right: 20,
           zIndex: 1200,
           width: 56,

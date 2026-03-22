@@ -6,10 +6,7 @@ import IconButton from "@mui/material/IconButton";
 import Icon from "@mui/material/Icon";
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogTitle from "@mui/material/DialogTitle";
-import DialogContent from "@mui/material/DialogContent";
-import DialogActions from "@mui/material/DialogActions";
+import SlidePanel from "components/SlidePanel";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Grid from "@mui/material/Grid";
@@ -783,7 +780,7 @@ function Chores() {
           color="primary"
           sx={{
             position: "fixed",
-            bottom: 24,
+            bottom: 160,
             right: 24,
             background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
             boxShadow: "0 8px 24px rgba(108, 92, 231, 0.35)",
@@ -797,207 +794,179 @@ function Chores() {
           <Icon>add</Icon>
         </Fab>
 
-        {/* Add/Edit Task Dialog */}
-        <Dialog
+        {/* Add/Edit Task Panel */}
+        <SlidePanel
           open={openDialog}
           onClose={() => setOpenDialog(false)}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: "20px",
-              background: darkMode ? "#1a1a1a" : "#fff",
-            },
-          }}
+          title={editingTask ? "Edit Task" : "Add Task"}
+          subtitle={editingTask ? "Update task details" : "Create a new task"}
+          icon="assignment"
+          width={480}
+          actions={
+            <>
+              <Button
+                variant="outlined"
+                onClick={() => setOpenDialog(false)}
+                sx={{ borderRadius: "12px", px: 3 }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSubmitTask}
+                disabled={!formData.title.trim()}
+                sx={{
+                  borderRadius: "12px",
+                  px: 3,
+                  background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
+                  },
+                }}
+              >
+                {editingTask ? "Update" : "Add"}
+              </Button>
+            </>
+          }
         >
-          <DialogTitle>
-            <Typography variant="h5" fontWeight={700}>
-              {editingTask ? "Edit Task" : "Add Task"}
-            </Typography>
-          </DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Task Title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  autoFocus
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  multiline
-                  rows={2}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Assign To"
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                >
-                  {members.map((member) => (
-                    <MenuItem key={member.id} value={member.id}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Avatar
-                          src={member.avatar_url}
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            bgcolor: member.avatar_color,
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {!member.avatar_url && (member.avatar_emoji || member.name[0])}
-                        </Avatar>
-                        {member.name}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                >
-                  {TASK_CATEGORIES.map((cat) => (
-                    <MenuItem key={cat.key} value={cat.key}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Icon sx={{ fontSize: "20px", color: cat.color }}>{cat.icon}</Icon>
-                        {cat.label}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="Due Date"
-                  value={formData.due_date}
-                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  type="time"
-                  label="Due Time"
-                  value={formData.due_time}
-                  onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Priority"
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                >
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <MenuItem key={p.value} value={p.value}>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box
-                          sx={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: p.color,
-                          }}
-                        />
-                        {p.label}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Points"
-                  value={formData.points_value}
-                  onChange={(e) =>
-                    setFormData({ ...formData, points_value: parseInt(e.target.value, 10) || 0 })
-                  }
-                  inputProps={{ min: 0, max: 100 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Recurring"
-                  value={formData.recurring ? "yes" : "no"}
-                  onChange={(e) => setFormData({ ...formData, recurring: e.target.value === "yes" })}
-                >
-                  <MenuItem value="no">No</MenuItem>
-                  <MenuItem value="yes">Yes</MenuItem>
-                </TextField>
-              </Grid>
-              {formData.recurring && (
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    select
-                    label="Recurring Pattern"
-                    value={formData.recurring_pattern}
-                    onChange={(e) => setFormData({ ...formData, recurring_pattern: e.target.value })}
+          <TextField
+            fullWidth
+            label="Task Title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            autoFocus
+          />
+          <TextField
+            fullWidth
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            multiline
+            rows={2}
+          />
+          <TextField
+            fullWidth
+            select
+            label="Assign To"
+            value={formData.assigned_to}
+            onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+          >
+            {members.map((member) => (
+              <MenuItem key={member.id} value={member.id}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Avatar
+                    src={member.avatar_url}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      bgcolor: member.avatar_color,
+                      fontSize: "0.75rem",
+                    }}
                   >
-                    {RECURRING_PATTERNS.map((p) => (
-                      <MenuItem key={p.value} value={p.value}>
-                        {p.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              )}
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button
-              variant="outlined"
-              onClick={() => setOpenDialog(false)}
-              sx={{
-                borderRadius: "12px",
-                px: 3,
-              }}
+                    {!member.avatar_url && (member.avatar_emoji || member.name[0])}
+                  </Avatar>
+                  {member.name}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            select
+            label="Category"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+          >
+            {TASK_CATEGORIES.map((cat) => (
+              <MenuItem key={cat.key} value={cat.key}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Icon sx={{ fontSize: "20px", color: cat.color }}>{cat.icon}</Icon>
+                  {cat.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Due Date"
+              value={formData.due_date}
+              onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              type="time"
+              label="Due Time"
+              value={formData.due_time}
+              onChange={(e) => setFormData({ ...formData, due_time: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              select
+              label="Priority"
+              value={formData.priority}
+              onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmitTask}
-              disabled={!formData.title.trim()}
-              sx={{
-                borderRadius: "12px",
-                px: 3,
-                background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
-                "&:hover": {
-                  background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
-                },
-              }}
+              {PRIORITY_OPTIONS.map((p) => (
+                <MenuItem key={p.value} value={p.value}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: p.color,
+                      }}
+                    />
+                    {p.label}
+                  </Box>
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              type="number"
+              label="Points"
+              value={formData.points_value}
+              onChange={(e) =>
+                setFormData({ ...formData, points_value: parseInt(e.target.value, 10) || 0 })
+              }
+              inputProps={{ min: 0, max: 100 }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              select
+              label="Recurring"
+              value={formData.recurring ? "yes" : "no"}
+              onChange={(e) => setFormData({ ...formData, recurring: e.target.value === "yes" })}
             >
-              {editingTask ? "Update" : "Add"}
-            </Button>
-          </DialogActions>
-        </Dialog>
+              <MenuItem value="no">No</MenuItem>
+              <MenuItem value="yes">Yes</MenuItem>
+            </TextField>
+            {formData.recurring && (
+              <TextField
+                fullWidth
+                select
+                label="Recurring Pattern"
+                value={formData.recurring_pattern}
+                onChange={(e) => setFormData({ ...formData, recurring_pattern: e.target.value })}
+              >
+                {RECURRING_PATTERNS.map((p) => (
+                  <MenuItem key={p.value} value={p.value}>
+                    {p.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          </Box>
+        </SlidePanel>
       </Box>
     </PageTransition>
   );
