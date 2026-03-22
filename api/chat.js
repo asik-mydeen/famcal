@@ -1,8 +1,10 @@
 // api/chat.js — Vercel Serverless Function
-// Calls Vercel AI Gateway with the family's context and returns structured actions
+// Uses Vercel AI SDK with AI Gateway for the AI command bar
+
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -13,167 +15,107 @@ export default async function handler(req, res) {
   const { message, context } = req.body;
   if (!message) return res.status(400).json({ error: "Message required" });
 
-  // Support multiple env var names for the AI Gateway key
   const apiKey = process.env.AI_GATEWAY_API_KEY
-    || process.env.VERCEL_AI_GATEWAY_API_KEY
-    || process.env.OPENAI_API_KEY
-    || process.env.AI_API_KEY;
+    || process.env.ANTHROPIC_API_KEY
+    || process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    // Log available env var keys (not values) for debugging
-    const aiRelatedKeys = Object.keys(process.env).filter(k =>
-      k.includes("AI") || k.includes("OPENAI") || k.includes("GATEWAY") || k.includes("GLM")
+    const aiKeys = Object.keys(process.env).filter(k =>
+      k.includes("AI") || k.includes("OPENAI") || k.includes("ANTHROPIC") || k.includes("GATEWAY")
     );
     return res.status(500).json({
-      error: "AI Gateway not configured",
-      hint: "Set AI_GATEWAY_API_KEY in Vercel Environment Variables (Settings > Environment Variables)",
-      detectedKeys: aiRelatedKeys.length > 0 ? aiRelatedKeys : ["none found"],
+      error: "AI not configured",
+      hint: "Set AI_GATEWAY_API_KEY (Vercel AI Gateway) or ANTHROPIC_API_KEY or OPENAI_API_KEY in Vercel env vars",
+      detectedKeys: aiKeys.length > 0 ? aiKeys : ["none"],
     });
   }
 
-  const systemPrompt = `You are FamCal AI, a helpful assistant for a family calendar app. You help manage the family's schedule, chores, meals, and lists.
+  const systemPrompt = `You are FamCal AI, a helpful assistant for a family calendar app.
 
 Current family context:
 - Family members: ${context?.members?.map(m => `${m.name} (${m.id})`).join(", ") || "None"}
-- Today's date: ${new Date().toISOString().split("T")[0]}
-- Day of week: ${new Date().toLocaleDateString("en-US", { weekday: "long" })}
+- Today: ${new Date().toISOString().split("T")[0]} (${new Date().toLocaleDateString("en-US", { weekday: "long" })})
 
-You MUST respond with a JSON object. Do NOT include any text outside the JSON.
+Respond with a JSON object ONLY. No text outside JSON.
 
-Response format:
 {
-  "reply": "A friendly message to show the user",
+  "reply": "Friendly message to show the user",
   "actions": [
-    {
-      "type": "create_event",
-      "data": { "title": "...", "member_id": "...", "start": "YYYY-MM-DDTHH:mm:00", "end": "YYYY-MM-DDTHH:mm:00", "allDay": false }
-    },
-    {
-      "type": "create_task",
-      "data": { "title": "...", "assigned_to": "member_id", "due_date": "YYYY-MM-DD", "points_value": 10, "category": "chores", "recurring": false }
-    },
-    {
-      "type": "add_meal",
-      "data": { "date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner|snack", "title": "..." }
-    },
-    {
-      "type": "add_list_items",
-      "data": { "list_name": "Groceries", "items": ["item1", "item2"] }
-    },
-    {
-      "type": "info",
-      "data": { "content": "Information text to display" }
-    }
+    { "type": "create_event", "data": { "title": "...", "member_id": "...", "start": "YYYY-MM-DDTHH:mm:00", "end": "YYYY-MM-DDTHH:mm:00", "allDay": false } },
+    { "type": "create_task", "data": { "title": "...", "assigned_to": "member_id", "due_date": "YYYY-MM-DD", "points_value": 10, "category": "chores" } },
+    { "type": "add_meal", "data": { "date": "YYYY-MM-DD", "meal_type": "breakfast|lunch|dinner|snack", "title": "..." } },
+    { "type": "add_list_items", "data": { "list_name": "Groceries", "items": ["item1", "item2"] } },
+    { "type": "info", "data": { "content": "text" } }
   ]
 }
 
 Rules:
-- If the user asks to create an event, use "create_event" action with proper date/time
-- If the user asks to add a chore/task, use "create_task" action
-- If the user asks about meals, use "add_meal" action
-- If the user asks to add items to a list, use "add_list_items" action
-- If the user asks a question or wants info, use "info" action with a helpful response
-- For meal suggestions, return multiple "add_meal" actions
-- When a member name is mentioned, match it to the closest family member and use their member_id
-- Use 24-hour time internally but show 12-hour in replies
-- Default points_value for tasks is 10
-- Always be warm, friendly, and family-oriented in your reply`;
-
-  // Determine which API to call based on available keys
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-
-  // Choose endpoint and model
-  let endpoint, model, headers;
-  if (anthropicKey) {
-    // Direct Anthropic API
-    endpoint = "https://api.anthropic.com/v1/messages";
-    model = "claude-haiku-4-5-20251001";
-    headers = {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    };
-  } else if (openaiKey) {
-    // Direct OpenAI API
-    endpoint = "https://api.openai.com/v1/chat/completions";
-    model = "gpt-4o-mini";
-    headers = {
-      Authorization: `Bearer ${openaiKey}`,
-      "Content-Type": "application/json",
-    };
-  } else {
-    // Vercel AI Gateway
-    endpoint = "https://api.vercel.ai/v1/chat/completions";
-    model = "anthropic/claude-haiku-4-5";
-    headers = {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    };
-  }
+- Match member names to the closest family member, use their member_id
+- Default points_value is 10
+- Be warm and family-oriented`;
 
   try {
-    let response;
+    // Set up the AI Gateway provider
+    const gateway = createOpenAI({
+      apiKey,
+      baseURL: "https://api.vercel.ai/v1",
+    });
 
-    if (anthropicKey) {
-      // Anthropic Messages API format
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages: [{ role: "user", content: message }],
-        }),
-      });
-    } else {
-      // OpenAI-compatible format (works for both OpenAI and Vercel AI Gateway)
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message },
-          ],
-          max_tokens: 1024,
-          temperature: 0.7,
-        }),
-      });
-    }
+    const { text } = await generateText({
+      model: gateway("anthropic/claude-haiku-4-5"),
+      system: systemPrompt,
+      prompt: message,
+      maxTokens: 1024,
+      temperature: 0.7,
+    });
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("AI error:", endpoint, err);
-      return res.status(500).json({ error: "AI request failed", details: err, endpoint });
-    }
-
-    const data = await response.json();
-
-    // Extract content based on API format
-    let content;
-    if (anthropicKey) {
-      // Anthropic Messages API response format
-      content = data.content?.[0]?.text || "";
-    } else {
-      // OpenAI format
-      content = data.choices?.[0]?.message?.content || "";
-    }
-
-    // Parse JSON from response (handle potential markdown wrapping)
+    // Parse JSON from response
     let parsed;
     try {
-      const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const jsonStr = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(jsonStr);
     } catch {
-      parsed = { reply: content, actions: [] };
+      parsed = { reply: text, actions: [] };
     }
 
     return res.status(200).json(parsed);
   } catch (err) {
-    console.error("AI error:", err);
-    return res.status(500).json({ error: "AI request failed", message: err.message });
+    console.error("AI error:", err.message, err.cause || "");
+
+    // Fallback: try direct Anthropic if available
+    if (process.env.ANTHROPIC_API_KEY && !apiKey.startsWith("sk-ant")) {
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": process.env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: [{ role: "user", content: message }],
+          }),
+        });
+        const data = await response.json();
+        const content = data.content?.[0]?.text || "";
+        let parsed;
+        try {
+          parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        } catch {
+          parsed = { reply: content, actions: [] };
+        }
+        return res.status(200).json(parsed);
+      } catch (fallbackErr) {
+        console.error("Fallback also failed:", fallbackErr.message);
+      }
+    }
+
+    return res.status(500).json({
+      error: "AI request failed",
+      message: err.message,
+    });
   }
 }
