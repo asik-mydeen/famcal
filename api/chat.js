@@ -79,32 +79,88 @@ Rules:
 - Default points_value for tasks is 10
 - Always be warm, friendly, and family-oriented in your reply`;
 
+  // Determine which API to call based on available keys
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+
+  // Choose endpoint and model
+  let endpoint, model, headers;
+  if (anthropicKey) {
+    // Direct Anthropic API
+    endpoint = "https://api.anthropic.com/v1/messages";
+    model = "claude-haiku-4-5-20251001";
+    headers = {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    };
+  } else if (openaiKey) {
+    // Direct OpenAI API
+    endpoint = "https://api.openai.com/v1/chat/completions";
+    model = "gpt-4o-mini";
+    headers = {
+      Authorization: `Bearer ${openaiKey}`,
+      "Content-Type": "application/json",
+    };
+  } else {
+    // Vercel AI Gateway
+    endpoint = "https://api.vercel.ai/v1/chat/completions";
+    model = "anthropic/claude-haiku-4-5";
+    headers = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+  }
+
   try {
-    const response = await fetch("https://api.vercel.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-haiku-4-5",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        max_tokens: 1024,
-        temperature: 0.7,
-      }),
-    });
+    let response;
+
+    if (anthropicKey) {
+      // Anthropic Messages API format
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: "user", content: message }],
+        }),
+      });
+    } else {
+      // OpenAI-compatible format (works for both OpenAI and Vercel AI Gateway)
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+          max_tokens: 1024,
+          temperature: 0.7,
+        }),
+      });
+    }
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("AI Gateway error:", err);
-      return res.status(500).json({ error: "AI request failed", details: err });
+      console.error("AI error:", endpoint, err);
+      return res.status(500).json({ error: "AI request failed", details: err, endpoint });
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "";
+
+    // Extract content based on API format
+    let content;
+    if (anthropicKey) {
+      // Anthropic Messages API response format
+      content = data.content?.[0]?.text || "";
+    } else {
+      // OpenAI format
+      content = data.choices?.[0]?.message?.content || "";
+    }
 
     // Parse JSON from response (handle potential markdown wrapping)
     let parsed;
@@ -112,13 +168,12 @@ Rules:
       const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(jsonStr);
     } catch {
-      // If parsing fails, return as info
       parsed = { reply: content, actions: [] };
     }
 
     return res.status(200).json(parsed);
   } catch (err) {
-    console.error("AI Gateway error:", err);
-    return res.status(500).json({ error: "AI request failed" });
+    console.error("AI error:", err);
+    return res.status(500).json({ error: "AI request failed", message: err.message });
   }
 }
