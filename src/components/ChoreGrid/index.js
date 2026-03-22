@@ -62,11 +62,6 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
     return "future";
   };
 
-  // Get member color
-  const getMemberColor = (memberId) => {
-    const member = members.find((m) => m.id === memberId);
-    return member?.avatar_color || "#6C5CE7";
-  };
 
   return (
     <Box
@@ -144,7 +139,9 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
 
         {/* Task Rows */}
         {gridTasks.map((task) => {
-          const memberColor = getMemberColor(task.assigned_to);
+          const member = members.find((m) => m.id === task.assigned_to);
+          const memberColor = member?.avatar_color || "#6C5CE7";
+          const memberName = member?.name?.split(" ")[0] || "Unassigned";
           return (
             <Box
               key={task.id}
@@ -155,42 +152,64 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
               {/* Task Name Cell */}
               <Box
                 sx={{
-                  p: 2,
+                  p: 1.5,
                   background: darkMode ? "rgba(255,255,255,0.02)" : "#ffffff",
                   display: "flex",
                   alignItems: "center",
-                  gap: 1.5,
+                  gap: 1,
                 }}
               >
+                {/* Member avatar */}
                 <Box
                   sx={{
-                    width: "8px",
-                    height: "8px",
+                    width: 28,
+                    height: 28,
                     borderRadius: "50%",
                     background: memberColor,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     flexShrink: 0,
+                    color: memberColor === "#FDCB6E" ? "#1a1a1a" : "#fff",
+                    fontSize: "0.6rem",
+                    fontWeight: 700,
+                    overflow: "hidden",
                   }}
-                />
-                <Typography
-                  fontSize="0.8rem"
-                  fontWeight={500}
-                  color={darkMode ? "#fff" : "#1a1a1a"}
-                  sx={{ flex: 1 }}
                 >
-                  {task.title}
-                </Typography>
+                  {member?.avatar_url ? (
+                    <Box component="img" src={member.avatar_url} alt="" sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    memberName.charAt(0)
+                  )}
+                </Box>
+                {/* Task info */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    fontSize="0.8rem"
+                    fontWeight={600}
+                    color={darkMode ? "#fff" : "#1a1a1a"}
+                    sx={{ lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {task.title}
+                  </Typography>
+                  <Typography fontSize="0.65rem" color="text.secondary" sx={{ lineHeight: 1.2, mt: 0.25 }}>
+                    {memberName}
+                  </Typography>
+                </Box>
+                {/* Points badge */}
                 <Box
                   sx={{
                     background: darkMode ? "rgba(255,255,255,0.08)" : "#f8f9fa",
                     borderRadius: "12px",
-                    px: 1,
+                    px: 0.75,
                     py: 0.25,
-                    fontSize: "0.7rem",
+                    fontSize: "0.65rem",
                     fontWeight: 600,
                     color: darkMode ? "#a78bfa" : "#7c3aed",
+                    flexShrink: 0,
                   }}
                 >
-                  {task.points_value}pt
+                  {task.points_value || 10}pt
                 </Box>
               </Box>
 
