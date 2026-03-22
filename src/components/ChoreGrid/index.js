@@ -28,8 +28,16 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Filter recurring tasks only
-  const recurringTasks = tasks.filter((t) => t.recurring);
+  // Show ALL tasks — recurring tasks appear on every day, non-recurring on their due date
+  const gridTasks = tasks.filter((t) => !t.completed);
+
+  // Check if a task applies to a specific date
+  const taskAppliesToDate = (task, date) => {
+    if (task.recurring) return true; // Recurring tasks show on all days
+    if (!task.due_date) return false;
+    const dueDate = new Date(task.due_date + "T00:00:00");
+    return isSameDay(dueDate, date);
+  };
 
   // Check task completion for a specific date
   const isTaskCompleted = (task, date) => {
@@ -41,6 +49,8 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
 
   // Get cell status for a task on a specific date
   const getCellStatus = (task, date) => {
+    if (!taskAppliesToDate(task, date)) return "empty";
+
     const dateOnly = new Date(date);
     dateOnly.setHours(0, 0, 0, 0);
     const todayOnly = new Date(today);
@@ -133,7 +143,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
         })}
 
         {/* Task Rows */}
-        {recurringTasks.map((task) => {
+        {gridTasks.map((task) => {
           const memberColor = getMemberColor(task.assigned_to);
           return (
             <Box
@@ -256,7 +266,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
                         close
                       </Icon>
                     )}
-                    {status === "future" && null}
+                    {(status === "future" || status === "empty") && null}
                   </Box>
                 );
               })}
@@ -265,7 +275,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
         })}
 
         {/* Empty State */}
-        {recurringTasks.length === 0 && (
+        {gridTasks.length === 0 && (
           <Box
             sx={{
               gridColumn: "1 / -1",
@@ -287,7 +297,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, darkMode }) {
               color={darkMode ? "rgba(255,255,255,0.5)" : "text.secondary"}
               fontSize="0.9rem"
             >
-              No recurring chores yet. Add some from the + button below.
+              No chores yet. Add some from the + button below.
             </Typography>
           </Box>
         )}
