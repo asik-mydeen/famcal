@@ -14,6 +14,7 @@ import Divider from "@mui/material/Divider";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
 import PageTransition from "components/PageTransition";
+import SlidePanel from "components/SlidePanel";
 import { useFamilyController } from "context/FamilyContext";
 import { useTheme } from "@mui/material/styles";
 
@@ -53,8 +54,6 @@ export default function Lists() {
   const [newListName, setNewListName] = useState("");
   const [newListIcon, setNewListIcon] = useState("shopping_cart");
   const [newItemText, setNewItemText] = useState("");
-  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
-  const [listToDelete, setListToDelete] = useState(null);
 
   // Auto-create default "Groceries" list if no lists exist
   useEffect(() => {
@@ -122,22 +121,23 @@ export default function Lists() {
     setNewListIcon("shopping_cart");
   }, [newListName, newListIcon, dispatch]);
 
-  const handleDeleteList = useCallback(() => {
-    if (!listToDelete) return;
+  const handleDeleteList = useCallback((listId) => {
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
 
-    dispatch({ type: "REMOVE_LIST", value: listToDelete });
+    const confirmed = window.confirm(`Delete "${list.name}" list? This will permanently delete the list and all its items. This action cannot be undone.`);
+    if (!confirmed) return;
+
+    dispatch({ type: "REMOVE_LIST", value: listId });
 
     // Switch to another list if available
-    const remainingLists = lists.filter(l => l.id !== listToDelete);
+    const remainingLists = lists.filter(l => l.id !== listId);
     if (remainingLists.length > 0) {
       setActiveListId(remainingLists[0].id);
     } else {
       setActiveListId(null);
     }
-
-    setOpenDeleteConfirm(false);
-    setListToDelete(null);
-  }, [listToDelete, lists, dispatch]);
+  }, [lists, dispatch]);
 
   const handleAddItem = useCallback((e) => {
     e.preventDefault();
@@ -255,8 +255,7 @@ export default function Lists() {
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setListToDelete(list.id);
-                      setOpenDeleteConfirm(true);
+                      handleDeleteList(list.id);
                     }}
                     sx={{
                       ml: 0.5,
@@ -489,36 +488,47 @@ export default function Lists() {
           </GlassCard>
         ) : null}
 
-        {/* New List Dialog */}
-        <Dialog
+        {/* New List SlidePanel */}
+        <SlidePanel
           open={openNewListDialog}
           onClose={() => setOpenNewListDialog(false)}
-          maxWidth="xs"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: "20px",
-              p: 1,
-              background: dark ? "rgba(30,30,30,0.95)" : "#fff",
-              backdropFilter: "blur(20px)",
-            },
-          }}
+          title="Create New List"
+          icon="add"
+          width={420}
+          actions={
+            <>
+              <Button onClick={() => setOpenNewListDialog(false)} variant="outlined" sx={{ borderRadius: "12px", textTransform: "none" }}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCreateList}
+                disabled={!newListName.trim()}
+                sx={{
+                  background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  color: "#fff",
+                  textTransform: "none",
+                  borderRadius: "12px",
+                  px: 3,
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+                  },
+                }}
+              >
+                Create
+              </Button>
+            </>
+          }
         >
-          <DialogTitle>
-            <Typography variant="h6" fontWeight={700}>
-              Create New List
-            </Typography>
-          </DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="List Name"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              autoFocus
-              sx={{ mb: 3, mt: 1 }}
-            />
+          <TextField
+            fullWidth
+            label="List Name"
+            value={newListName}
+            onChange={(e) => setNewListName(e.target.value)}
+            autoFocus
+          />
 
+          <Box>
             <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
               Choose Icon
             </Typography>
@@ -545,78 +555,8 @@ export default function Lists() {
                 </IconButton>
               ))}
             </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenNewListDialog(false)} sx={{ color: "text.secondary" }}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleCreateList}
-              disabled={!newListName.trim()}
-              sx={{
-                background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
-                color: "#fff",
-                textTransform: "none",
-                borderRadius: "12px",
-                px: 3,
-                "&:hover": {
-                  background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
-                },
-              }}
-            >
-              Create
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog
-          open={openDeleteConfirm}
-          onClose={() => setOpenDeleteConfirm(false)}
-          maxWidth="xs"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: "20px",
-              p: 1,
-              background: dark ? "rgba(30,30,30,0.95)" : "#fff",
-              backdropFilter: "blur(20px)",
-            },
-          }}
-        >
-          <DialogTitle>
-            <Typography variant="h6" fontWeight={700}>
-              Delete List?
-            </Typography>
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary">
-              This will permanently delete the list and all its items. This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setOpenDeleteConfirm(false)} sx={{ color: "text.secondary" }}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleDeleteList}
-              sx={{
-                background: "linear-gradient(135deg, #f43f5e 0%, #dc2626 100%)",
-                color: "#fff",
-                textTransform: "none",
-                borderRadius: "12px",
-                px: 3,
-                "&:hover": {
-                  background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
-                },
-              }}
-            >
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+          </Box>
+        </SlidePanel>
       </Box>
     </PageTransition>
   );

@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "components/PageTransition";
 import GlassCard from "components/GlassCard";
 import MealGrid from "components/MealGrid";
+import SlidePanel from "components/SlidePanel";
 import { useFamilyController } from "context/FamilyContext";
 
 const INITIAL_MEAL_FORM = {
@@ -314,109 +315,95 @@ function Meals() {
           />
         </GlassCard>
 
-        {/* Add/Edit Meal Dialog */}
-        <Dialog
+        {/* Add/Edit Meal SlidePanel */}
+        <SlidePanel
           open={openDialog}
           onClose={handleCloseDialog}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: "20px",
-              background: darkMode ? "rgba(30,30,30,0.98)" : "#fff",
-              border: darkMode ? "1px solid rgba(255,255,255,0.1)" : "none",
-            },
-          }}
-        >
-          <DialogTitle>
-            <Typography variant="h6" fontWeight={700}>
-              {editingMeal ? "Edit Meal" : "Add Meal"}
-            </Typography>
-          </DialogTitle>
-          <DialogContent>
-            <Box display="flex" flexDirection="column" gap={2} pt={1}>
-              <TextField
-                label="Meal Title"
-                value={mealForm.title}
-                onChange={(e) => setMealForm({ ...mealForm, title: e.target.value })}
-                fullWidth
-                autoFocus
-              />
-              <TextField
-                label="Notes (optional)"
-                value={mealForm.notes}
-                onChange={(e) => setMealForm({ ...mealForm, notes: e.target.value })}
-                fullWidth
-                multiline
-                rows={3}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-            {editingMeal && (
+          title={editingMeal ? "Edit Meal" : "Add Meal"}
+          icon="restaurant"
+          actions={
+            <>
+              {editingMeal && (
+                <Button
+                  onClick={handleDeleteMeal}
+                  variant="outlined"
+                  color="error"
+                  sx={{
+                    borderRadius: "12px",
+                    textTransform: "none",
+                    mr: "auto",
+                  }}
+                >
+                  Delete
+                </Button>
+              )}
               <Button
-                onClick={handleDeleteMeal}
+                onClick={handleAddToGroceryList}
                 variant="outlined"
-                color="error"
                 sx={{
                   borderRadius: "12px",
                   textTransform: "none",
-                  mr: "auto",
+                  borderColor: darkMode ? "rgba(78,205,196,0.3)" : "rgba(78,205,196,0.5)",
+                  color: darkMode ? "#4ECDC4" : "#0f766e",
+                  "&:hover": {
+                    borderColor: darkMode ? "rgba(78,205,196,0.5)" : "rgba(78,205,196,0.7)",
+                    background: darkMode ? "rgba(78,205,196,0.05)" : "rgba(78,205,196,0.05)",
+                  },
                 }}
               >
-                Delete
+                Add to Grocery List
               </Button>
-            )}
-            <Button
-              onClick={handleAddToGroceryList}
-              variant="outlined"
-              sx={{
-                borderRadius: "12px",
-                textTransform: "none",
-                borderColor: darkMode ? "rgba(78,205,196,0.3)" : "rgba(78,205,196,0.5)",
-                color: darkMode ? "#4ECDC4" : "#0f766e",
-                "&:hover": {
-                  borderColor: darkMode ? "rgba(78,205,196,0.5)" : "rgba(78,205,196,0.7)",
-                  background: darkMode ? "rgba(78,205,196,0.05)" : "rgba(78,205,196,0.05)",
-                },
-              }}
-            >
-              Add to Grocery List
-            </Button>
-            <Button
-              onClick={handleCloseDialog}
-              variant="outlined"
-              sx={{
-                borderRadius: "12px",
-                textTransform: "none",
-                color: darkMode ? "#fff" : "#000",
-                borderColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveMeal}
-              variant="contained"
-              disabled={!mealForm.title.trim()}
-              sx={{
-                borderRadius: "12px",
-                textTransform: "none",
-                background: darkMode
-                  ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-                  : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
-                color: "#fff",
-                "&:hover": {
+              <Button
+                onClick={handleCloseDialog}
+                variant="outlined"
+                sx={{
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  color: darkMode ? "#fff" : "#000",
+                  borderColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveMeal}
+                variant="contained"
+                disabled={!mealForm.title.trim()}
+                sx={{
+                  borderRadius: "12px",
+                  textTransform: "none",
                   background: darkMode
-                    ? "linear-gradient(135deg, #6d28d9, #9333ea)"
-                    : "linear-gradient(135deg, #44a6a0, #3d9590)",
-                },
-              }}
-            >
-              Save
-            </Button>
-          </DialogActions>
-        </Dialog>
+                    ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+                    : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
+                  color: "#fff",
+                  "&:hover": {
+                    background: darkMode
+                      ? "linear-gradient(135deg, #6d28d9, #9333ea)"
+                      : "linear-gradient(135deg, #44a6a0, #3d9590)",
+                  },
+                }}
+              >
+                Save
+              </Button>
+            </>
+          }
+        >
+          <TextField
+            label="Meal Title"
+            value={mealForm.title}
+            onChange={(e) => setMealForm({ ...mealForm, title: e.target.value })}
+            fullWidth
+            autoFocus
+          />
+          <TextField
+            label="Notes (optional)"
+            value={mealForm.notes}
+            onChange={(e) => setMealForm({ ...mealForm, notes: e.target.value })}
+            fullWidth
+            multiline
+            rows={3}
+          />
+        </SlidePanel>
 
         {/* Add to Grocery List Dialog */}
         <Dialog

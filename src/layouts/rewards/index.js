@@ -20,6 +20,7 @@ import Fab from "@mui/material/Fab";
 import Divider from "@mui/material/Divider";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import GlassCard from "components/GlassCard";
+import SlidePanel from "components/SlidePanel";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 
 const LEVEL_TITLES = [
@@ -522,130 +523,15 @@ function Rewards() {
         </Grid>
       </Grid>
 
-      {/* ── Claim Reward Dialog ── */}
-      <Dialog
+      {/* ── Claim Reward SlidePanel ── */}
+      <SlidePanel
         open={claimDialog}
         onClose={() => setClaimDialog(false)}
-        maxWidth="xs"
-        fullWidth
-        fullScreen={isSmall}
-        PaperProps={{
-          sx: {
-            borderRadius: isSmall ? 0 : "20px",
-            bgcolor: "rgba(30,30,40,0.95)",
-            backdropFilter: "blur(24px)",
-            border: "1px solid", borderColor: "divider",
-            p: 1,
-          },
-        }}
-      >
-        <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
-              Claim Reward
-            </Typography>
-            <IconButton onClick={() => setClaimDialog(false)} sx={{ color: "text.secondary" }}>
-              <Icon>close</Icon>
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {selectedReward && (
-            <Box sx={{ textAlign: "center", mt: 1 }}>
-              {/* Reward icon */}
-              <Box sx={{ width: 64, height: 64, borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "primary.main", mx: "auto", mb: 1 }}>
-                <Icon sx={{ fontSize: "2rem !important", color: "#fff" }}>{selectedReward.icon}</Icon>
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>
-                {selectedReward.title}
-              </Typography>
-              <Chip
-                label={`\u2B50 ${selectedReward.points_cost} points`}
-                sx={{
-                  bgcolor: "rgba(245,158,11,0.15)",
-                  color: "#f59e0b",
-                  fontWeight: 700,
-                  border: "1px solid rgba(245,158,11,0.25)",
-                  mb: 3,
-                }}
-              />
-
-              {/* Member select */}
-              <TextField
-                select
-                fullWidth
-                label="Select Family Member"
-                value={selectedMember}
-                onChange={(e) => setSelectedMember(e.target.value)}
-                sx={{
-                  mb: 2,
-                  "& .MuiOutlinedInput-root": {
-                    borderRadius: "12px",
-                    color: "text.primary",
-                    "& fieldset": { borderColor: "divider" },
-                    "&:hover fieldset": { borderColor: "text.disabled" },
-                    "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
-                  },
-                  "& .MuiInputLabel-root": { color: "text.secondary" },
-                  "& .MuiSelect-icon": { color: "text.secondary" },
-                }}
-              >
-                {members.map((m) => (
-                  <MenuItem key={m.id} value={m.id} disabled={m.points < selectedReward.points_cost}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
-                      <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: m.avatar_color, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon sx={{ fontSize: "0.9rem !important", color: "#fff" }}>person</Icon></Box>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {m.name}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 600,
-                          color: m.points >= selectedReward.points_cost ? "#22c55e" : "#f43f5e",
-                        }}
-                      >
-                        {m.points} pts
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              {/* Remaining points preview */}
-              {claimMember && (
-                <Box
-                  sx={{
-                    p: 2,
-                    borderRadius: "12px",
-                    bgcolor: canClaim ? "rgba(34,197,94,0.08)" : "rgba(244,63,94,0.08)",
-                    border: `1px solid ${canClaim ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}`,
-                  }}
-                >
-                  {canClaim ? (
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      {claimMember.name} will have{" "}
-                      <Typography
-                        component="span"
-                        sx={{ fontWeight: 700, color: "#22c55e" }}
-                      >
-                        {remainingPoints} points
-                      </Typography>{" "}
-                      remaining
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: "#f43f5e", fontWeight: 600 }}>
-                      Not enough points ({claimMember.points} / {selectedReward.points_cost} needed)
-                    </Typography>
-                  )}
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          {!isSmall && (
+        title="Claim Reward"
+        icon="redeem"
+        width={420}
+        actions={
+          <>
             <Button
               variant="outlined"
               onClick={() => setClaimDialog(false)}
@@ -662,116 +548,57 @@ function Rewards() {
             >
               Cancel
             </Button>
-          )}
-          <Button
-            variant="contained"
-            disabled={!canClaim}
-            onClick={handleClaim}
-            fullWidth={isSmall}
-            sx={{
-              bgcolor: "#22c55e",
-              color: "text.primary",
-              fontWeight: 600,
-              borderRadius: "12px",
-              textTransform: "none",
-              "&:hover": { bgcolor: "#16a34a" },
-              "&.Mui-disabled": {
-                bgcolor: "action.hover",
-                color: "text.disabled",
-              },
-            }}
-          >
-            Confirm Claim
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Add Reward Dialog ── */}
-      <Dialog
-        open={addDialog}
-        onClose={() => setAddDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isSmall}
-        PaperProps={{
-          sx: {
-            borderRadius: isSmall ? 0 : "20px",
-            bgcolor: "rgba(30,30,40,0.95)",
-            backdropFilter: "blur(24px)",
-            border: "1px solid", borderColor: "divider",
-            p: 1,
-          },
-        }}
-      >
-        <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
-              Add New Reward
-            </Typography>
-            <IconButton onClick={() => setAddDialog(false)} sx={{ color: "text.secondary" }}>
-              <Icon>close</Icon>
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {/* Emoji picker */}
-            <Typography
-              variant="caption"
+            <Button
+              variant="contained"
+              disabled={!canClaim}
+              onClick={handleClaim}
               sx={{
-                fontWeight: 700,
-                textTransform: "uppercase",
-                color: "text.secondary",
-                letterSpacing: "0.05em",
-                mb: 1,
-                display: "block",
+                bgcolor: "#22c55e",
+                color: "#fff",
+                fontWeight: 600,
+                borderRadius: "12px",
+                textTransform: "none",
+                "&:hover": { bgcolor: "#16a34a" },
+                "&.Mui-disabled": {
+                  bgcolor: "action.hover",
+                  color: "text.disabled",
+                },
               }}
             >
-              Choose an Icon
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 3 }}>
-              {REWARD_ICONS.map((iconName) => (
-                <Box
-                  key={iconName}
-                  onClick={() => setNewReward({ ...newReward, icon: iconName })}
-                  sx={{
-                    width: isSmall ? 42 : 48,
-                    height: isSmall ? 42 : 48,
-                    borderRadius: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    border:
-                      newReward.icon === iconName
-                        ? "2px solid #6C5CE7"
-                        : "1px solid rgba(0,0,0,0.06)",
-                    bgcolor:
-                      newReward.icon === iconName
-                        ? "rgba(108,92,231,0.15)"
-                        : "rgba(0,0,0,0.02)",
-                    transition: "all 0.2s",
-                    touchAction: "manipulation",
-                    "&:hover": {
-                      transform: "scale(1.1)",
-                      borderColor: "divider",
-                    },
-                  }}
-                >
-                  <Icon sx={{ fontSize: "1.3rem !important", color: newReward.icon === iconName ? "primary.main" : "text.secondary" }}>{iconName}</Icon>
-                </Box>
-              ))}
+              Confirm Claim
+            </Button>
+          </>
+        }
+      >
+        {selectedReward && (
+          <>
+            <Box sx={{ textAlign: "center" }}>
+              {/* Reward icon */}
+              <Box sx={{ width: 64, height: 64, borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "primary.main", mx: "auto", mb: 1 }}>
+                <Icon sx={{ fontSize: "2rem !important", color: "#fff" }}>{selectedReward.icon}</Icon>
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", mb: 0.5 }}>
+                {selectedReward.title}
+              </Typography>
+              <Chip
+                label={`\u2B50 ${selectedReward.points_cost} points`}
+                sx={{
+                  bgcolor: "rgba(245,158,11,0.15)",
+                  color: "#f59e0b",
+                  fontWeight: 700,
+                  border: "1px solid rgba(245,158,11,0.25)",
+                }}
+              />
             </Box>
 
-            {/* Title */}
+            {/* Member select */}
             <TextField
+              select
               fullWidth
-              label="Reward Title"
-              placeholder="e.g. Extra Screen Time"
-              value={newReward.title}
-              onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
+              label="Select Family Member"
+              value={selectedMember}
+              onChange={(e) => setSelectedMember(e.target.value)}
               sx={{
-                mb: 2.5,
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "12px",
                   color: "text.primary",
@@ -780,56 +607,73 @@ function Rewards() {
                   "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
                 },
                 "& .MuiInputLabel-root": { color: "text.secondary" },
+                "& .MuiSelect-icon": { color: "text.secondary" },
               }}
-            />
+            >
+              {members.map((m) => (
+                <MenuItem key={m.id} value={m.id} disabled={m.points < selectedReward.points_cost}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+                    <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: m.avatar_color, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon sx={{ fontSize: "0.9rem !important", color: "#fff" }}>person</Icon></Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {m.name}
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 600,
+                        color: m.points >= selectedReward.points_cost ? "#22c55e" : "#f43f5e",
+                      }}
+                    >
+                      {m.points} pts
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </TextField>
 
-            {/* Description */}
-            <TextField
-              fullWidth
-              multiline
-              rows={2}
-              label="Description"
-              placeholder="What does this reward include?"
-              value={newReward.description}
-              onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-              sx={{
-                mb: 2.5,
-                "& .MuiOutlinedInput-root": {
+            {/* Remaining points preview */}
+            {claimMember && (
+              <Box
+                sx={{
+                  p: 2,
                   borderRadius: "12px",
-                  color: "text.primary",
-                  "& fieldset": { borderColor: "divider" },
-                  "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
-                },
-                "& .MuiInputLabel-root": { color: "text.secondary" },
-              }}
-            />
+                  bgcolor: canClaim ? "rgba(34,197,94,0.08)" : "rgba(244,63,94,0.08)",
+                  border: `1px solid ${canClaim ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}`,
+                }}
+              >
+                {canClaim ? (
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    {claimMember.name} will have{" "}
+                    <Typography
+                      component="span"
+                      sx={{ fontWeight: 700, color: "#22c55e" }}
+                    >
+                      {remainingPoints} points
+                    </Typography>{" "}
+                    remaining
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ color: "#f43f5e", fontWeight: 600 }}>
+                    Not enough points ({claimMember.points} / {selectedReward.points_cost} needed)
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </>
+        )}
+      </SlidePanel>
 
-            {/* Points Cost */}
-            <TextField
-              fullWidth
-              type="number"
-              label="Points Cost"
-              value={newReward.points_cost}
-              onChange={(e) =>
-                setNewReward({ ...newReward, points_cost: parseInt(e.target.value, 10) || 0 })
-              }
-              inputProps={{ min: 1 }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "12px",
-                  color: "text.primary",
-                  "& fieldset": { borderColor: "divider" },
-                  "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
-                },
-                "& .MuiInputLabel-root": { color: "text.secondary" },
-              }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          {!isSmall && (
+      {/* ── Add Reward SlidePanel ── */}
+      <SlidePanel
+        open={addDialog}
+        onClose={() => setAddDialog(false)}
+        title="Add New Reward"
+        icon="add"
+        width={480}
+        actions={
+          <>
             <Button
               variant="outlined"
               onClick={() => setAddDialog(false)}
@@ -846,29 +690,140 @@ function Rewards() {
             >
               Cancel
             </Button>
-          )}
-          <Button
-            variant="contained"
-            disabled={!newReward.title}
-            onClick={handleAddReward}
-            fullWidth={isSmall}
+            <Button
+              variant="contained"
+              disabled={!newReward.title}
+              onClick={handleAddReward}
+              sx={{
+                bgcolor: "#6C5CE7",
+                color: "#fff",
+                fontWeight: 600,
+                borderRadius: "12px",
+                textTransform: "none",
+                "&:hover": { bgcolor: "#5A4BD1" },
+                "&.Mui-disabled": {
+                  bgcolor: "action.hover",
+                  color: "text.disabled",
+                },
+              }}
+            >
+              Add Reward
+            </Button>
+          </>
+        }
+      >
+        {/* Emoji picker */}
+        <Box>
+          <Typography
+            variant="caption"
             sx={{
-              bgcolor: "#6C5CE7",
-              color: "text.primary",
-              fontWeight: 600,
-              borderRadius: "12px",
-              textTransform: "none",
-              "&:hover": { bgcolor: "#5A4BD1" },
-              "&.Mui-disabled": {
-                bgcolor: "action.hover",
-                color: "text.disabled",
-              },
+              fontWeight: 700,
+              textTransform: "uppercase",
+              color: "text.secondary",
+              letterSpacing: "0.05em",
+              mb: 1,
+              display: "block",
             }}
           >
-            Add Reward
-          </Button>
-        </DialogActions>
-      </Dialog>
+            Choose an Icon
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {REWARD_ICONS.map((iconName) => (
+              <Box
+                key={iconName}
+                onClick={() => setNewReward({ ...newReward, icon: iconName })}
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  border:
+                    newReward.icon === iconName
+                      ? "2px solid #6C5CE7"
+                      : "1px solid rgba(0,0,0,0.06)",
+                  bgcolor:
+                    newReward.icon === iconName
+                      ? "rgba(108,92,231,0.15)"
+                      : "rgba(0,0,0,0.02)",
+                  transition: "all 0.2s",
+                  touchAction: "manipulation",
+                  "&:hover": {
+                    transform: "scale(1.1)",
+                    borderColor: "divider",
+                  },
+                }}
+              >
+                <Icon sx={{ fontSize: "1.3rem !important", color: newReward.icon === iconName ? "primary.main" : "text.secondary" }}>{iconName}</Icon>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        {/* Title */}
+        <TextField
+          fullWidth
+          label="Reward Title"
+          placeholder="e.g. Extra Screen Time"
+          value={newReward.title}
+          onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "12px",
+              color: "text.primary",
+              "& fieldset": { borderColor: "divider" },
+              "&:hover fieldset": { borderColor: "text.disabled" },
+              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+            },
+            "& .MuiInputLabel-root": { color: "text.secondary" },
+          }}
+        />
+
+        {/* Description */}
+        <TextField
+          fullWidth
+          multiline
+          rows={2}
+          label="Description"
+          placeholder="What does this reward include?"
+          value={newReward.description}
+          onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "12px",
+              color: "text.primary",
+              "& fieldset": { borderColor: "divider" },
+              "&:hover fieldset": { borderColor: "text.disabled" },
+              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+            },
+            "& .MuiInputLabel-root": { color: "text.secondary" },
+          }}
+        />
+
+        {/* Points Cost */}
+        <TextField
+          fullWidth
+          type="number"
+          label="Points Cost"
+          value={newReward.points_cost}
+          onChange={(e) =>
+            setNewReward({ ...newReward, points_cost: parseInt(e.target.value, 10) || 0 })
+          }
+          inputProps={{ min: 1 }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "12px",
+              color: "text.primary",
+              "& fieldset": { borderColor: "divider" },
+              "&:hover fieldset": { borderColor: "text.disabled" },
+              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+            },
+            "& .MuiInputLabel-root": { color: "text.secondary" },
+          }}
+        />
+      </SlidePanel>
     </Box>
   );
 }

@@ -20,6 +20,7 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { motion } from "framer-motion";
 import GlassCard from "components/GlassCard";
+import SlidePanel from "components/SlidePanel";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { connectMemberCalendar, disconnectMemberCalendar } from "lib/googleCalendar";
 import { uploadAvatar } from "lib/supabase";
@@ -49,7 +50,6 @@ function Family() {
 
   const [openDialog, setOpenDialog] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [deleteDialog, setDeleteDialog] = useState(null);
   const [connectingId, setConnectingId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -174,9 +174,10 @@ function Family() {
     setOpenDialog(false);
   };
 
-  const handleRemove = (memberId) => {
-    dispatch({ type: "REMOVE_MEMBER", value: memberId });
-    setDeleteDialog(null);
+  const handleRemove = (member) => {
+    const confirmed = window.confirm(`Remove ${member.name}? This will remove the member and their associated data. This action cannot be undone.`);
+    if (!confirmed) return;
+    dispatch({ type: "REMOVE_MEMBER", value: member.id });
   };
 
   const handleConnect = async (member) => {
@@ -504,7 +505,7 @@ function Family() {
                   <Tooltip title="Remove">
                     <IconButton
                       size="small"
-                      onClick={() => setDeleteDialog(member)}
+                      onClick={() => handleRemove(member)}
                       sx={{
                         color: "text.secondary",
                         "&:hover": { color: "#f43f5e", backgroundColor: "rgba(244,63,94,0.1)" },
@@ -525,7 +526,7 @@ function Family() {
         onClick={openAddDialog}
         sx={{
           position: "fixed",
-          bottom: 76,
+          bottom: 160,
           right: 20,
           background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
           color: "#fff",
@@ -539,94 +540,108 @@ function Family() {
         <Icon>person_add</Icon>
       </Fab>
 
-      {/* Add / Edit Member Dialog */}
-      <Dialog
+      {/* Add / Edit Member SlidePanel */}
+      <SlidePanel
         open={openDialog}
         onClose={() => setOpenDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        fullScreen={isSmall}
-        PaperProps={{
-          sx: {
-            background: "background.paper",
-            border: "1px solid", borderColor: "divider",
-            borderRadius: isSmall ? 0 : "24px",
-            color: "text.primary",
-          },
-        }}
+        title={editingMember ? "Edit Member" : "Add Member"}
+        icon="person"
+        width={480}
+        actions={
+          <>
+            <Button
+              variant="outlined"
+              onClick={() => setOpenDialog(false)}
+              sx={{
+                color: "text.secondary",
+                borderColor: "divider",
+                textTransform: "none",
+                borderRadius: "12px",
+                "&:hover": { borderColor: "text.disabled" },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              sx={{
+                background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
+                color: "#fff",
+                textTransform: "none",
+                borderRadius: "12px",
+                fontWeight: 600,
+                "&:hover": {
+                  background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
+                },
+              }}
+            >
+              {editingMember ? "Save Changes" : "Add Member"}
+            </Button>
+          </>
+        }
       >
-        <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h5" fontWeight="bold" sx={{ color: "text.primary" }}>
-              {editingMember ? "Edit Member" : "Add Member"}
-            </Typography>
-            {isSmall && (
-              <IconButton onClick={() => setOpenDialog(false)} sx={{ color: "text.secondary" }}>
-                <Icon>close</Icon>
-              </IconButton>
-            )}
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {/* Name field */}
-            <Typography
-              variant="caption"
-              fontWeight="bold"
-              sx={{
-                color: "text.secondary",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                mb: 0.75,
-                display: "block",
-              }}
-            >
-              Name
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="Enter name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              variant="outlined"
-              size="small"
-              sx={{ mb: 2.5 }}
-            />
+        {/* Name field */}
+        <Box>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            sx={{
+              color: "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              mb: 0.75,
+              display: "block",
+            }}
+          >
+            Name
+          </Typography>
+          <TextField
+            fullWidth
+            placeholder="Enter name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            variant="outlined"
+            size="small"
+          />
+        </Box>
 
-            {/* Birth Date */}
-            <Typography
-              variant="caption"
-              fontWeight="bold"
-              sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 1, mb: 0.75, display: "block" }}
-            >
-              Birth Date
-            </Typography>
-            <TextField
-              fullWidth
-              type="date"
-              value={formData.birth_date}
-              onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-              variant="outlined"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              sx={{ mb: 2.5 }}
-            />
+        {/* Birth Date */}
+        <Box>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            sx={{ color: "text.secondary", textTransform: "uppercase", letterSpacing: 1, mb: 0.75, display: "block" }}
+          >
+            Birth Date
+          </Typography>
+          <TextField
+            fullWidth
+            type="date"
+            value={formData.birth_date}
+            onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+            variant="outlined"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+          />
+        </Box>
 
-            {/* Photo Upload */}
-            <Typography
-              variant="caption"
-              fontWeight="bold"
-              sx={{
-                color: "text.secondary",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                mb: 1,
-                display: "block",
-              }}
-            >
-              Profile Photo
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2.5 }}>
+        {/* Photo Upload */}
+        <Box>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            sx={{
+              color: "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              mb: 1,
+              display: "block",
+            }}
+          >
+            Profile Photo
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box
                 onClick={() => fileInputRef.current?.click()}
                 sx={{
@@ -718,22 +733,25 @@ function Family() {
                 onChange={handlePhotoUpload}
               />
             </Box>
+          </Box>
+        </Box>
 
-            {/* Color Picker */}
-            <Typography
-              variant="caption"
-              fontWeight="bold"
-              sx={{
-                color: "text.secondary",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                mb: 1,
-                display: "block",
-              }}
-            >
-              Color
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2.5 }}>
+        {/* Color Picker */}
+        <Box>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            sx={{
+              color: "text.secondary",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              mb: 1,
+              display: "block",
+            }}
+          >
+            Color
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {MEMBER_COLORS.map((color) => (
                 <Box
                   key={color.value}
@@ -758,10 +776,12 @@ function Family() {
                   }}
                 />
               ))}
-            </Box>
+          </Box>
+        </Box>
 
-            {/* Preview */}
-            <Box sx={{ display: "flex", justifyContent: "center", mb: 2.5 }}>
+        {/* Preview */}
+        <Box>
+          <Box sx={{ display: "flex", justifyContent: "center" }}>
               <Box
                 sx={{
                   width: 56,
@@ -788,128 +808,40 @@ function Family() {
                 )}
               </Box>
             </Box>
-
-            {/* Google Calendar ID */}
-            <Typography
-              variant="caption"
-              fontWeight="bold"
-              sx={{
-                color: "text.secondary",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-                mb: 0.75,
-                display: "block",
-              }}
-            >
-              Google Calendar ID (optional)
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="example@gmail.com or calendar ID"
-              value={formData.google_calendar_id}
-              onChange={(e) => setFormData({ ...formData, google_calendar_id: e.target.value })}
-              variant="outlined"
-              size="small"
-            />
-            <Typography
-              variant="caption"
-              sx={{ color: "text.disabled", mt: 0.5, display: "block" }}
-            >
-              Enter Google Calendar ID to sync events automatically
-            </Typography>
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          {!isSmall && (
-            <Button
-              variant="outlined"
-              onClick={() => setOpenDialog(false)}
-              sx={{
-                color: "text.secondary",
-                borderColor: "divider",
-                textTransform: "none",
-                borderRadius: "12px",
-                "&:hover": { borderColor: "text.disabled" },
-              }}
-            >
-              Cancel
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            fullWidth={isSmall}
-            sx={{
-              background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
-              color: "#fff",
-              textTransform: "none",
-              borderRadius: "12px",
-              fontWeight: 600,
-              "&:hover": {
-                background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
-              },
-            }}
-          >
-            {editingMember ? "Save Changes" : "Add Member"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={Boolean(deleteDialog)}
-        onClose={() => setDeleteDialog(null)}
-        PaperProps={{
-          sx: {
-            background: "background.paper",
-            border: "1px solid", borderColor: "divider",
-            borderRadius: "20px",
-            color: "text.primary",
-            p: 1,
-          },
-        }}
-      >
-        <DialogTitle>
-          <Typography variant="h6" fontWeight="bold" sx={{ color: "text.primary" }}>
-            Remove {deleteDialog?.name}?
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            This will remove the member and their associated data. This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setDeleteDialog(null)}
+        {/* Google Calendar ID */}
+        <Box>
+          <Typography
+            variant="caption"
+            fontWeight="bold"
             sx={{
               color: "text.secondary",
-              borderColor: "divider",
-              textTransform: "none",
-              borderRadius: "12px",
-              "&:hover": { borderColor: "text.disabled" },
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              mb: 0.75,
+              display: "block",
             }}
           >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => handleRemove(deleteDialog?.id)}
-            sx={{
-              background: "linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)",
-              textTransform: "none",
-              borderRadius: "12px",
-              fontWeight: 600,
-              "&:hover": {
-                background: "linear-gradient(135deg, #e11d48 0%, #be123c 100%)",
-              },
-            }}
+            Google Calendar ID (optional)
+          </Typography>
+          <TextField
+            fullWidth
+            placeholder="example@gmail.com or calendar ID"
+            value={formData.google_calendar_id}
+            onChange={(e) => setFormData({ ...formData, google_calendar_id: e.target.value })}
+            variant="outlined"
+            size="small"
+          />
+          <Typography
+            variant="caption"
+            sx={{ color: "text.disabled", mt: 0.5, display: "block" }}
           >
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
+            Enter Google Calendar ID to sync events automatically
+          </Typography>
+        </Box>
+      </SlidePanel>
     </Box>
   );
 }

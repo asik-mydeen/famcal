@@ -780,7 +780,7 @@ function Chores() {
           color="primary"
           sx={{
             position: "fixed",
-            bottom: 100,
+            bottom: 160,
             right: 24,
             background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
             boxShadow: "0 8px 24px rgba(108, 92, 231, 0.35)",

@@ -720,7 +720,7 @@ function FamilyCalendar() {
 
       {/* FAB */}
       <Fab color="primary" onClick={() => { setEditingEvent(null); setEventForm(defaultEventForm(fmtDate(currentDate))); setDialogOpen(true); }}
-        sx={{ position: "fixed", bottom: 100, right: 20, zIndex: 1200 }}
+        sx={{ position: "fixed", bottom: 160, right: 20, zIndex: 1200 }}
       >
         <Icon>add</Icon>
       </Fab>
