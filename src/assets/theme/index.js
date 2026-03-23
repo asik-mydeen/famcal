@@ -2,8 +2,10 @@ import { createTheme } from "@mui/material/styles";
 
 // ── Shared values ──
 
-const sharedTypography = {
-  fontFamily: '"Inter", "Helvetica", "Arial", sans-serif',
+function getTypographyBase(fontFamily) {
+  const ff = fontFamily || '"Inter", "Helvetica", "Arial", sans-serif';
+  return {
+  fontFamily: ff,
   h1: { fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.025em" },
   h2: { fontSize: "2rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.02em" },
   h3: { fontSize: "1.75rem", fontWeight: 700, lineHeight: 1.3, letterSpacing: "-0.015em" },
@@ -13,7 +15,8 @@ const sharedTypography = {
   body1: { fontSize: "0.9375rem", fontWeight: 400, lineHeight: 1.6 },
   body2: { fontSize: "0.8125rem", fontWeight: 400, lineHeight: 1.6 },
   button: { fontWeight: 600, textTransform: "none", fontSize: "0.875rem" },
-};
+  };
+}
 
 const sharedShape = { borderRadius: 16 };
 
@@ -240,11 +243,12 @@ function getComponents(mode) {
 
 // ── Export theme factory ──
 
-export function createAppTheme(mode = "dark") {
+export function createAppTheme(mode = "dark", fontFamily) {
+  const typoBase = getTypographyBase(fontFamily);
   return createTheme({
     palette: getPalette(mode),
     typography: {
-      ...sharedTypography,
+      ...typoBase,
       subtitle1: { fontSize: "1rem", fontWeight: 500, lineHeight: 1.5, color: mode === "dark" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)" },
       subtitle2: { fontSize: "0.875rem", fontWeight: 500, lineHeight: 1.5, color: mode === "dark" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)" },
       caption: { fontSize: "0.75rem", fontWeight: 500, lineHeight: 1.5, color: mode === "dark" ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)" },

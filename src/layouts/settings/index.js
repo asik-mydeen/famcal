@@ -280,12 +280,21 @@ function Settings() {
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
 
-  const fontOptions = ["Inter", "Roboto", "Open Sans", "System"];
+  const fontOptions = [
+    { name: "Inter", family: "Inter", style: "Modern clean" },
+    { name: "Poppins", family: "Poppins", style: "Friendly round" },
+    { name: "Quicksand", family: "Quicksand", style: "Soft & playful" },
+    { name: "Nunito", family: "Nunito", style: "Warm rounded" },
+    { name: "Playfair", family: "Playfair Display", style: "Elegant serif" },
+    { name: "Dancing Script", family: "Dancing Script", style: "Cursive beauty" },
+    { name: "Caveat", family: "Caveat", style: "Handwritten" },
+    { name: "Sacramento", family: "Sacramento", style: "Calligraphy" },
+  ];
   const fontSizePresets = [
-    { label: "S", scale: 0.85 },
-    { label: "M", scale: 1.0 },
-    { label: "L", scale: 1.15 },
-    { label: "XL", scale: 1.35 },
+    { label: "S", scale: 1.15, desc: "Standard" },
+    { label: "M", scale: 1.3, desc: "Medium" },
+    { label: "L", scale: 1.45, desc: "Large" },
+    { label: "XL", scale: 1.6, desc: "Extra Large" },
   ];
 
   return (
@@ -315,33 +324,36 @@ function Settings() {
             {/* Font Family */}
             <Box mb={2}>
               <Typography variant="body2" fontWeight={600} mb={1.5}>Font Family</Typography>
-              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-                {fontOptions.map((font) => (
-                  <Box
-                    key={font}
-                    onClick={() => handleFontFamilyChange(font)}
-                    sx={{
-                      flex: "1 1 auto",
-                      minWidth: 100,
-                      px: 2,
-                      py: 1.5,
-                      borderRadius: "12px",
-                      border: "2px solid",
-                      borderColor: fontFamily === font ? "primary.main" : "divider",
-                      bgcolor: fontFamily === font ? "rgba(108,92,231,0.08)" : "transparent",
-                      cursor: "pointer",
-                      textAlign: "center",
-                      transition: "all 0.2s ease",
-                      fontFamily: font === "System" ? "-apple-system, BlinkMacSystemFont, sans-serif" : `"${font}", sans-serif`,
-                      "&:hover": {
-                        borderColor: fontFamily === font ? "primary.dark" : "primary.light",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                  >
-                    <Typography variant="body2" fontWeight={600}>{font}</Typography>
-                  </Box>
-                ))}
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5 }}>
+                {fontOptions.map((font) => {
+                  const isSelected = fontFamily === font.family;
+                  return (
+                    <Box
+                      key={font.name}
+                      onClick={() => handleFontFamilyChange(font.family)}
+                      sx={{
+                        px: 2, py: 1.5, borderRadius: "14px",
+                        border: "2px solid",
+                        borderColor: isSelected ? "primary.main" : "divider",
+                        bgcolor: isSelected ? "rgba(108,92,231,0.08)" : "transparent",
+                        cursor: "pointer", textAlign: "center",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          borderColor: isSelected ? "primary.dark" : "primary.light",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                        },
+                      }}
+                    >
+                      <Typography sx={{ fontFamily: `"${font.family}", sans-serif`, fontWeight: 600, fontSize: "1rem", mb: 0.25 }}>
+                        {font.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.65rem", color: "text.disabled" }}>
+                        {font.style}
+                      </Typography>
+                    </Box>
+                  );
+                })}
               </Box>
             </Box>
 
@@ -371,9 +383,9 @@ function Settings() {
                       },
                     }}
                   >
-                    <Typography variant="body2" fontWeight={600}>{preset.label}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {Math.round(preset.scale * 100)}%
+                    <Typography variant="body2" fontWeight={700}>{preset.label}</Typography>
+                    <Typography sx={{ fontSize: "0.65rem", color: "text.disabled" }}>
+                      {preset.desc}
                     </Typography>
                   </Box>
                 ))}
