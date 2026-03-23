@@ -6,6 +6,7 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Icon from "@mui/material/Icon";
 import { motion } from "framer-motion";
+import { apiUrl } from "lib/api";
 
 /**
  * Kiosk Setup — Tauri-only entry point.
@@ -52,7 +53,7 @@ function KioskSetup() {
 
     try {
       // Validate the token works
-      const res = await fetch("/api/dashboard", {
+      const res = await fetch(apiUrl("/api/dashboard"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug: s, token: t }),

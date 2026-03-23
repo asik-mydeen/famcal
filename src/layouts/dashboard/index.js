@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 
 import { FamilyContext, familyReducer } from "context/FamilyContext";
+import { apiUrl } from "lib/api";
 import AnimatedBackground from "components/AnimatedBackground";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
@@ -278,7 +279,7 @@ function Dashboard() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/dashboard", {
+      const res = await fetch(apiUrl("/api/dashboard"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, token: accessToken }),

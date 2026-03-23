@@ -1,4 +1,5 @@
 // src/lib/ai.js — Client-side AI helper with rich context
+import { apiUrl } from "lib/api";
 
 export function buildAIContext(state, currentPage) {
   const { members, tasks, events, meals, lists, notes, rewards } = state;
@@ -48,7 +49,7 @@ export function buildAIContext(state, currentPage) {
 
 export async function sendAIMessage(messages, context) {
   try {
-    const res = await fetch("/api/chat", {
+    const res = await fetch(apiUrl("/api/chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages, context }),
