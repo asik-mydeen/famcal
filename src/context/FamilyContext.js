@@ -359,28 +359,45 @@ function FamilyProvider({ children }) {
         const url = supabase.supabaseUrl || "";
         if (!url || url.includes("your-project")) return;
 
-        // Try to find family by owner email first, then fall back to any family
+        // Priority: 1) Joined family (via code), 2) Owner email, 3) Unclaimed family
         let families;
         let famErr;
 
-        if (userEmail) {
-          const result = await supabase.from("families").select("*").eq("owner_email", userEmail);
+        // Check if user previously joined a family via family code
+        const joinedFamilyId = localStorage.getItem("famcal_joined_family_id");
+        if (joinedFamilyId) {
+          const result = await supabase.from("families").select("*").eq("id", joinedFamilyId);
           families = result.data;
           famErr = result.error;
-          // If no family found for this email, check for unclaimed families
-          if (!famErr && (!families || families.length === 0)) {
-            const fallback = await supabase.from("families").select("*").is("owner_email", null);
-            if (fallback.data && fallback.data.length > 0) {
-              // Claim this unclaimed family for the current user
-              families = fallback.data;
-              await supabase.from("families").update({ owner_email: userEmail }).eq("id", families[0].id);
-              families[0].owner_email = userEmail;
-            }
+          if (families && families.length > 0) {
+            console.log("[family] Loaded joined family:", families[0].name);
+          } else {
+            // Joined family no longer exists, clear it
+            localStorage.removeItem("famcal_joined_family_id");
+            families = null;
           }
-        } else {
-          const result = await supabase.from("families").select("*");
-          families = result.data;
-          famErr = result.error;
+        }
+
+        // Fallback: find family by owner email
+        if (!families || families.length === 0) {
+          if (userEmail) {
+            const result = await supabase.from("families").select("*").eq("owner_email", userEmail);
+            families = result.data;
+            famErr = result.error;
+            // If no family found for this email, check for unclaimed families
+            if (!famErr && (!families || families.length === 0)) {
+              const fallback = await supabase.from("families").select("*").is("owner_email", null);
+              if (fallback.data && fallback.data.length > 0) {
+                families = fallback.data;
+                await supabase.from("families").update({ owner_email: userEmail }).eq("id", families[0].id);
+                families[0].owner_email = userEmail;
+              }
+            }
+          } else {
+            const result = await supabase.from("families").select("*");
+            families = result.data;
+            famErr = result.error;
+          }
         }
 
         if (famErr) {
