@@ -189,14 +189,14 @@ function DashboardShell({ data, slug, onDisconnect }) {
   ) : null;
 
   const headerCountdownWidget = (countdowns || []).length > 0 ? (
-    <CountdownWidget variant="header" countdowns={countdowns || []} members={mappedState.members} dispatch={dispatch} familyId={family?.id} />
+    <CountdownWidget variant="header" countdowns={countdowns || []} members={state.members} dispatch={dispatch} familyId={family?.id} />
   ) : null;
 
   return (
     <FamilyContext.Provider value={contextValue}>
       <AnimatedBackground />
       <HeaderBar
-        members={mappedState.members}
+        members={state.members}
         weatherWidget={headerWeatherWidget}
         countdownWidget={headerCountdownWidget}
       />
