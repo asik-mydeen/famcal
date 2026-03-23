@@ -166,6 +166,38 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
   const contextValue = useMemo(() => [state, dispatch], [state, dispatch]);
 
+  // Kiosk/fullscreen for dashboard
+  const [kioskEnabled, setKioskEnabled] = useState(false);
+  const toggleKiosk = useCallback(() => {
+    setKioskEnabled((prev) => {
+      const next = !prev;
+      if (next) {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req) req.call(el).catch(() => {});
+      } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (document.fullscreenElement) exit.call(document).catch(() => {});
+      }
+      return next;
+    });
+  }, []);
+
+  // Sync kiosk state when user exits fullscreen via Esc
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        setKioskEnabled(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handler);
+    document.addEventListener("webkitfullscreenchange", handler);
+    return () => {
+      document.removeEventListener("fullscreenchange", handler);
+      document.removeEventListener("webkitfullscreenchange", handler);
+    };
+  }, []);
+
   // Weather
   const weatherLocation = family?.weather_location || "";
   const [weatherData, setWeatherData] = useState(null);
@@ -199,6 +231,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
         members={state.members}
         weatherWidget={headerWeatherWidget}
         countdownWidget={headerCountdownWidget}
+        kioskEnabled={kioskEnabled}
+        onKioskToggle={toggleKiosk}
       />
       <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
         <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
