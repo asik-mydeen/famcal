@@ -466,10 +466,18 @@ export default function App() {
   // Weather location from family settings or localStorage
   const weatherLocation = family?.weather_location || localStorage.getItem("famcal_weather_location") || "";
 
-  // Kiosk settings from localStorage
-  const kioskEnabled = localStorage.getItem("famcal_kiosk") === "true";
+  // Kiosk settings — React state (no reload needed)
+  const [kioskEnabled, setKioskEnabled] = useState(localStorage.getItem("famcal_kiosk") === "true");
   const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
   const fontScale = parseFloat(localStorage.getItem("famcal_font_scale") || "1.0");
+
+  const toggleKiosk = useCallback(() => {
+    setKioskEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem("famcal_kiosk", String(next));
+      return next;
+    });
+  }, []);
 
   // Idle timer for photo frame — MUST be called before any conditional returns (React hooks rules)
   const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
@@ -577,15 +585,14 @@ export default function App() {
           <KioskWrapper
             enabled={kioskEnabled}
             fontScale={fontScale}
-            onToggle={() => {
-              localStorage.setItem("famcal_kiosk", String(!kioskEnabled));
-              window.location.reload();
-            }}
+            onToggle={toggleKiosk}
           >
             <HeaderBar
               members={members}
               weatherWidget={headerWeatherWidget}
               countdownWidget={headerCountdownWidget}
+              kioskEnabled={kioskEnabled}
+              onKioskToggle={toggleKiosk}
             />
             <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
               <TabStrip

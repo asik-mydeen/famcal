@@ -3,11 +3,13 @@ import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useThemeMode } from "context/ThemeContext";
 
-function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget }) {
+function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle }) {
   const theme = useTheme();
   const { darkMode } = useThemeMode();
   const isMobile = useMediaQuery("(max-width:767px)");
@@ -228,6 +230,34 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
           </Box>
         )}
 
+        {/* Fullscreen / Kiosk toggle */}
+        {onKioskToggle && (
+          <Tooltip title={kioskEnabled ? "Exit fullscreen" : "Enter fullscreen"} arrow>
+            <IconButton
+              onClick={onKioskToggle}
+              size="small"
+              sx={{
+                width: 36, height: 36,
+                bgcolor: kioskEnabled
+                  ? (darkMode ? "rgba(139,92,246,0.15)" : "rgba(108,92,231,0.1)")
+                  : (darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)"),
+                color: kioskEnabled
+                  ? (darkMode ? "#a78bfa" : "#6C5CE7")
+                  : "text.secondary",
+                "&:hover": {
+                  bgcolor: darkMode ? "rgba(139,92,246,0.2)" : "rgba(108,92,231,0.15)",
+                  color: darkMode ? "#a78bfa" : "#6C5CE7",
+                },
+                transition: "all 0.2s ease",
+              }}
+            >
+              <Icon sx={{ fontSize: "1.2rem" }}>
+                {kioskEnabled ? "fullscreen_exit" : "fullscreen"}
+              </Icon>
+            </IconButton>
+          </Tooltip>
+        )}
+
         {/* Digital Clock */}
         <Typography
           sx={{
@@ -267,6 +297,8 @@ HeaderBar.propTypes = {
   ),
   weatherWidget: PropTypes.node,
   countdownWidget: PropTypes.node,
+  kioskEnabled: PropTypes.bool,
+  onKioskToggle: PropTypes.func,
 };
 
 export default memo(HeaderBar);
