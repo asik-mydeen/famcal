@@ -474,13 +474,18 @@ export default function App() {
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.0"));
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem("famcal_font_family") || "Inter");
 
-  // Apply font scale + font family to root element
+  // Apply font scale + font family to root AND body (MUI CssBaseline targets body)
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontScale * 100}%`;
-    document.documentElement.style.fontFamily = `"${fontFamily}", -apple-system, BlinkMacSystemFont, sans-serif`;
+    const fontStr = fontFamily === "System"
+      ? "-apple-system, BlinkMacSystemFont, sans-serif"
+      : `"${fontFamily}", -apple-system, BlinkMacSystemFont, sans-serif`;
+    document.documentElement.style.fontFamily = fontStr;
+    document.body.style.fontFamily = fontStr;
     return () => {
       document.documentElement.style.fontSize = "";
       document.documentElement.style.fontFamily = "";
+      document.body.style.fontFamily = "";
     };
   }, [fontScale, fontFamily]);
 

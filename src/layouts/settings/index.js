@@ -115,14 +115,25 @@ function Settings() {
     localStorage.setItem("famcal_animations", String(e.target.checked));
   };
 
+  const [saved, setSaved] = useState(false);
+
+  // Sync familyName when Supabase data loads
+  useEffect(() => {
+    if (family.name && family.name !== familyName) {
+      setFamilyName(family.name);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family.name]);
+
   const handleFontFamilyChange = (font) => {
     setFontFamily(font);
     localStorage.setItem("famcal_font_family", font);
-    if (font === "System") {
-      document.documentElement.style.fontFamily = "-apple-system, BlinkMacSystemFont, sans-serif";
-    } else {
-      document.documentElement.style.fontFamily = `"${font}", -apple-system, BlinkMacSystemFont, sans-serif`;
-    }
+    const fontStr = font === "System"
+      ? "-apple-system, BlinkMacSystemFont, sans-serif"
+      : `"${font}", -apple-system, BlinkMacSystemFont, sans-serif`;
+    // Set on BODY (not html) because MUI CssBaseline targets body
+    document.body.style.fontFamily = fontStr;
+    document.documentElement.style.fontFamily = fontStr;
   };
 
   const handleFontSizeChange = (scale) => {
@@ -131,10 +142,12 @@ function Settings() {
     document.documentElement.style.fontSize = `${scale * 100}%`;
   };
 
-  const handleFamilyNameBlur = () => {
+  const handleFamilyNameSave = () => {
     const trimmed = familyName.trim();
-    if (trimmed && trimmed !== family.name) {
+    if (trimmed) {
       dispatch({ type: "SET_FAMILY", value: { ...family, name: trimmed } });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     }
   };
 
@@ -420,15 +433,30 @@ function Settings() {
               <Typography variant="h6" fontWeight="bold">Family</Typography>
             </Box>
 
-            <TextField
-              fullWidth
-              size="small"
-              label="Family Name"
-              value={familyName}
-              onChange={(e) => setFamilyName(e.target.value)}
-              onBlur={handleFamilyNameBlur}
-              placeholder="Enter family name"
-            />
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Family Name"
+                value={familyName}
+                onChange={(e) => setFamilyName(e.target.value)}
+                onBlur={handleFamilyNameSave}
+                onKeyDown={(e) => { if (e.key === "Enter") handleFamilyNameSave(); }}
+                placeholder="Enter family name"
+              />
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleFamilyNameSave}
+                disabled={!familyName.trim()}
+                sx={{ minWidth: 70, borderRadius: "10px", textTransform: "none" }}
+              >
+                Save
+              </Button>
+              {saved && (
+                <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
+              )}
+            </Box>
           </GlassCard>
         </Grid>
 
