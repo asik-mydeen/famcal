@@ -36,20 +36,18 @@ function SmartSidebar({
   return (
     <Box
       sx={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
         width: collapsed ? 0 : 280,
+        minWidth: collapsed ? 0 : 280,
+        height: "100%",
+        overflow: "hidden",
+        transition: "width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease",
+        opacity: collapsed ? 0 : 1,
+        display: { xs: "none", lg: "block" },
+        flexShrink: 0,
         bgcolor: darkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.01)",
         borderLeft: "1px solid",
         borderColor: darkMode ? "rgba(255,255,255,0.06)" : "divider",
         overflowY: "auto",
-        overflowX: "hidden",
-        transition: "width 0.3s ease, opacity 0.3s ease",
-        opacity: collapsed ? 0 : 1,
-        zIndex: 1100,
-        display: { xs: "none", lg: "block" },
       }}
     >
       {/* Toggle button */}

@@ -582,6 +582,21 @@ function FamilyProvider({ children }) {
             if (action.value.setup_done !== undefined) {
               famUpdate.setup_done = action.value.setup_done;
             }
+            if (action.value.weather_location !== undefined) {
+              famUpdate.weather_location = action.value.weather_location;
+            }
+            if (action.value.kiosk_enabled !== undefined) {
+              famUpdate.kiosk_enabled = action.value.kiosk_enabled;
+            }
+            if (action.value.photo_interval !== undefined) {
+              famUpdate.photo_interval = action.value.photo_interval;
+            }
+            if (action.value.idle_timeout !== undefined) {
+              famUpdate.idle_timeout = action.value.idle_timeout;
+            }
+            if (action.value.font_scale !== undefined) {
+              famUpdate.font_scale = action.value.font_scale;
+            }
             persist("families", "update", famUpdate);
           }
           break;

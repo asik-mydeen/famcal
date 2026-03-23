@@ -24,10 +24,10 @@ function getPalette(mode) {
   return {
     mode,
     primary: dark
-      ? { main: "#7c3aed", light: "#a855f7", dark: "#6d28d9", contrastText: "#fff" }
+      ? { main: "#8b5cf6", light: "#a855f7", dark: "#7c3aed", contrastText: "#fff" }
       : { main: "#6C5CE7", light: "#A29BFE", dark: "#5A4BD1", contrastText: "#fff" },
     secondary: dark
-      ? { main: "#06b6d4", light: "#22d3ee", dark: "#0891b2", contrastText: "#fff" }
+      ? { main: "#22d3ee", light: "#67e8f9", dark: "#06b6d4", contrastText: "#000" }
       : { main: "#00B894", light: "#55EFC4", dark: "#00A381", contrastText: "#fff" },
     success: { main: "#22c55e", light: "#4ade80", dark: "#16a34a", contrastText: "#fff" },
     warning: { main: "#FDCB6E", light: "#FFEAA7", dark: "#E1B54A", contrastText: "#000" },
@@ -36,19 +36,19 @@ function getPalette(mode) {
       ? { main: "#3b82f6", light: "#60a5fa", dark: "#2563eb", contrastText: "#fff" }
       : { main: "#0984E3", light: "#74B9FF", dark: "#0767B5", contrastText: "#fff" },
     background: {
-      default: dark ? "#0a0a1a" : "transparent",
-      paper: dark ? "rgba(255,255,255,0.06)" : "#ffffff",
+      default: dark ? "#13131f" : "transparent",
+      paper: dark ? "#1c1c2e" : "#ffffff",
     },
     text: {
-      primary: dark ? "#ffffff" : "#1A1A1A",
-      secondary: dark ? "rgba(255,255,255,0.55)" : "#8B8680",
-      disabled: dark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.3)",
+      primary: dark ? "#f0f0f5" : "#1A1A1A",
+      secondary: dark ? "rgba(240,240,245,0.65)" : "#8B8680",
+      disabled: dark ? "rgba(240,240,245,0.35)" : "rgba(0,0,0,0.3)",
     },
-    divider: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+    divider: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.04)",
     action: {
       hover: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)",
-      selected: dark ? "rgba(124,58,237,0.15)" : "rgba(108,92,231,0.12)",
-      focus: dark ? "rgba(124,58,237,0.2)" : "rgba(108,92,231,0.2)",
+      selected: dark ? "rgba(139,92,246,0.15)" : "rgba(108,92,231,0.12)",
+      focus: dark ? "rgba(139,92,246,0.2)" : "rgba(108,92,231,0.2)",
     },
   };
 }
@@ -60,22 +60,22 @@ function getComponents(mode) {
   const t = (d, l) => (dark ? d : l);
 
   // Primary accent for component styling
-  const accent = t("#7c3aed", "#6C5CE7");
+  const accent = t("#8b5cf6", "#6C5CE7");
   const accentLight = t("#a855f7", "#A29BFE");
-  const accentGradient = t("linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)", "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)");
-  const accentShadow = t("rgba(124,58,237,0.35)", "rgba(108,92,231,0.3)");
-  const accentShadowHover = t("rgba(124,58,237,0.5)", "rgba(108,92,231,0.45)");
+  const accentGradient = t("linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)", "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)");
+  const accentShadow = t("rgba(139,92,246,0.35)", "rgba(108,92,231,0.3)");
+  const accentShadowHover = t("rgba(139,92,246,0.5)", "rgba(108,92,231,0.45)");
 
   // Card / surface values
-  const glassBg = t("rgba(255,255,255,0.05)", "#ffffff");
+  const glassBg = t("#1c1c2e", "#ffffff");
   const glassBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.04)");
   const glassBorderHover = t("rgba(255,255,255,0.14)", "rgba(0,0,0,0.08)");
-  const cardShadow = t("0 8px 32px rgba(0,0,0,0.25)", "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)");
-  const dialogBg = t("rgba(12,12,30,0.97)", "#ffffff");
-  const inputBg = t("rgba(255,255,255,0.04)", "#f8f9fa");
-  const inputBorder = t("rgba(255,255,255,0.1)", "rgba(0,0,0,0.1)");
+  const cardShadow = t("0 4px 20px rgba(0,0,0,0.4)", "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)");
+  const dialogBg = t("#1e1e32", "#ffffff");
+  const inputBg = t("rgba(255,255,255,0.06)", "#f8f9fa");
+  const inputBorder = t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.1)");
   const inputBorderHover = t("rgba(255,255,255,0.25)", "rgba(0,0,0,0.2)");
-  const menuBg = t("rgba(15,15,35,0.97)", "#ffffff");
+  const menuBg = t("#1e1e32", "#ffffff");
   const chipBg = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.04)");
   const chipBorder = t("rgba(255,255,255,0.15)", "rgba(0,0,0,0.08)");
   const switchTrack = t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.12)");
@@ -85,25 +85,25 @@ function getComponents(mode) {
   const tooltipBg = t("rgba(20,20,40,0.95)", "#2D3436");
   const scrollThumb = t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.12)");
   const scrollThumbHover = t("rgba(255,255,255,0.22)", "rgba(0,0,0,0.2)");
-  const textPrimary = t("#ffffff", "#1A1A1A");
-  const textSecondary = t("rgba(255,255,255,0.55)", "#8B8680");
-  const textMuted = t("rgba(255,255,255,0.4)", "rgba(0,0,0,0.35)");
-  const textFaint = t("rgba(255,255,255,0.3)", "rgba(0,0,0,0.2)");
+  const textPrimary = t("#f0f0f5", "#1A1A1A");
+  const textSecondary = t("rgba(240,240,245,0.65)", "#8B8680");
+  const textMuted = t("rgba(240,240,245,0.45)", "rgba(0,0,0,0.35)");
+  const textFaint = t("rgba(240,240,245,0.35)", "rgba(0,0,0,0.2)");
   const tabColor = t("rgba(255,255,255,0.4)", "rgba(0,0,0,0.4)");
   const menuItemHover = t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.03)");
   const backdropBg = t("rgba(0,0,0,0.5)", "rgba(0,0,0,0.25)");
-  const bodyBg = t("#0a0a1a", "transparent");
+  const bodyBg = t("#13131f", "transparent");
 
   // FullCalendar CSS for the current mode
   const fcBg = "transparent";
-  const fcBorder = t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.06)");
-  const fcTodayBg = t("rgba(124,58,237,0.06)", "rgba(108,92,231,0.06)");
-  const fcHeaderCellBg = t("rgba(255,255,255,0.02)", "rgba(0,0,0,0.01)");
+  const fcBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)");
+  const fcTodayBg = t("rgba(139,92,246,0.08)", "rgba(108,92,231,0.06)");
+  const fcHeaderCellBg = t("rgba(255,255,255,0.04)", "rgba(0,0,0,0.01)");
   const fcHeaderCellBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)");
-  const fcHeaderText = t("rgba(255,255,255,0.45)", "rgba(0,0,0,0.4)");
-  const fcDayNum = t("rgba(255,255,255,0.6)", "rgba(0,0,0,0.6)");
-  const fcOtherDay = t("rgba(255,255,255,0.2)", "rgba(0,0,0,0.2)");
-  const fcGridBorder = t("rgba(255,255,255,0.05)", "rgba(0,0,0,0.04)");
+  const fcHeaderText = t("rgba(240,240,245,0.55)", "rgba(0,0,0,0.4)");
+  const fcDayNum = t("rgba(240,240,245,0.7)", "rgba(0,0,0,0.6)");
+  const fcOtherDay = t("rgba(240,240,245,0.3)", "rgba(0,0,0,0.2)");
+  const fcGridBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.04)");
   const fcBtnBg = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.05)");
   const fcBtnBorder = t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.1)");
   const fcBtnText = t("rgba(255,255,255,0.7)", "rgba(0,0,0,0.6)");
@@ -133,8 +133,8 @@ function getComponents(mode) {
 
         .fc {
           --fc-bg-color: ${fcBg}; --fc-border-color: ${fcBorder};
-          --fc-today-bg-color: ${fcTodayBg}; --fc-highlight-color: rgba(124,58,237,0.1);
-          --fc-event-bg-color: rgba(124,58,237,0.85); --fc-event-border-color: transparent;
+          --fc-today-bg-color: ${fcTodayBg}; --fc-highlight-color: rgba(139,92,246,0.1);
+          --fc-event-bg-color: rgba(139,92,246,0.85); --fc-event-border-color: transparent;
           --fc-neutral-bg-color: ${fcBg}; --fc-page-bg-color: ${fcBg};
           --fc-now-indicator-color: #f43f5e; --fc-event-text-color: #fff;
           font-family: "Inter", sans-serif;
@@ -145,7 +145,7 @@ function getComponents(mode) {
         .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%); color: #fff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
         .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number { color: ${fcOtherDay}; }
         .fc-event { border-radius: 6px !important; padding: 2px 8px !important; font-size: 0.75rem !important; font-weight: 500 !important; border: none !important; cursor: pointer; }
-        .fc-event.event-primary { background: rgba(124,58,237,0.85) !important; }
+        .fc-event.event-primary { background: rgba(139,92,246,0.85) !important; }
         .fc-event.event-error { background: rgba(244,63,94,0.85) !important; }
         .fc-event.event-success { background: rgba(34,197,94,0.85) !important; }
         .fc-event.event-warning { background: rgba(245,158,11,0.85) !important; color: #000 !important; }
@@ -172,7 +172,6 @@ function getComponents(mode) {
       styleOverrides: {
         root: {
           background: glassBg,
-          ...(dark && { backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }),
           border: dark ? `1px solid ${glassBorder}` : "none",
           borderRadius: 20, boxShadow: cardShadow,
           color: textPrimary, transition: "box-shadow 0.3s ease", overflow: "visible",
@@ -182,8 +181,8 @@ function getComponents(mode) {
     MuiPaper: {
       styleOverrides: {
         root: { backgroundImage: "none" },
-        elevation1: { background: t("rgba(15,15,35,0.95)", "#ffffff") },
-        elevation8: { background: t("rgba(15,15,35,0.97)", "#ffffff"), border: dark ? `1px solid ${glassBorder}` : "none" },
+        elevation1: { background: t("#1c1c2e", "#ffffff") },
+        elevation8: { background: t("#1c1c2e", "#ffffff"), border: dark ? `1px solid ${glassBorder}` : "none" },
       },
     },
     MuiButton: {
@@ -206,13 +205,13 @@ function getComponents(mode) {
         sizeLarge: { padding: "14px 32px", fontSize: "1rem", borderRadius: 16 },
       },
     },
-    MuiDialog: { styleOverrides: { paper: { background: dialogBg, ...(dark && { backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)" }), border: dark ? `1px solid ${glassBorder}` : "none", borderRadius: 24, boxShadow: t("0 24px 80px rgba(0,0,0,0.3)", "0 8px 40px rgba(0,0,0,0.12)") } } },
+    MuiDialog: { styleOverrides: { paper: { background: dialogBg, ...(dark && { backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }), border: dark ? `1px solid ${glassBorder}` : "none", borderRadius: 24, boxShadow: t("0 24px 80px rgba(0,0,0,0.3)", "0 8px 40px rgba(0,0,0,0.12)") } } },
     MuiDialogTitle: { styleOverrides: { root: { fontWeight: 700, fontSize: "1.25rem", padding: "24px 24px 8px" } } },
     MuiDialogContent: { styleOverrides: { root: { padding: "16px 24px" } } },
     MuiDialogActions: { styleOverrides: { root: { padding: "8px 24px 24px", gap: 8 } } },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { borderRadius: 12, background: inputBg, transition: "all 0.2s ease", "& fieldset": { borderColor: inputBorder, transition: "border-color 0.2s ease" }, "&:hover fieldset": { borderColor: `${inputBorderHover} !important` }, "&.Mui-focused fieldset": { borderColor: "#7c3aed !important", borderWidth: "1.5px !important" }, "&.Mui-focused": { background: "rgba(124,58,237,0.04)" } },
+        root: { borderRadius: 12, background: inputBg, transition: "all 0.2s ease", "& fieldset": { borderColor: inputBorder, transition: "border-color 0.2s ease" }, "&:hover fieldset": { borderColor: `${inputBorderHover} !important` }, "&.Mui-focused fieldset": { borderColor: "#8b5cf6 !important", borderWidth: "1.5px !important" }, "&.Mui-focused": { background: "rgba(139,92,246,0.04)" } },
         input: { color: textPrimary, "&::placeholder": { color: textFaint, opacity: 1 } },
       },
     },
@@ -220,7 +219,7 @@ function getComponents(mode) {
     MuiInputBase: { styleOverrides: { root: { color: textPrimary }, input: { "&::placeholder": { color: textFaint, opacity: 1 }, "&[type='date'], &[type='time']": { colorScheme } } } },
     MuiSelect: { styleOverrides: { icon: { color: textMuted }, select: { color: textPrimary } } },
     MuiMenuItem: { styleOverrides: { root: { fontSize: "0.875rem", borderRadius: 8, margin: "2px 6px", padding: "8px 12px", transition: "all 0.15s ease", "&:hover": { background: menuItemHover }, "&.Mui-selected": { background: `${accent}1A`, "&:hover": { background: `${accent}28` } } } } },
-    MuiMenu: { styleOverrides: { paper: { background: `${menuBg} !important`, ...(dark && { backdropFilter: "blur(24px)" }), border: dark ? `1px solid ${glassBorder}` : "none", borderRadius: "16px !important", boxShadow: t("0 12px 40px rgba(0,0,0,0.25) !important", "0 4px 24px rgba(0,0,0,0.1) !important"), marginTop: 4 } } },
+    MuiMenu: { styleOverrides: { paper: { background: `${menuBg} !important`, border: dark ? `1px solid ${glassBorder}` : "none", borderRadius: "16px !important", boxShadow: t("0 12px 40px rgba(0,0,0,0.25) !important", "0 4px 24px rgba(0,0,0,0.1) !important"), marginTop: 4 } } },
     MuiChip: { styleOverrides: { root: { borderRadius: 10, fontWeight: 500, fontSize: "0.8125rem", transition: "all 0.2s ease", height: 32 }, filled: { background: chipBg, "&:hover": { background: t("rgba(255,255,255,0.12)", "rgba(0,0,0,0.08)") } }, outlined: { borderColor: chipBorder, "&:hover": { background: t("rgba(255,255,255,0.04)", "rgba(0,0,0,0.03)") } }, deleteIcon: { color: textMuted, "&:hover": { color: textSecondary } } } },
     MuiSwitch: { styleOverrides: { root: { width: 52, height: 32, padding: 0 }, switchBase: { padding: 4, "&.Mui-checked": { transform: "translateX(20px)", color: "#fff", "& + .MuiSwitch-track": { background: accentGradient, opacity: 1, border: "none" } } }, track: { borderRadius: 16, background: switchTrack, opacity: 1, transition: "background 0.3s ease" }, thumb: { width: 24, height: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.2)" } } },
     MuiLinearProgress: { styleOverrides: { root: { borderRadius: 8, height: 6, background: progressBg }, bar: { borderRadius: 8 }, barColorPrimary: { background: `linear-gradient(90deg, ${accent}, ${accentLight})` } } },

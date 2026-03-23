@@ -73,9 +73,10 @@ DayTimeline.propTypes = {
   events: PropTypes.array.isRequired,
   onEventClick: PropTypes.func.isRequired,
   onTimeClick: PropTypes.func.isRequired,
+  darkMode: PropTypes.bool.isRequired,
 };
 
-function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
+function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMode }) {
   const isSmall = useMediaQuery("(max-width:599px)");
   const scrollRef = useRef(null);
   const dateStr = fmtDate(date);
@@ -173,8 +174,21 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick }) {
               </Box>
               {members.map((m) => (
                 <Box key={m.id} onClick={() => onTimeClick(dateStr, `${String(h).padStart(2, "0")}:00`, m.id)}
-                  sx={{ flex: 1, borderLeft: "1px solid", borderColor: "divider", borderBottom: "1px solid", borderBottomColor: "divider", cursor: "pointer", position: "relative", "&:hover": { bgcolor: `${m.avatar_color}08` },
-                    "&::after": { content: '""', position: "absolute", left: 0, right: 0, top: "50%", borderBottom: "1px dashed", borderColor: "divider", opacity: 0.4 },
+                  sx={{
+                    flex: 1,
+                    borderLeft: "1px solid",
+                    borderColor: "divider",
+                    borderBottom: "1px solid",
+                    borderBottomColor: darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                    cursor: "pointer",
+                    position: "relative",
+                    "&:hover": { bgcolor: `${m.avatar_color}08` },
+                    "&::after": {
+                      content: '""', position: "absolute", left: 0, right: 0, top: "50%",
+                      borderBottom: "1px dashed",
+                      borderColor: darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+                      opacity: 0.7,
+                    },
                   }}
                 />
               ))}
@@ -284,12 +298,14 @@ function FamilyCalendar() {
 
   // Navigation
   const goToday = () => setCurrentDate(new Date());
-  const goPrev = () => { const d = new Date(currentDate); d.setDate(d.getDate() - (viewTab === 0 ? 1 : 30)); setCurrentDate(d); };
-  const goNext = () => { const d = new Date(currentDate); d.setDate(d.getDate() + (viewTab === 0 ? 1 : 30)); setCurrentDate(d); };
+  const goPrev = () => { const d = new Date(currentDate); d.setDate(d.getDate() - (viewTab === 0 ? 1 : viewTab === 1 ? 7 : 30)); setCurrentDate(d); };
+  const goNext = () => { const d = new Date(currentDate); d.setDate(d.getDate() + (viewTab === 0 ? 1 : viewTab === 1 ? 7 : 30)); setCurrentDate(d); };
 
   const isToday = fmtDate(new Date()) === fmtDate(currentDate);
   const dateLabel = viewTab === 0
     ? (isSmall ? `${DAYS_SHORT[currentDate.getDay()]}, ${MONTHS[currentDate.getMonth()].slice(0, 3)} ${currentDate.getDate()}` : `${DAYS[currentDate.getDay()]}, ${MONTHS[currentDate.getMonth()]} ${currentDate.getDate()}`)
+    : viewTab === 1
+    ? `Week of ${MONTHS[currentDate.getMonth()].slice(0, 3)} ${currentDate.getDate()}`
     : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
   // FullCalendar events
@@ -628,6 +644,7 @@ function FamilyCalendar() {
                 }}
               >
                 <Tab label="Day" />
+                <Tab label="Week" />
                 <Tab label="Month" />
               </Tabs>
             </Box>
@@ -681,12 +698,40 @@ function FamilyCalendar() {
           {/* Day View */}
           {viewTab === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-              <DayTimeline date={currentDate} members={members} events={events} onEventClick={handleEventClick} onTimeClick={handleTimeClick} />
+              <DayTimeline date={currentDate} members={members} events={events} onEventClick={handleEventClick} onTimeClick={handleTimeClick} darkMode={darkMode} />
+            </motion.div>
+          )}
+
+          {/* Week View */}
+          {viewTab === 1 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
+                <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
+                  <FullCalendar
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    initialView="timeGridWeek"
+                    initialDate={currentDate}
+                    headerToolbar={false}
+                    events={fcEvents}
+                    dateClick={handleFcDateClick}
+                    eventClick={handleFcEventClick}
+                    height={isSmall ? "55vh" : "68vh"}
+                    nowIndicator
+                    editable={false}
+                    selectable={false}
+                    eventDisplay="block"
+                    allDaySlot={true}
+                    slotMinTime="06:00:00"
+                    slotMaxTime="23:00:00"
+                    eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+                  />
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
           {/* Month View */}
-          {viewTab === 1 && (
+          {viewTab === 2 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
               <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
                 <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
@@ -717,13 +762,6 @@ function FamilyCalendar() {
           tonightDinnerWidget={tonightDinnerWidget}
         />
       </Box>
-
-      {/* FAB */}
-      <Fab color="primary" onClick={() => { setEditingEvent(null); setEventForm(defaultEventForm(fmtDate(currentDate))); setDialogOpen(true); }}
-        sx={{ position: "fixed", bottom: 160, right: 20, zIndex: 1200 }}
-      >
-        <Icon>add</Icon>
-      </Fab>
 
       {/* Event Panel */}
       <SlidePanel
