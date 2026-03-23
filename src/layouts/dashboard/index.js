@@ -1,26 +1,262 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Icon from "@mui/material/Icon";
 import CircularProgress from "@mui/material/CircularProgress";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import PropTypes from "prop-types";
+
+import { FamilyContext } from "context/FamilyContext";
+import AnimatedBackground from "components/AnimatedBackground";
+import HeaderBar from "components/HeaderBar";
+import TabStrip from "components/TabStrip";
+import PageTransition from "components/PageTransition";
+import WeatherWidget from "components/WeatherWidget";
+import CountdownWidget from "components/CountdownWidget";
+import { fetchWeather } from "lib/weather";
+
+import FamilyCalendar from "layouts/family-calendar";
+import Chores from "layouts/chores";
+import Meals from "layouts/meals";
+import Lists from "layouts/lists";
+import Family from "layouts/family";
+import Rewards from "layouts/rewards";
+
+// Map DB field names to client field names
+function eventFromDb(row) {
+  return {
+    id: row.id, family_id: row.family_id, member_id: row.member_id,
+    title: row.title, start: row.start_time, end: row.end_time,
+    allDay: row.all_day, className: row.color || "info",
+    source: row.source, google_event_id: row.google_event_id || null,
+    updated_at: row.updated_at || null,
+  };
+}
+
+function taskFromDb(row) {
+  return {
+    ...row,
+    due_time: row.due_time ? row.due_time.slice(0, 5) : "",
+    completed_at: row.completed_at ? row.completed_at.split("T")[0] : null,
+  };
+}
+
+function memberFromDb(row) {
+  return { ...row, visible: true };
+}
+
+// ── Token Entry Screen ──
+
+function TokenEntry({ slug, onAuthenticated, loading, error }) {
+  const [token, setToken] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (token.trim()) onAuthenticated(token.trim());
+  };
+
+  return (
+    <Box sx={{
+      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)",
+    }}>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+        <Box sx={{
+          width: { xs: "90vw", sm: 420 }, bgcolor: "#fff", borderRadius: "24px",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.1)", p: { xs: 3, sm: 4 }, textAlign: "center",
+        }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mb: 3 }}>
+            <Box sx={{
+              width: 48, height: 48, borderRadius: "14px",
+              background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 6px 24px rgba(108,92,231,0.25)",
+            }}>
+              <Icon sx={{ color: "#fff", fontSize: "1.4rem" }}>calendar_month</Icon>
+            </Box>
+            <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", letterSpacing: "-0.02em", color: "#1A1A1A" }}>
+              FamCal
+            </Typography>
+          </Box>
+          <Typography sx={{ fontSize: "1.1rem", fontWeight: 700, color: "#1A1A1A", mb: 0.5 }}>
+            Family Dashboard
+          </Typography>
+          <Typography sx={{ fontSize: "0.85rem", color: "#8B8680", mb: 3, lineHeight: 1.5 }}>
+            Enter your access token to view the family calendar.
+          </Typography>
+          <form onSubmit={handleSubmit}>
+            <TextField
+              fullWidth value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Enter access token" autoFocus
+              error={Boolean(error)} helperText={error}
+              sx={{ mb: 2 }}
+              InputProps={{ sx: { borderRadius: "14px", fontSize: "1.1rem", letterSpacing: "0.05em" } }}
+            />
+            <Button type="submit" fullWidth variant="contained" size="large"
+              disabled={!token.trim() || loading}
+              sx={{
+                borderRadius: "14px", py: 1.5, fontWeight: 700,
+                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                boxShadow: "0 6px 24px rgba(108,92,231,0.3)",
+              }}
+            >
+              {loading ? <CircularProgress size={24} sx={{ color: "#fff" }} /> : "Access Dashboard"}
+            </Button>
+          </form>
+        </Box>
+      </motion.div>
+    </Box>
+  );
+}
+
+TokenEntry.propTypes = {
+  slug: PropTypes.string,
+  onAuthenticated: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+};
+
+// ── Full Dashboard App Shell ──
+
+function DashboardShell({ data, slug, onDisconnect }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const { family, members, events, tasks, meals, lists, rewards, notes, countdowns } = data;
+
+  // Map DB rows to client format
+  const mappedState = useMemo(() => ({
+    family,
+    members: members.map(memberFromDb),
+    events: events.map(eventFromDb),
+    tasks: tasks.map(taskFromDb),
+    meals,
+    lists,
+    rewards,
+    notes: notes || [],
+    countdowns: countdowns || [],
+    photos: [],
+    weather: null,
+    selectedMembers: members.map((m) => m.id),
+    isSupabaseConnected: true,
+    loading: false,
+    dataLoaded: true,
+  }), [family, members, events, tasks, meals, lists, rewards, notes, countdowns]);
+
+  // Dashboard dispatch — read-only for now (no mutations from kiosk)
+  const dispatch = useCallback(() => {
+    // No-op: dashboard is read-only. Manage data from the setup portal.
+  }, []);
+
+  const contextValue = useMemo(() => [mappedState, dispatch], [mappedState, dispatch]);
+
+  // Weather
+  const weatherLocation = family?.weather_location || "";
+  const [weatherData, setWeatherData] = useState(null);
+  useEffect(() => {
+    if (weatherLocation) {
+      fetchWeather(weatherLocation).then((d) => { if (d) setWeatherData(d); });
+    }
+  }, [weatherLocation]);
+
+  // Extract active tab from path: /d/slug/chores → "chores"
+  const pathParts = location.pathname.split("/");
+  const activeTab = pathParts.length > 3 ? pathParts[3] : "calendar";
+
+  const handleTabChange = (key, path) => {
+    // Navigate within the dashboard: /d/{slug}/calendar, /d/{slug}/chores, etc.
+    navigate(`/d/${slug}/${key}`);
+  };
+
+  const headerWeatherWidget = weatherLocation ? (
+    <WeatherWidget variant="header" location={weatherLocation} />
+  ) : null;
+
+  const headerCountdownWidget = (countdowns || []).length > 0 ? (
+    <CountdownWidget variant="header" countdowns={countdowns || []} members={mappedState.members} dispatch={dispatch} familyId={family?.id} />
+  ) : null;
+
+  return (
+    <FamilyContext.Provider value={contextValue}>
+      <AnimatedBackground />
+      <HeaderBar
+        members={mappedState.members}
+        weatherWidget={headerWeatherWidget}
+        countdownWidget={headerCountdownWidget}
+      />
+      <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
+        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} />
+      </Box>
+      <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="calendar" element={<PageTransition><FamilyCalendar /></PageTransition>} />
+            <Route path="chores" element={<PageTransition><Chores /></PageTransition>} />
+            <Route path="meals" element={<PageTransition><Meals /></PageTransition>} />
+            <Route path="lists" element={<PageTransition><Lists /></PageTransition>} />
+            <Route path="family" element={<PageTransition><Family /></PageTransition>} />
+            <Route path="rewards" element={<PageTransition><Rewards /></PageTransition>} />
+            <Route path="" element={<Navigate to="calendar" replace />} />
+            <Route path="*" element={<Navigate to="calendar" replace />} />
+          </Routes>
+        </AnimatePresence>
+      </Box>
+      {/* Mobile: show TabStrip at bottom instead of FloatingNav (which uses absolute paths) */}
+      <Box sx={{ display: { xs: "flex", md: "none" }, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1100, px: 1, pb: 1 }}>
+        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} />
+      </Box>
+    </FamilyContext.Provider>
+  );
+}
+
+DashboardShell.propTypes = {
+  data: PropTypes.object.isRequired,
+  slug: PropTypes.string.isRequired,
+  onDisconnect: PropTypes.func,
+};
+
+// ── Main Dashboard Component ──
 
 function Dashboard() {
   const { slug } = useParams();
-  const [token, setToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
 
+  const validateAndLoad = useCallback(async (accessToken) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/dashboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, token: accessToken }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Invalid access token");
+      }
+      const result = await res.json();
+      setData(result);
+      setAuthenticated(true);
+      localStorage.setItem(`famcal_dashboard_token_${slug}`, accessToken);
+    } catch (err) {
+      setError(err.message);
+      setAuthenticated(false);
+      localStorage.removeItem(`famcal_dashboard_token_${slug}`);
+    }
+    setLoading(false);
+  }, [slug]);
+
   // Check for cached token on mount
   useEffect(() => {
     const cached = localStorage.getItem(`famcal_dashboard_token_${slug}`);
     if (cached) {
-      setToken(cached);
       validateAndLoad(cached);
     } else {
       setLoading(false);
@@ -28,243 +264,35 @@ function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  const validateAndLoad = useCallback(async (accessToken) => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/dashboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, token: accessToken }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Invalid access token");
-      }
-
-      const result = await res.json();
-      setData(result);
-      setAuthenticated(true);
-      // Cache the token for this device
-      localStorage.setItem(`famcal_dashboard_token_${slug}`, accessToken);
-    } catch (err) {
-      setError(err.message);
-      setAuthenticated(false);
-      // Clear cached token if invalid
-      localStorage.removeItem(`famcal_dashboard_token_${slug}`);
-    }
-    setLoading(false);
-  }, [slug]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (token.trim()) {
-      validateAndLoad(token.trim());
-    }
-  };
-
-  // Auto-refresh data every 60 seconds
+  // Auto-refresh every 60 seconds
   useEffect(() => {
     if (!authenticated) return;
     const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
     if (!cachedToken) return;
-
-    const interval = setInterval(() => {
-      validateAndLoad(cachedToken);
-    }, 60000);
-
+    const interval = setInterval(() => validateAndLoad(cachedToken), 60000);
     return () => clearInterval(interval);
   }, [authenticated, slug, validateAndLoad]);
 
-  // Loading state
+  const handleDisconnect = () => {
+    localStorage.removeItem(`famcal_dashboard_token_${slug}`);
+    setAuthenticated(false);
+    setData(null);
+  };
+
   if (loading && !data) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)" }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh",
+        background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)" }}>
         <CircularProgress sx={{ color: "#6C5CE7" }} />
       </Box>
     );
   }
 
-  // Token entry form
   if (!authenticated) {
-    return (
-      <Box sx={{
-        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)",
-      }}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Box sx={{
-            width: { xs: "90vw", sm: 420 }, bgcolor: "#fff", borderRadius: "24px",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.1)", p: { xs: 3, sm: 4 }, textAlign: "center",
-          }}>
-            {/* Logo */}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mb: 3 }}>
-              <Box sx={{
-                width: 48, height: 48, borderRadius: "14px",
-                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 6px 24px rgba(108,92,231,0.25)",
-              }}>
-                <Icon sx={{ color: "#fff", fontSize: "1.4rem" }}>calendar_month</Icon>
-              </Box>
-              <Typography sx={{ fontWeight: 800, fontSize: "1.3rem", letterSpacing: "-0.02em", color: "#1A1A1A" }}>
-                FamCal
-              </Typography>
-            </Box>
-
-            <Typography sx={{ fontSize: "1.1rem", fontWeight: 700, color: "#1A1A1A", mb: 0.5 }}>
-              Family Dashboard
-            </Typography>
-            <Typography sx={{ fontSize: "0.85rem", color: "#8B8680", mb: 3, lineHeight: 1.5 }}>
-              Enter your access token to view the family calendar.
-              <br />Get this from your FamCal settings.
-            </Typography>
-
-            <form onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                value={token}
-                onChange={(e) => { setToken(e.target.value); setError(""); }}
-                placeholder="Enter access token"
-                autoFocus
-                error={Boolean(error)}
-                helperText={error}
-                sx={{ mb: 2 }}
-                InputProps={{
-                  sx: { borderRadius: "14px", fontSize: "1.1rem", textAlign: "center", letterSpacing: "0.1em" },
-                }}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={!token.trim() || loading}
-                sx={{
-                  borderRadius: "14px", py: 1.5, fontWeight: 700, fontSize: "1rem",
-                  background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-                  boxShadow: "0 6px 24px rgba(108,92,231,0.3)",
-                  "&:hover": { boxShadow: "0 8px 32px rgba(108,92,231,0.45)" },
-                }}
-              >
-                {loading ? <CircularProgress size={24} sx={{ color: "#fff" }} /> : "Access Dashboard"}
-              </Button>
-            </form>
-          </Box>
-        </motion.div>
-      </Box>
-    );
+    return <TokenEntry slug={slug} onAuthenticated={validateAndLoad} loading={loading} error={error} />;
   }
 
-  // Dashboard view — show family data
-  // For now, show a summary. Later this will be the full kiosk UI.
-  const { family, members, events, tasks } = data;
-  const today = new Date().toISOString().split("T")[0];
-  const todayEvents = events.filter((e) => (e.start_time || "").startsWith(today));
-  const todayTasks = tasks.filter((t) => t.due_date === today && !t.completed);
-
-  return (
-    <Box sx={{ minHeight: "100vh", background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)", p: { xs: 2, sm: 3 } }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-        <Box>
-          <Typography sx={{ fontWeight: 800, fontSize: { xs: "1.3rem", sm: "1.8rem" }, color: "#1A1A1A", letterSpacing: "-0.03em" }}>
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-          </Typography>
-          <Typography sx={{ fontSize: "0.85rem", color: "#8B8680" }}>
-            {family.name}
-          </Typography>
-        </Box>
-        <Typography sx={{ fontWeight: 800, fontSize: { xs: "1.2rem", sm: "1.5rem" }, color: "#1A1A1A" }}>
-          {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
-        </Typography>
-      </Box>
-
-      {/* Family members */}
-      <Box sx={{ display: "flex", gap: 2, mb: 3, overflowX: "auto" }}>
-        {members.map((m) => (
-          <Box key={m.id} sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 60 }}>
-            <Box sx={{
-              width: 48, height: 48, borderRadius: "50%", bgcolor: m.avatar_color || "#6C5CE7",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 4px 12px ${m.avatar_color || "#6C5CE7"}30`,
-              mb: 0.5,
-            }}>
-              <Icon sx={{ color: "#fff", fontSize: "1.2rem" }}>person</Icon>
-            </Box>
-            <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "#1A1A1A" }}>
-              {m.name.split(" ")[0]}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-
-      {/* Today's events */}
-      <Box sx={{ bgcolor: "#fff", borderRadius: "20px", p: 3, mb: 2, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-        <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1A1A1A", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-          <Icon sx={{ fontSize: "1.1rem", color: "#6C5CE7" }}>event</Icon>
-          Today&apos;s Events ({todayEvents.length})
-        </Typography>
-        {todayEvents.length === 0 ? (
-          <Typography sx={{ fontSize: "0.85rem", color: "#8B8680" }}>No events today</Typography>
-        ) : todayEvents.map((evt) => {
-          const member = members.find((m) => m.id === evt.member_id);
-          const time = evt.all_day ? "All day" : new Date(evt.start_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-          return (
-            <Box key={evt.id} sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1, borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-              <Box sx={{ width: 4, height: 32, borderRadius: 2, bgcolor: member?.avatar_color || "#6C5CE7" }} />
-              <Box sx={{ flex: 1 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: "0.85rem" }}>{evt.title}</Typography>
-                <Typography sx={{ fontSize: "0.7rem", color: "#8B8680" }}>{time} {member ? `— ${member.name}` : ""}</Typography>
-              </Box>
-            </Box>
-          );
-        })}
-      </Box>
-
-      {/* Today's tasks */}
-      <Box sx={{ bgcolor: "#fff", borderRadius: "20px", p: 3, mb: 2, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-        <Typography sx={{ fontWeight: 700, fontSize: "0.9rem", color: "#1A1A1A", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-          <Icon sx={{ fontSize: "1.1rem", color: "#22c55e" }}>task_alt</Icon>
-          Today&apos;s Chores ({todayTasks.length})
-        </Typography>
-        {todayTasks.length === 0 ? (
-          <Typography sx={{ fontSize: "0.85rem", color: "#8B8680" }}>All done for today!</Typography>
-        ) : todayTasks.map((task) => {
-          const member = members.find((m) => m.id === task.assigned_to);
-          return (
-            <Box key={task.id} sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1, borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-              <Icon sx={{ fontSize: "1rem", color: "#8B8680" }}>radio_button_unchecked</Icon>
-              <Box sx={{ flex: 1 }}>
-                <Typography sx={{ fontWeight: 600, fontSize: "0.85rem" }}>{task.title}</Typography>
-                {member && <Typography sx={{ fontSize: "0.7rem", color: "#8B8680" }}>{member.name} — {task.points_value || 10}pts</Typography>}
-              </Box>
-            </Box>
-          );
-        })}
-      </Box>
-
-      {/* Disconnect button */}
-      <Box sx={{ textAlign: "center", mt: 4, pb: 2 }}>
-        <Button
-          size="small"
-          variant="text"
-          onClick={() => {
-            localStorage.removeItem(`famcal_dashboard_token_${slug}`);
-            setAuthenticated(false);
-            setData(null);
-            setToken("");
-          }}
-          sx={{ color: "#8B8680", fontSize: "0.75rem" }}
-          startIcon={<Icon sx={{ fontSize: "0.9rem" }}>logout</Icon>}
-        >
-          Disconnect Dashboard
-        </Button>
-      </Box>
-    </Box>
-  );
+  return <DashboardShell data={data} slug={slug} onDisconnect={handleDisconnect} />;
 }
 
 export default Dashboard;

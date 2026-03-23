@@ -590,7 +590,7 @@ export default function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Routes>
-          <Route path="/d/:slug" element={<Dashboard />} />
+          <Route path="/d/:slug/*" element={<Dashboard />} />
         </Routes>
       </ThemeProvider>
     );
