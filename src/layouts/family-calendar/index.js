@@ -279,6 +279,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
 function FamilyCalendar() {
   const [state, dispatch] = useFamilyController();
   const { family, members, events, tasks, notes, countdowns, meals } = state;
+  const isDashboard = state.isDashboard || false; // Skip Google auth in dashboard mode
   const { darkMode } = useThemeMode();
   const calendarRef = useRef(null);
   const isSmall = useMediaQuery("(max-width:599px)");
@@ -508,7 +509,7 @@ function FamilyCalendar() {
   }, [members, events, family.id, dispatch, connectedCount]);
 
   useEffect(() => {
-    if (connectedCount === 0 || members.length === 0) return;
+    if (isDashboard || connectedCount === 0 || members.length === 0) return;
 
     // Initial sync after 1.5s
     const initTimer = setTimeout(silentSync, 1500);
@@ -671,7 +672,7 @@ function FamilyCalendar() {
               const connected = Boolean(m.google_calendar_id);
               return (
                 <Tooltip key={m.id} title={connected ? `Connected — tap to disconnect` : "Tap to connect Google Calendar"} arrow>
-                  <Box onClick={() => connected ? handleDisconnectMember(m) : handleConnectMember(m)}
+                  <Box onClick={() => !isDashboard && (connected ? handleDisconnectMember(m) : handleConnectMember(m))}
                     sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
                   >
                     <Box sx={{ position: "relative", mb: 0.5 }}>
