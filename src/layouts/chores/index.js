@@ -246,7 +246,7 @@ function Chores() {
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "20px", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>
                     trending_up
                   </Icon>
                 </Box>
@@ -276,7 +276,7 @@ function Chores() {
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "20px", color: "#f59e0b" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: "#f59e0b" }}>
                     pending_actions
                   </Icon>
                 </Box>
@@ -306,7 +306,7 @@ function Chores() {
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "20px", color: "#22c55e" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: "#22c55e" }}>
                     check_circle
                   </Icon>
                 </Box>
@@ -336,7 +336,7 @@ function Chores() {
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "20px", color: "#fbbf24" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: "#fbbf24" }}>
                     star
                   </Icon>
                 </Box>
@@ -631,7 +631,7 @@ function Chores() {
                             )}
                             {category && (
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Icon sx={{ fontSize: "16px", color: category.color }}>
+                                <Icon sx={{ fontSize: "1rem", color: category.color }}>
                                   {category.icon}
                                 </Icon>
                                 <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
@@ -641,7 +641,7 @@ function Chores() {
                             )}
                             {task.due_date && (
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Icon sx={{ fontSize: "16px", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                <Icon sx={{ fontSize: "1rem", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
                                   event
                                 </Icon>
                                 <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
@@ -654,7 +654,7 @@ function Chores() {
                             )}
                             {task.due_time && (
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Icon sx={{ fontSize: "16px", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                <Icon sx={{ fontSize: "1rem", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
                                   schedule
                                 </Icon>
                                 <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
@@ -685,7 +685,7 @@ function Chores() {
                             </Box>
                             {task.recurring && (
                               <Chip
-                                icon={<Icon sx={{ fontSize: "14px !important" }}>loop</Icon>}
+                                icon={<Icon sx={{ fontSize: "0.875rem !important" }}>loop</Icon>}
                                 label={task.recurring_pattern || "Daily"}
                                 size="small"
                                 sx={{
@@ -751,7 +751,7 @@ function Chores() {
                 <Box py={6} textAlign="center">
                   <Icon
                     sx={{
-                      fontSize: "64px",
+                      fontSize: "4rem",
                       color: darkMode ? "rgba(255,255,255,0.2)" : "#cbd5e1",
                       mb: 2,
                     }}
@@ -880,7 +880,7 @@ function Chores() {
             {TASK_CATEGORIES.map((cat) => (
               <MenuItem key={cat.key} value={cat.key}>
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Icon sx={{ fontSize: "20px", color: cat.color }}>{cat.icon}</Icon>
+                  <Icon sx={{ fontSize: "1.25rem", color: cat.color }}>{cat.icon}</Icon>
                   {cat.label}
                 </Box>
               </MenuItem>

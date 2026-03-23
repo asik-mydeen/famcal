@@ -469,7 +469,22 @@ export default function App() {
   // Kiosk settings — React state (no reload needed)
   const [kioskEnabled, setKioskEnabled] = useState(localStorage.getItem("famcal_kiosk") === "true");
   const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
-  const fontScale = parseFloat(localStorage.getItem("famcal_font_scale") || "1.0");
+
+  // Font scale — always-on, not kiosk-only
+  const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.0"));
+
+  // Apply font scale to root element (cascades to all rem-based sizes)
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontScale * 100}%`;
+    return () => { document.documentElement.style.fontSize = ""; };
+  }, [fontScale]);
+
+  const handleFontScaleChange = useCallback((newScale) => {
+    const clamped = Math.max(0.8, Math.min(1.6, newScale));
+    const rounded = Math.round(clamped * 20) / 20; // snap to 5% increments
+    setFontScale(rounded);
+    localStorage.setItem("famcal_font_scale", String(rounded));
+  }, []);
 
   const toggleKiosk = useCallback(() => {
     setKioskEnabled((prev) => {
@@ -584,7 +599,6 @@ export default function App() {
           {/* Main app wrapped in KioskWrapper */}
           <KioskWrapper
             enabled={kioskEnabled}
-            fontScale={fontScale}
             onToggle={toggleKiosk}
           >
             <HeaderBar
@@ -593,6 +607,8 @@ export default function App() {
               countdownWidget={headerCountdownWidget}
               kioskEnabled={kioskEnabled}
               onKioskToggle={toggleKiosk}
+              fontScale={fontScale}
+              onFontScaleChange={handleFontScaleChange}
             />
             <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
               <TabStrip

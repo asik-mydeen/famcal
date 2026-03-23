@@ -71,7 +71,7 @@ function TabStrip({ activeTab, onTabChange, rightSlot }) {
             >
               <Icon
                 sx={{
-                  fontSize: "20px",
+                  fontSize: "1.25rem",
                   color: "inherit",
                 }}
               >
@@ -80,7 +80,7 @@ function TabStrip({ activeTab, onTabChange, rightSlot }) {
               {tab.label && (
                 <Typography
                   sx={{
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                     fontWeight: "inherit",
                     color: "inherit",
                     lineHeight: 1,

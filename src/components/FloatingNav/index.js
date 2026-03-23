@@ -108,7 +108,7 @@ export default function FloatingNav() {
               >
                 <Icon
                   sx={{
-                    fontSize: 24,
+                    fontSize: "1.5rem",
                     color: isActive ? accent : dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)",
                     transition: "color 0.2s ease",
                   }}
@@ -165,7 +165,7 @@ export default function FloatingNav() {
               },
             }}
           >
-            <Icon sx={{ fontSize: 20, color: accent }}>{menuItem.icon}</Icon>
+            <Icon sx={{ fontSize: "1.25rem", color: accent }}>{menuItem.icon}</Icon>
             <Typography sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
               {menuItem.label}
             </Typography>
