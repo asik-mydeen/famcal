@@ -456,6 +456,16 @@ export default function App() {
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
   const [fontFamily, setFontFamily] = useState(() => localStorage.getItem("famcal_font_family") || "Inter");
 
+  // Listen for font changes from Settings page (custom event bridge)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail.fontFamily) setFontFamily(e.detail.fontFamily);
+      if (e.detail.fontScale) setFontScale(e.detail.fontScale);
+    };
+    window.addEventListener("famcal-font-change", handler);
+    return () => window.removeEventListener("famcal-font-change", handler);
+  }, []);
+
   const theme = useMemo(() => {
     const ff = fontFamily === "System"
       ? "-apple-system, BlinkMacSystemFont, sans-serif"
