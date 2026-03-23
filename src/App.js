@@ -451,6 +451,11 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { darkMode } = useThemeMode();
+
+  // Font state must be declared BEFORE useMemo that depends on it
+  const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
+  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem("famcal_font_family") || "Inter");
+
   const theme = useMemo(() => {
     const ff = fontFamily === "System"
       ? "-apple-system, BlinkMacSystemFont, sans-serif"
@@ -474,10 +479,6 @@ export default function App() {
   // Kiosk settings — React state (no reload needed)
   const [kioskEnabled, setKioskEnabled] = useState(localStorage.getItem("famcal_kiosk") === "true");
   const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
-
-  // Font scale + font family — always-on, not kiosk-only
-  const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.0"));
-  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem("famcal_font_family") || "Inter");
 
   // Apply font scale + font family to root AND body (MUI CssBaseline targets body)
   useEffect(() => {
