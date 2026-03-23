@@ -761,6 +761,32 @@ function FamilyCalendar() {
           todayChoresWidget={todayChoresWidget}
           tonightDinnerWidget={tonightDinnerWidget}
         />
+
+        {/* Sidebar reopen button — visible when collapsed */}
+        {sidebarCollapsed && (
+          <Box
+            onClick={() => {
+              setSidebarCollapsed(false);
+              localStorage.setItem("famcal_sidebar_collapsed", "false");
+            }}
+            sx={{
+              display: { xs: "none", lg: "flex" },
+              position: "fixed", top: "50%", right: 0, transform: "translateY(-50%)",
+              zIndex: 1100, cursor: "pointer",
+              bgcolor: darkMode ? "rgba(139,92,246,0.15)" : "rgba(108,92,231,0.08)",
+              border: "1px solid",
+              borderColor: darkMode ? "rgba(139,92,246,0.25)" : "rgba(108,92,231,0.15)",
+              borderRight: "none",
+              borderRadius: "12px 0 0 12px",
+              px: 0.5, py: 2,
+              flexDirection: "column", alignItems: "center", gap: 0.5,
+              "&:hover": { bgcolor: darkMode ? "rgba(139,92,246,0.25)" : "rgba(108,92,231,0.15)" },
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Icon sx={{ fontSize: "1rem", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>chevron_left</Icon>
+          </Box>
+        )}
       </Box>
 
       {/* Event Panel */}

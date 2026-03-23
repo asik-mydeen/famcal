@@ -16,9 +16,11 @@ const TABS = [
   { key: "settings", label: "", icon: "settings", path: "/settings" },
 ];
 
-function TabStrip({ activeTab, onTabChange, rightSlot }) {
+function TabStrip({ activeTab, onTabChange, rightSlot, hideTabs }) {
   const theme = useTheme();
   const { darkMode } = useThemeMode();
+
+  const visibleTabs = hideTabs ? TABS.filter((t) => !hideTabs.includes(t.key)) : TABS;
 
   return (
     <Box
@@ -34,7 +36,7 @@ function TabStrip({ activeTab, onTabChange, rightSlot }) {
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.key;
 
           return (
@@ -107,6 +109,7 @@ TabStrip.propTypes = {
   activeTab: PropTypes.string.isRequired,
   onTabChange: PropTypes.func.isRequired,
   rightSlot: PropTypes.node,
+  hideTabs: PropTypes.arrayOf(PropTypes.string),
 };
 
 export { TABS };

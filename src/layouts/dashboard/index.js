@@ -189,7 +189,7 @@ function DashboardShell({ data, slug, onDisconnect }) {
         countdownWidget={headerCountdownWidget}
       />
       <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
-        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} />
+        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
       </Box>
       <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
         <AnimatePresence mode="wait">
@@ -205,9 +205,9 @@ function DashboardShell({ data, slug, onDisconnect }) {
           </Routes>
         </AnimatePresence>
       </Box>
-      {/* Mobile: show TabStrip at bottom instead of FloatingNav (which uses absolute paths) */}
-      <Box sx={{ display: { xs: "flex", md: "none" }, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1100, px: 1, pb: 1 }}>
-        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} />
+      {/* Mobile: show TabStrip at bottom instead of FloatingNav */}
+      <Box sx={{ display: { xs: "flex", md: "none" }, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1100, px: 1, pb: 1, bgcolor: "background.default" }}>
+        <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
       </Box>
     </FamilyContext.Provider>
   );
