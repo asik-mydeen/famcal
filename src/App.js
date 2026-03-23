@@ -607,10 +607,10 @@ export default function App() {
               <FloatingNav />
             </Box>
             <AICommandBar
-              members={members}
               familyId={family?.id}
               dispatch={dispatch}
-              lists={state.lists}
+              state={state}
+              currentPage={activeTab}
             />
           </KioskWrapper>
         </>
