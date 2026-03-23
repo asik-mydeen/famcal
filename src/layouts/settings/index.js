@@ -128,18 +128,15 @@ function Settings() {
   const handleFontFamilyChange = (font) => {
     setFontFamily(font);
     localStorage.setItem("famcal_font_family", font);
-    const fontStr = font === "System"
-      ? "-apple-system, BlinkMacSystemFont, sans-serif"
-      : `"${font}", -apple-system, BlinkMacSystemFont, sans-serif`;
-    // Set on BODY (not html) because MUI CssBaseline targets body
-    document.body.style.fontFamily = fontStr;
-    document.documentElement.style.fontFamily = fontStr;
+    // Notify App.js to rebuild MUI theme with new font
+    window.dispatchEvent(new CustomEvent("famcal-font-change", { detail: { fontFamily: font } }));
   };
 
   const handleFontSizeChange = (scale) => {
     setFontScale(scale);
     localStorage.setItem("famcal_font_scale", String(scale));
-    document.documentElement.style.fontSize = `${scale * 100}%`;
+    // Notify App.js to update root font size
+    window.dispatchEvent(new CustomEvent("famcal-font-change", { detail: { fontScale: scale } }));
   };
 
   const handleFamilyNameSave = () => {
