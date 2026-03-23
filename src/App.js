@@ -470,14 +470,24 @@ export default function App() {
   const [kioskEnabled, setKioskEnabled] = useState(localStorage.getItem("famcal_kiosk") === "true");
   const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
 
-  // Font scale — always-on, not kiosk-only
+  // Font scale + font family — always-on, not kiosk-only
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.0"));
+  const [fontFamily, setFontFamily] = useState(() => localStorage.getItem("famcal_font_family") || "Inter");
 
-  // Apply font scale to root element (cascades to all rem-based sizes)
+  // Apply font scale + font family to root element
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontScale * 100}%`;
-    return () => { document.documentElement.style.fontSize = ""; };
-  }, [fontScale]);
+    document.documentElement.style.fontFamily = `"${fontFamily}", -apple-system, BlinkMacSystemFont, sans-serif`;
+    return () => {
+      document.documentElement.style.fontSize = "";
+      document.documentElement.style.fontFamily = "";
+    };
+  }, [fontScale, fontFamily]);
+
+  const handleFontFamilyChange = useCallback((newFont) => {
+    setFontFamily(newFont);
+    localStorage.setItem("famcal_font_family", newFont);
+  }, []);
 
   const handleFontScaleChange = useCallback((newScale) => {
     const clamped = Math.max(0.8, Math.min(1.6, newScale));
@@ -634,8 +644,8 @@ export default function App() {
             <Box sx={{ display: { xs: "flex", md: "none" } }}>
               <FloatingNav />
             </Box>
-            {/* Unified SpeedDial FAB */}
-            <SpeedDial
+            {/* Unified SpeedDial FAB — hidden on settings page */}
+            {activeTab !== "settings" && <SpeedDial
               ariaLabel="Quick actions"
               sx={{
                 position: "fixed", bottom: { xs: 90, md: 28 }, right: 20, zIndex: 1200,
@@ -659,7 +669,7 @@ export default function App() {
                 onClick={() => navigate(`/${activeTab}`)}
                 sx={{ bgcolor: "background.paper" }}
               />
-            </SpeedDial>
+            </SpeedDial>}
             <AICommandBar
               familyId={family?.id}
               dispatch={dispatch}

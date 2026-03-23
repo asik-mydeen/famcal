@@ -28,7 +28,6 @@ function Settings() {
   const { user, signOut } = useAuth();
 
   const [familyName, setFamilyName] = useState(family.name);
-  const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [weatherLocation, setWeatherLocation] = useState(
     family?.weather_location || localStorage.getItem("famcal_weather_location") || ""
@@ -37,18 +36,20 @@ function Settings() {
     const stored = localStorage.getItem("famcal_animations");
     return stored === null ? true : stored === "true";
   });
-  const [touchOptimized, setTouchOptimized] = useState(() => {
-    const stored = localStorage.getItem("famcal_touch_mode");
-    return stored === null ? true : stored === "true";
-  });
-  const [kioskEnabled, setKioskEnabled] = useState(
-    localStorage.getItem("famcal_kiosk") === "true"
+
+  // Font family state
+  const [fontFamily, setFontFamily] = useState(
+    () => localStorage.getItem("famcal_font_family") || "Inter"
   );
+
+  // Font size state (scale presets)
+  const [fontScale, setFontScale] = useState(
+    () => parseFloat(localStorage.getItem("famcal_font_scale") || "1.0")
+  );
+
+  // Idle timeout for photo frame
   const [idleTimeout, setIdleTimeout] = useState(
     parseInt(localStorage.getItem("famcal_idle_timeout") || "5")
-  );
-  const [fontScale, setFontScale] = useState(
-    parseFloat(localStorage.getItem("famcal_font_scale") || "1.0")
   );
 
   const [photosConnected, setPhotosConnected] = useState(isGooglePhotosConnected());
@@ -109,38 +110,37 @@ function Settings() {
     }
   }, [photosConnected]);
 
-  const handleSaveAll = () => {
-    // Save family name
-    const updates = { ...family, name: familyName.trim() || family.name };
-    dispatch({ type: "SET_FAMILY", value: updates });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
-
   const handleAnimationsChange = (e) => {
     setAnimations(e.target.checked);
     localStorage.setItem("famcal_animations", String(e.target.checked));
   };
 
-  const handleTouchOptimizedChange = (e) => {
-    setTouchOptimized(e.target.checked);
-    localStorage.setItem("famcal_touch_mode", String(e.target.checked));
+  const handleFontFamilyChange = (font) => {
+    setFontFamily(font);
+    localStorage.setItem("famcal_font_family", font);
+    if (font === "System") {
+      document.documentElement.style.fontFamily = "-apple-system, BlinkMacSystemFont, sans-serif";
+    } else {
+      document.documentElement.style.fontFamily = `"${font}", -apple-system, BlinkMacSystemFont, sans-serif`;
+    }
   };
 
-  const handleKioskToggle = () => {
-    const next = !kioskEnabled;
-    setKioskEnabled(next);
-    localStorage.setItem("famcal_kiosk", String(next));
+  const handleFontSizeChange = (scale) => {
+    setFontScale(scale);
+    localStorage.setItem("famcal_font_scale", String(scale));
+    document.documentElement.style.fontSize = `${scale * 100}%`;
+  };
+
+  const handleFamilyNameBlur = () => {
+    const trimmed = familyName.trim();
+    if (trimmed && trimmed !== family.name) {
+      dispatch({ type: "SET_FAMILY", value: { ...family, name: trimmed } });
+    }
   };
 
   const handleIdleTimeoutChange = (e, newValue) => {
     setIdleTimeout(newValue);
     localStorage.setItem("famcal_idle_timeout", String(newValue));
-  };
-
-  const handleFontScaleChange = (e, newValue) => {
-    setFontScale(newValue);
-    localStorage.setItem("famcal_font_scale", String(newValue));
   };
 
   // Compress image before upload
@@ -267,6 +267,14 @@ function Settings() {
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
 
+  const fontOptions = ["Inter", "Roboto", "Open Sans", "System"];
+  const fontSizePresets = [
+    { label: "S", scale: 0.85 },
+    { label: "M", scale: 1.0 },
+    { label: "L", scale: 1.15 },
+    { label: "XL", scale: 1.35 },
+  ];
+
   return (
     <Box>
       <Typography variant="h4" fontWeight="bold" sx={{ mb: 3 }}>
@@ -274,87 +282,106 @@ function Settings() {
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Family + Google Calendar — single card */}
+        {/* Appearance (full width) */}
         <Grid item xs={12}>
           <GlassCard delay={0}>
-            {/* Family Name */}
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>family_restroom</Icon>
-              <Typography variant="h6" fontWeight="bold">Family</Typography>
+            <Box display="flex" alignItems="center" gap={1} mb={3}>
+              <Icon sx={{ color: "primary.main" }}>palette</Icon>
+              <Typography variant="h6" fontWeight="bold">Appearance</Typography>
             </Box>
 
-            <TextField
-              fullWidth
-              size="small"
-              label="Family Name"
-              value={familyName}
-              onChange={(e) => setFamilyName(e.target.value)}
-              sx={{ mb: 3 }}
+            {/* Dark Mode */}
+            <FormControlLabel
+              control={<Switch checked={darkMode} onChange={(e) => setDarkModeValue(e.target.checked)} />}
+              label="Dark Mode"
+              sx={{ display: "flex", mb: 2 }}
             />
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Google Calendar */}
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={1.5}>
-              <Box display="flex" alignItems="center" gap={1}>
-                <Icon sx={{ color: "primary.main" }}>event</Icon>
-                <Typography variant="h6" fontWeight="bold">Google Calendar</Typography>
+            {/* Font Family */}
+            <Box mb={2}>
+              <Typography variant="body2" fontWeight={600} mb={1.5}>Font Family</Typography>
+              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                {fontOptions.map((font) => (
+                  <Box
+                    key={font}
+                    onClick={() => handleFontFamilyChange(font)}
+                    sx={{
+                      flex: "1 1 auto",
+                      minWidth: 100,
+                      px: 2,
+                      py: 1.5,
+                      borderRadius: "12px",
+                      border: "2px solid",
+                      borderColor: fontFamily === font ? "primary.main" : "divider",
+                      bgcolor: fontFamily === font ? "rgba(108,92,231,0.08)" : "transparent",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.2s ease",
+                      fontFamily: font === "System" ? "-apple-system, BlinkMacSystemFont, sans-serif" : `"${font}", sans-serif`,
+                      "&:hover": {
+                        borderColor: fontFamily === font ? "primary.dark" : "primary.light",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                  >
+                    <Typography variant="body2" fontWeight={600}>{font}</Typography>
+                  </Box>
+                ))}
               </Box>
-              {clientIdConfigured && (
-                <Chip label="Configured" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
-              )}
             </Box>
 
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
-              {clientIdConfigured
-                ? "Google Calendar sync is configured. Tap a family member's avatar on the Calendar page to connect their account."
-                : "Google Calendar sync requires REACT_APP_GOOGLE_CLIENT_ID environment variable. Contact your administrator to enable calendar sync."}
-            </Typography>
+            <Divider sx={{ my: 2 }} />
 
-            {/* Single Save button */}
-            <Box display="flex" alignItems="center" gap={1.5}>
-              <Button variant="contained" onClick={handleSaveAll} disabled={!familyName.trim()}>
-                Save Settings
-              </Button>
-              {saved && (
-                <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
-              )}
+            {/* Font Size */}
+            <Box mb={2}>
+              <Typography variant="body2" fontWeight={600} mb={1.5}>Font Size</Typography>
+              <Box sx={{ display: "flex", gap: 1.5 }}>
+                {fontSizePresets.map((preset) => (
+                  <Box
+                    key={preset.label}
+                    onClick={() => handleFontSizeChange(preset.scale)}
+                    sx={{
+                      flex: 1,
+                      py: 1.5,
+                      borderRadius: "12px",
+                      border: "2px solid",
+                      borderColor: fontScale === preset.scale ? "primary.main" : "divider",
+                      bgcolor: fontScale === preset.scale ? "rgba(108,92,231,0.08)" : "transparent",
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        borderColor: fontScale === preset.scale ? "primary.dark" : "primary.light",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                  >
+                    <Typography variant="body2" fontWeight={600}>{preset.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {Math.round(preset.scale * 100)}%
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
             </Box>
-          </GlassCard>
-        </Grid>
 
-        {/* Display & Preferences */}
-        <Grid item xs={12} md={6}>
-          <GlassCard delay={0.1}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>palette</Icon>
-              <Typography variant="h6" fontWeight="bold">Display</Typography>
-            </Box>
+            <Divider sx={{ my: 2 }} />
 
-            <FormControlLabel
-              control={<Switch checked={darkMode} onChange={(e) => setDarkModeValue(e.target.checked)} />}
-              label="Dark Mode"
-              sx={{ display: "flex", mb: 1 }}
-            />
-            <Divider sx={{ my: 1.5 }} />
+            {/* Animations */}
             <FormControlLabel
               control={<Switch checked={animations} onChange={handleAnimationsChange} />}
               label="Animations"
-              sx={{ display: "flex", mb: 1 }}
-            />
-            <Divider sx={{ my: 1.5 }} />
-            <FormControlLabel
-              control={<Switch checked={touchOptimized} onChange={handleTouchOptimizedChange} />}
-              label="Touch Optimized"
               sx={{ display: "flex" }}
             />
           </GlassCard>
         </Grid>
 
-        {/* Account */}
+        {/* Account (half width) */}
         <Grid item xs={12} md={6}>
-          <GlassCard delay={0.2}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <GlassCard delay={0.1}>
+            <Box display="flex" alignItems="center" gap={1} mb={3}>
               <Icon sx={{ color: "primary.main" }}>account_circle</Icon>
               <Typography variant="h6" fontWeight="bold">Account</Typography>
             </Box>
@@ -385,39 +412,29 @@ function Settings() {
           </GlassCard>
         </Grid>
 
-        {/* Status */}
+        {/* Family (half width) */}
         <Grid item xs={12} md={6}>
-          <GlassCard delay={0.3}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>cloud</Icon>
-              <Typography variant="h6" fontWeight="bold">Status</Typography>
+          <GlassCard delay={0.2}>
+            <Box display="flex" alignItems="center" gap={1} mb={3}>
+              <Icon sx={{ color: "primary.main" }}>family_restroom</Icon>
+              <Typography variant="h6" fontWeight="bold">Family</Typography>
             </Box>
 
-            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-              <Typography variant="body2" color="text.secondary">Supabase</Typography>
-              <Chip
-                label={isSupabaseConnected ? "Connected" : "Offline (Local)"}
-                size="small"
-                sx={{
-                  bgcolor: isSupabaseConnected ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
-                  color: isSupabaseConnected ? "#22c55e" : "#f59e0b",
-                  fontWeight: 600,
-                }}
-              />
-            </Box>
-
-            <Divider sx={{ my: 1.5 }} />
-
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Typography variant="body2" color="text.secondary">Version</Typography>
-              <Typography variant="body2" fontWeight="bold">FamCal v2.0</Typography>
-            </Box>
+            <TextField
+              fullWidth
+              size="small"
+              label="Family Name"
+              value={familyName}
+              onChange={(e) => setFamilyName(e.target.value)}
+              onBlur={handleFamilyNameBlur}
+              placeholder="Enter family name"
+            />
           </GlassCard>
         </Grid>
 
-        {/* Weather Settings */}
+        {/* Weather (half width) */}
         <Grid item xs={12} md={6}>
-          <GlassCard delay={0.4}>
+          <GlassCard delay={0.3}>
             <Box display="flex" alignItems="center" gap={1} mb={2}>
               <Icon sx={{ color: "primary.main" }}>wb_sunny</Icon>
               <Typography variant="h6" fontWeight="bold">Weather</Typography>
@@ -441,10 +458,7 @@ function Settings() {
                   const loc = weatherLocation.trim();
                   if (!loc) return;
                   localStorage.setItem("famcal_weather_location", loc);
-                  // Also save to family record in Supabase
                   dispatch({ type: "SET_FAMILY", value: { ...family, weather_location: loc } });
-                  setSaved(true);
-                  setTimeout(() => setSaved(false), 3000);
                 }}
                 sx={{ minWidth: 80, borderRadius: "10px", textTransform: "none" }}
               >
@@ -459,28 +473,66 @@ function Settings() {
           </GlassCard>
         </Grid>
 
-        {/* Kiosk Mode */}
+        {/* About (half width) */}
         <Grid item xs={12} md={6}>
+          <GlassCard delay={0.4}>
+            <Box display="flex" alignItems="center" gap={1} mb={3}>
+              <Icon sx={{ color: "primary.main" }}>info</Icon>
+              <Typography variant="h6" fontWeight="bold">About</Typography>
+            </Box>
+
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Typography variant="body2" color="text.secondary">Supabase</Typography>
+              <Chip
+                label={isSupabaseConnected ? "Connected" : "Offline"}
+                size="small"
+                sx={{
+                  bgcolor: isSupabaseConnected ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
+                  color: isSupabaseConnected ? "#22c55e" : "#f59e0b",
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+
+            <Divider sx={{ my: 1.5 }} />
+
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Typography variant="body2" color="text.secondary">Google Calendar</Typography>
+              <Chip
+                label={clientIdConfigured ? "Configured" : "Not configured"}
+                size="small"
+                sx={{
+                  bgcolor: clientIdConfigured ? "rgba(34,197,94,0.15)" : "rgba(148,163,184,0.15)",
+                  color: clientIdConfigured ? "#22c55e" : "#94a3b8",
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+
+            <Divider sx={{ my: 1.5 }} />
+
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Typography variant="body2" color="text.secondary">Version</Typography>
+              <Typography variant="body2" fontWeight="bold">FamCal v3.0</Typography>
+            </Box>
+          </GlassCard>
+        </Grid>
+
+        {/* Photo Frame (full width) */}
+        <Grid item xs={12}>
           <GlassCard delay={0.5}>
             <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>fullscreen</Icon>
-              <Typography variant="h6" fontWeight="bold">Kiosk Mode</Typography>
+              <Icon sx={{ color: "primary.main" }}>photo_library</Icon>
+              <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
             </Box>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              Optimize for wall-mounted displays.
+            <Typography variant="body2" color="text.secondary" mb={3}>
+              Display family photos when the screen is idle. Upload your favorite family photos below.
             </Typography>
 
-            <FormControlLabel
-              control={<Switch checked={kioskEnabled} onChange={handleKioskToggle} />}
-              label="Enable Kiosk Mode"
-              sx={{ display: "flex", mb: 2 }}
-            />
-
-            <Divider sx={{ my: 2 }} />
-
+            {/* Idle timeout slider */}
             <Box sx={{ mb: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="body2">Idle Timeout</Typography>
+                <Typography variant="body2" fontWeight={600}>Idle Timeout</Typography>
                 <Typography variant="body2" fontWeight="bold" color="primary.main">
                   {idleTimeout} min
                 </Typography>
@@ -497,86 +549,12 @@ function Settings() {
                   { value: 30, label: "30m" },
                 ]}
                 valueLabelDisplay="auto"
-                disabled={!kioskEnabled}
               />
             </Box>
 
-            <Box sx={{ mb: 2 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="body2">Font Scale</Typography>
-                <Typography variant="body2" fontWeight="bold" color="primary.main">
-                  {Math.round(fontScale * 100)}%
-                </Typography>
-              </Box>
-              <Slider
-                value={fontScale}
-                onChange={handleFontScaleChange}
-                min={1.0}
-                max={1.5}
-                step={0.05}
-                marks={[
-                  { value: 1.0, label: "100%" },
-                  { value: 1.25, label: "125%" },
-                  { value: 1.5, label: "150%" },
-                ]}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `${Math.round(value * 100)}%`}
-                disabled={!kioskEnabled}
-              />
-            </Box>
+            <Divider sx={{ my: 2 }} />
 
-            {/* Browser support warnings */}
-            {!document.documentElement.requestFullscreen && (
-              <Box
-                sx={{
-                  bgcolor: "rgba(245, 158, 11, 0.1)",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
-                  borderRadius: "8px",
-                  p: 1.5,
-                  mt: 2,
-                }}
-              >
-                <Box display="flex" alignItems="flex-start" gap={1}>
-                  <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
-                  <Typography variant="caption" color="warning.main">
-                    Fullscreen not supported. For best experience, add to Home Screen.
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-            {!("wakeLock" in navigator) && (
-              <Box
-                sx={{
-                  bgcolor: "rgba(245, 158, 11, 0.1)",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
-                  borderRadius: "8px",
-                  p: 1.5,
-                  mt: 2,
-                }}
-              >
-                <Box display="flex" alignItems="flex-start" gap={1}>
-                  <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
-                  <Typography variant="caption" color="warning.main">
-                    Wake lock not available. Your device may sleep during use.
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-          </GlassCard>
-        </Grid>
-
-        {/* Photo Frame */}
-        <Grid item xs={12}>
-          <GlassCard delay={0.6}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>photo_library</Icon>
-              <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" mb={2}>
-              Display family photos when the screen is idle. Upload your favorite family photos below.
-            </Typography>
-
-            {/* Slideshow interval slider */}
+            {/* Photo duration slider */}
             <Box sx={{ mb: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                 <Typography variant="body2" fontWeight={600}>Photo Duration</Typography>
@@ -601,11 +579,11 @@ function Settings() {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Photo Upload Section */}
+            {/* Google Photos albums */}
             <Box mb={3}>
               <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                <Icon sx={{ fontSize: "1.2rem" }}>add_photo_alternate</Icon>
-                <Typography variant="body1" fontWeight={600}>Upload Photos</Typography>
+                <Icon sx={{ fontSize: "1.2rem" }}>photo_library</Icon>
+                <Typography variant="body1" fontWeight={600}>Google Photos Albums</Typography>
               </Box>
 
               {!isSupabaseConnected && (
