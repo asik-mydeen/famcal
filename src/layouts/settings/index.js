@@ -510,6 +510,85 @@ function Settings() {
           </GlassCard>
         </Grid>
 
+        {/* Kiosk / Dashboard Link (full width) */}
+        <Grid item xs={12}>
+          <GlassCard delay={0.35}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "primary.main" }}>tv</Icon>
+              <Typography variant="h6" fontWeight="bold">Kiosk / Wall Display</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Generate a link for your wall-mounted display. No Google login needed on the display — it uses a simple access token.
+            </Typography>
+
+            {family?.dashboard_slug && family?.dashboard_token ? (
+              <Box>
+                <Box sx={{ display: "flex", gap: 1, mb: 2, alignItems: "center" }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Dashboard Link"
+                    value={`${window.location.origin}/d/${family.dashboard_slug}`}
+                    InputProps={{ readOnly: true }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/d/${family.dashboard_slug}`);
+                      setSaved(true);
+                      setTimeout(() => setSaved(false), 2000);
+                    }}
+                    sx={{ minWidth: 70, borderRadius: "10px", textTransform: "none" }}
+                  >
+                    <Icon sx={{ fontSize: "1rem" }}>content_copy</Icon>
+                  </Button>
+                </Box>
+                <Box sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Access Token"
+                    value={family.dashboard_token}
+                    InputProps={{ readOnly: true }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      navigator.clipboard.writeText(family.dashboard_token);
+                      setSaved(true);
+                      setTimeout(() => setSaved(false), 2000);
+                    }}
+                    sx={{ minWidth: 70, borderRadius: "10px", textTransform: "none" }}
+                  >
+                    <Icon sx={{ fontSize: "1rem" }}>content_copy</Icon>
+                  </Button>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  Open the link on your display device and enter the access token.
+                </Typography>
+              </Box>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={() => {
+                  const slug = (family.name || "family").toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").slice(0, 20) + "-" + Math.random().toString(36).slice(2, 6);
+                  const token = Math.random().toString(36).slice(2, 10).toUpperCase();
+                  dispatch({
+                    type: "SET_FAMILY",
+                    value: { ...family, dashboard_slug: slug, dashboard_token: token },
+                  });
+                }}
+                startIcon={<Icon>link</Icon>}
+                sx={{ borderRadius: "12px", textTransform: "none" }}
+              >
+                Generate Kiosk Link
+              </Button>
+            )}
+          </GlassCard>
+        </Grid>
+
         {/* About (half width) */}
         <Grid item xs={12} md={6}>
           <GlassCard delay={0.4}>

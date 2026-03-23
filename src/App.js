@@ -43,6 +43,7 @@ import Rewards from "layouts/rewards";
 import Settings from "layouts/settings";
 import PrivacyPolicy from "layouts/legal/privacy";
 import TermsOfService from "layouts/legal/tos";
+import Dashboard from "layouts/dashboard";
 
 // ── Supabase Auth Sign-In Screen ──
 
@@ -582,6 +583,18 @@ export default function App() {
   const headerCountdownWidget = countdowns.length > 0 ? (
     <CountdownWidget variant="header" countdowns={countdowns} members={members} dispatch={dispatch} familyId={family?.id} />
   ) : null;
+
+  // Dashboard/kiosk route — public, token-based auth (no Google OAuth)
+  if (location.pathname.startsWith("/d/")) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Routes>
+          <Route path="/d/:slug" element={<Dashboard />} />
+        </Routes>
+      </ThemeProvider>
+    );
+  }
 
   // Legal pages are public (no login required) — needed for Google verification
   if (location.pathname === "/privacy") {

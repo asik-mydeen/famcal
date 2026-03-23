@@ -1,0 +1,78 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  const { slug, token } = req.method === "GET" ? req.query : (req.body || {});
+
+  if (!slug || !token) {
+    return res.status(400).json({ error: "slug and token required" });
+  }
+
+  try {
+    // Validate token against families table
+    const { data: family, error: famError } = await supabase
+      .from("families")
+      .select("*")
+      .eq("dashboard_slug", slug)
+      .eq("dashboard_token", token)
+      .single();
+
+    if (famError || !family) {
+      return res.status(401).json({ error: "Invalid access token" });
+    }
+
+    // Fetch all family data in parallel
+    const [members, events, tasks, meals, lists, rewards, notes, countdowns] = await Promise.all([
+      supabase.from("family_members").select("*").eq("family_id", family.id),
+      supabase.from("events").select("*").eq("family_id", family.id),
+      supabase.from("tasks").select("*").eq("family_id", family.id),
+      supabase.from("meals").select("*").eq("family_id", family.id),
+      supabase.from("lists").select("*").eq("family_id", family.id),
+      supabase.from("rewards").select("*").eq("family_id", family.id),
+      supabase.from("notes").select("*").eq("family_id", family.id),
+      supabase.from("countdowns").select("*").eq("family_id", family.id),
+    ]);
+
+    // Fetch list items for the loaded lists
+    let allListItems = [];
+    if (lists.data && lists.data.length > 0) {
+      const listIds = lists.data.map((l) => l.id);
+      const { data: items } = await supabase
+        .from("list_items")
+        .select("*")
+        .in("list_id", listIds);
+      allListItems = items || [];
+    }
+
+    // Merge items into lists
+    const listsWithItems = (lists.data || []).map((l) => ({
+      ...l,
+      items: allListItems.filter((i) => i.list_id === l.id),
+    }));
+
+    return res.status(200).json({
+      family,
+      members: members.data || [],
+      events: events.data || [],
+      tasks: tasks.data || [],
+      meals: meals.data || [],
+      lists: listsWithItems,
+      rewards: rewards.data || [],
+      notes: notes.data || [],
+      countdowns: countdowns.data || [],
+    });
+  } catch (err) {
+    console.error("[dashboard] Error:", err.message);
+    return res.status(500).json({ error: "Failed to load dashboard data" });
+  }
+}
