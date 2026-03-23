@@ -44,6 +44,7 @@ import Settings from "layouts/settings";
 import PrivacyPolicy from "layouts/legal/privacy";
 import TermsOfService from "layouts/legal/tos";
 import Dashboard from "layouts/dashboard";
+import KioskSetup from "layouts/kiosk-setup";
 
 // ── Supabase Auth Sign-In Screen ──
 
@@ -583,6 +584,16 @@ export default function App() {
   const headerCountdownWidget = countdowns.length > 0 ? (
     <CountdownWidget variant="header" countdowns={countdowns} members={members} dispatch={dispatch} familyId={family?.id} />
   ) : null;
+
+  // Kiosk setup route — Tauri entry point (no Google OAuth)
+  if (location.pathname === "/kiosk") {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <KioskSetup />
+      </ThemeProvider>
+    );
+  }
 
   // Dashboard/kiosk route — public, token-based auth (no Google OAuth)
   if (location.pathname.startsWith("/d/")) {
