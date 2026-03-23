@@ -65,7 +65,8 @@
     "swiper": "9.3.2",
     "uuid": "9.0.0",
     "web-vitals": "3.3.1",
-    "yup": "1.1.1"
+    "yup": "1.1.1",
+    "zod": "^4.3.6"
   },
   "scripts": {
     "start": "NODE_OPTIONS=--openssl-legacy-provider react-scripts start",
