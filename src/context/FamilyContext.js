@@ -651,6 +651,7 @@ export {
   FamilyContext,
   FamilyProvider,
   useFamilyController,
+  reducer as familyReducer,
   MEMBER_COLORS,
   TASK_CATEGORIES,
 };

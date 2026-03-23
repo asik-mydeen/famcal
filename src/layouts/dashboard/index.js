@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useReducer } from "react";
 import { useParams, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -9,7 +9,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 
-import { FamilyContext } from "context/FamilyContext";
+import { FamilyContext, familyReducer } from "context/FamilyContext";
 import AnimatedBackground from "components/AnimatedBackground";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
@@ -128,8 +128,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
   const { family, members, events, tasks, meals, lists, rewards, notes, countdowns } = data;
 
-  // Map DB rows to client format
-  const mappedState = useMemo(() => ({
+  // Map DB rows to client format for initial state
+  const initialState = useMemo(() => ({
     family,
     members: members.map(memberFromDb),
     events: events.map(eventFromDb),
@@ -145,14 +145,26 @@ function DashboardShell({ data, slug, onDisconnect }) {
     isSupabaseConnected: true,
     loading: false,
     dataLoaded: true,
-  }), [family, members, events, tasks, meals, lists, rewards, notes, countdowns]);
+    isDashboard: true, // Flag for components to skip Google auth
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
 
-  // Dashboard dispatch — read-only for now (no mutations from kiosk)
-  const dispatch = useCallback(() => {
-    // No-op: dashboard is read-only. Manage data from the setup portal.
-  }, []);
+  // Real reducer so components can dispatch locally (ADD_LIST, COMPLETE_TASK, etc.)
+  const [state, dispatch] = useReducer(familyReducer, initialState);
 
-  const contextValue = useMemo(() => [mappedState, dispatch], [mappedState, dispatch]);
+  // Update state when API data refreshes (auto-refresh every 60s)
+  useEffect(() => {
+    dispatch({ type: "SET_MEMBERS", value: members.map(memberFromDb) });
+    dispatch({ type: "SET_EVENTS", value: events.map(eventFromDb) });
+    dispatch({ type: "SET_TASKS", value: tasks.map(taskFromDb) });
+    dispatch({ type: "SET_MEALS", value: meals });
+    dispatch({ type: "SET_LISTS", value: lists });
+    dispatch({ type: "SET_REWARDS", value: rewards });
+    dispatch({ type: "SET_NOTES", value: notes || [] });
+    dispatch({ type: "SET_COUNTDOWNS", value: countdowns || [] });
+  }, [members, events, tasks, meals, lists, rewards, notes, countdowns]);
+
+  const contextValue = useMemo(() => [state, dispatch], [state, dispatch]);
 
   // Weather
   const weatherLocation = family?.weather_location || "";
