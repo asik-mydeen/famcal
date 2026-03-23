@@ -30,3 +30,4 @@ commit.sh
 .vercel
 .superpowers/
 .env*.local
+src-tauri/target/
