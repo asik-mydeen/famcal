@@ -49,8 +49,10 @@ export async function fetchWeather(location) {
       temp: Math.round(json.main.temp),
       condition: json.weather[0]?.main || "",
       icon: ICON_MAP[json.weather[0]?.icon] || "wb_sunny",
+      city: json.name || location,
       humidity: json.main.humidity,
       wind: Math.round(json.wind?.speed || 0),
+      feelsLike: Math.round(json.main.feels_like),
     };
 
     localStorage.setItem(CACHE_KEY, JSON.stringify({ data: weather, timestamp: Date.now() }));
@@ -80,7 +82,7 @@ export async function fetchForecast(location) {
         location
       )}&units=imperial&appid=${API_KEY}`
     );
-    if (!res.ok) return [];
+    if (!res.ok) return { forecast: [], hourly: [] };
     const json = await res.json();
 
     // Get one entry per day (noon)
@@ -98,10 +100,20 @@ export async function fetchForecast(location) {
       }
     }
 
+    // Get hourly data for next 12 hours (first 4 entries = 12 hours at 3h intervals)
+    const hourly = json.list.slice(0, 4).map((item) => ({
+      time: item.dt_txt,
+      temp: Math.round(item.main.temp),
+      condition: item.weather[0]?.main,
+      icon: ICON_MAP[item.weather[0]?.icon] || "cloud",
+      pop: Math.round((item.pop || 0) * 100), // probability of precipitation %
+    }));
+
     const forecast = Object.values(days).slice(0, 3);
-    localStorage.setItem(cacheKey, JSON.stringify({ data: forecast, timestamp: Date.now() }));
-    return forecast;
+    const result = { forecast, hourly };
+    localStorage.setItem(cacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));
+    return result;
   } catch {
-    return [];
+    return { forecast: [], hourly: [] };
   }
 }

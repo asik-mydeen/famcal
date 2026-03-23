@@ -11,6 +11,8 @@ import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import TextField from "@mui/material/TextField";
+import SpeedDial from "@mui/material/SpeedDial";
+import SpeedDialAction from "@mui/material/SpeedDialAction";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { createAppTheme } from "assets/theme";
@@ -452,7 +454,10 @@ export default function App() {
   const theme = useMemo(() => createAppTheme(darkMode ? "dark" : "light"), [darkMode]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
-  const { members, photos, countdowns, family, weather, dataLoaded } = state;
+  const { members, photos, countdowns, family, dataLoaded } = state;
+
+  // Unified FAB state
+  const [aiOpen, setAiOpen] = useState(false);
 
   const setupDone = localStorage.getItem("famcal_setup_done") === "true" || family?.setup_done === true;
   const isLoggedIn = Boolean(user);
@@ -606,11 +611,39 @@ export default function App() {
             <Box sx={{ display: { xs: "flex", md: "none" } }}>
               <FloatingNav />
             </Box>
+            {/* Unified SpeedDial FAB */}
+            <SpeedDial
+              ariaLabel="Quick actions"
+              sx={{
+                position: "fixed", bottom: { xs: 90, md: 28 }, right: 20, zIndex: 1200,
+                "& .MuiSpeedDial-fab": {
+                  background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                  boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
+                  "&:hover": { boxShadow: "0 8px 32px rgba(108,92,231,0.6)" },
+                },
+              }}
+              icon={<Icon>add</Icon>}
+            >
+              <SpeedDialAction
+                icon={<Icon>auto_awesome</Icon>}
+                tooltipTitle="Ask AI"
+                onClick={() => setAiOpen(true)}
+                sx={{ bgcolor: "background.paper", "& .MuiSvgIcon-root, & .MuiIcon-root": { color: "#6C5CE7" } }}
+              />
+              <SpeedDialAction
+                icon={<Icon>edit_calendar</Icon>}
+                tooltipTitle="Add Manually"
+                onClick={() => navigate(`/${activeTab}`)}
+                sx={{ bgcolor: "background.paper" }}
+              />
+            </SpeedDial>
             <AICommandBar
               familyId={family?.id}
               dispatch={dispatch}
               state={state}
               currentPage={activeTab}
+              externalOpen={aiOpen}
+              onExternalClose={() => setAiOpen(false)}
             />
           </KioskWrapper>
         </>

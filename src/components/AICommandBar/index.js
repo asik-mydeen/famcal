@@ -33,9 +33,17 @@ const ACTION_BADGES = {
   claim_reward: { icon: "redeem", color: "#22c55e", label: "reward claimed" },
 };
 
-function AICommandBar({ familyId, dispatch, state, currentPage }) {
+function AICommandBar({ familyId, dispatch, state, currentPage, externalOpen, onExternalClose }) {
   const { darkMode } = useThemeMode();
   const [open, setOpen] = useState(false);
+
+  // Support external open trigger (from SpeedDial in App.js)
+  useEffect(() => {
+    if (externalOpen) {
+      setOpen(true);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [externalOpen]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -75,6 +83,7 @@ function AICommandBar({ familyId, dispatch, state, currentPage }) {
     setOpen(false);
     setInput("");
     setMessages([]);
+    if (onExternalClose) onExternalClose();
   };
 
   // Execute ALL action types
@@ -388,36 +397,6 @@ function AICommandBar({ familyId, dispatch, state, currentPage }) {
 
   return (
     <>
-      {/* Floating AI button */}
-      <AnimatePresence>
-        {!open && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            style={{ position: "fixed", bottom: 90, right: 20, zIndex: 1300 }}
-          >
-            <IconButton
-              onClick={handleOpen}
-              sx={{
-                width: 56,
-                height: 56,
-                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-                color: "#fff",
-                boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
-                "&:hover": {
-                  boxShadow: "0 8px 32px rgba(108,92,231,0.6)",
-                  transform: "scale(1.05)",
-                },
-                transition: "all 0.2s ease",
-              }}
-            >
-              <Icon sx={{ fontSize: "1.5rem" }}>auto_awesome</Icon>
-            </IconButton>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Command bar overlay */}
       <AnimatePresence>
         {open && (
@@ -705,6 +684,8 @@ AICommandBar.propTypes = {
   dispatch: PropTypes.func.isRequired,
   state: PropTypes.object,
   currentPage: PropTypes.string,
+  externalOpen: PropTypes.bool,
+  onExternalClose: PropTypes.func,
 };
 
 export default AICommandBar;
