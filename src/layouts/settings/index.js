@@ -443,7 +443,28 @@ function Settings() {
               <Chip label={user?.email} size="small" sx={{ ml: "auto", fontSize: "0.65rem" }} />
             </Box>
 
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 2 }}>
+            {localStorage.getItem("famcal_joined_family_id") && (
+              <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", bgcolor: "rgba(108,92,231,0.06)", border: "1px solid rgba(108,92,231,0.12)" }}>
+                <Typography sx={{ fontSize: "0.8rem", color: "primary.main", fontWeight: 600, mb: 0.5 }}>
+                  Viewing a shared family
+                </Typography>
+                <Button
+                  variant="text"
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    localStorage.removeItem("famcal_joined_family_id");
+                    window.location.reload();
+                  }}
+                  sx={{ fontSize: "0.75rem", p: 0 }}
+                  startIcon={<Icon sx={{ fontSize: "0.9rem" }}>link_off</Icon>}
+                >
+                  Switch back to my own family
+                </Button>
+              </Box>
+            )}
+
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
               <TextField
                 fullWidth
                 size="small"
@@ -467,72 +488,6 @@ function Settings() {
                 <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
               )}
             </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Join another family */}
-            <Typography variant="body2" color="text.secondary" mb={1}>
-              Switch to a different family by entering their family code (from their Kiosk settings).
-            </Typography>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Family Code"
-                placeholder="Enter code to join another family"
-                id="join-family-code"
-              />
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={async () => {
-                  const code = document.getElementById("join-family-code")?.value?.trim();
-                  if (!code) return;
-                  try {
-                    const res = await fetch("/api/dashboard", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ slug: "_lookup_", token: code }),
-                    });
-                    if (!res.ok) {
-                      // Try direct token lookup
-                      const { data: fam } = await (await import("lib/supabase")).supabase
-                        .from("families").select("id, name").eq("dashboard_token", code).single();
-                      if (fam) {
-                        localStorage.setItem("famcal_joined_family_id", fam.id);
-                        window.location.reload();
-                        return;
-                      }
-                      alert("Invalid family code. Check the code and try again.");
-                      return;
-                    }
-                    const result = await res.json();
-                    localStorage.setItem("famcal_joined_family_id", result.family.id);
-                    window.location.reload();
-                  } catch {
-                    alert("Failed to join family. Please try again.");
-                  }
-                }}
-                sx={{ minWidth: 70, borderRadius: "10px", textTransform: "none" }}
-              >
-                Join
-              </Button>
-            </Box>
-            {localStorage.getItem("famcal_joined_family_id") && (
-              <Button
-                variant="text"
-                size="small"
-                color="error"
-                onClick={() => {
-                  localStorage.removeItem("famcal_joined_family_id");
-                  window.location.reload();
-                }}
-                sx={{ mt: 1, fontSize: "0.75rem" }}
-                startIcon={<Icon sx={{ fontSize: "0.9rem" }}>link_off</Icon>}
-              >
-                Leave joined family (revert to your own)
-              </Button>
-            )}
           </GlassCard>
         </Grid>
 
@@ -632,9 +587,52 @@ function Settings() {
                     <Icon sx={{ fontSize: "1rem" }}>content_copy</Icon>
                   </Button>
                 </Box>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
                   Open the link on your display device and enter the access token.
                 </Typography>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Join another family using their access token */}
+                <Typography variant="body2" fontWeight={600} mb={1}>
+                  Join another family
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                  Have a family member share their Access Token above. Enter it here to view their family data on this device.
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Their Access Token"
+                    placeholder="e.g., A7L7IC29"
+                    id="join-family-code"
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      const code = document.getElementById("join-family-code")?.value?.trim();
+                      if (!code) return;
+                      try {
+                        const { supabase: sb } = await import("lib/supabase");
+                        const { data: fam } = await sb
+                          .from("families").select("id, name").eq("dashboard_token", code).single();
+                        if (fam) {
+                          localStorage.setItem("famcal_joined_family_id", fam.id);
+                          window.location.reload();
+                          return;
+                        }
+                        alert("Invalid token. Ask the family owner for their Access Token from Settings > Kiosk.");
+                      } catch {
+                        alert("Could not join. Please check the token and try again.");
+                      }
+                    }}
+                    sx={{ minWidth: 70, borderRadius: "10px", textTransform: "none" }}
+                  >
+                    Join
+                  </Button>
+                </Box>
               </Box>
             ) : (
               <Button
