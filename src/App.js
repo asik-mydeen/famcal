@@ -451,7 +451,12 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { darkMode } = useThemeMode();
-  const theme = useMemo(() => createAppTheme(darkMode ? "dark" : "light"), [darkMode]);
+  const theme = useMemo(() => {
+    const ff = fontFamily === "System"
+      ? "-apple-system, BlinkMacSystemFont, sans-serif"
+      : `"${fontFamily}", "Helvetica", "Arial", sans-serif`;
+    return createAppTheme(darkMode ? "dark" : "light", ff);
+  }, [darkMode, fontFamily]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
   const { members, photos, countdowns, family, dataLoaded } = state;
@@ -495,7 +500,7 @@ export default function App() {
   }, []);
 
   const handleFontScaleChange = useCallback((newScale) => {
-    const clamped = Math.max(0.8, Math.min(1.6, newScale));
+    const clamped = Math.max(1.0, Math.min(1.7, newScale));
     const rounded = Math.round(clamped * 20) / 20; // snap to 5% increments
     setFontScale(rounded);
     localStorage.setItem("famcal_font_scale", String(rounded));

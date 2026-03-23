@@ -285,7 +285,7 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
                     <IconButton
                       size="small"
                       onClick={() => { onFontScaleChange((fontScale || 1) - 0.05); }}
-                      disabled={(fontScale || 1) <= 0.8}
+                      disabled={(fontScale || 1) <= 1.0}
                       sx={{ width: 32, height: 32, bgcolor: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" }}
                     >
                       <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: "text.primary" }}>A</Typography>
@@ -299,7 +299,7 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
                       <Box sx={{
                         position: "absolute", top: -2, height: 8, width: 8, borderRadius: "50%",
                         bgcolor: darkMode ? "#8b5cf6" : "#6C5CE7",
-                        left: `${(((fontScale || 1) - 0.8) / 0.8) * 100}%`,
+                        left: `${(((fontScale || 1) - 1.0) / 0.7) * 100}%`,
                         transform: "translateX(-50%)",
                         transition: "left 0.15s ease",
                       }} />
@@ -318,10 +318,10 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
                   {/* Preset buttons */}
                   <Box sx={{ display: "flex", gap: 0.5 }}>
                     {[
-                      { label: "S", value: 0.85 },
-                      { label: "M", value: 1.0 },
-                      { label: "L", value: 1.15 },
-                      { label: "XL", value: 1.35 },
+                      { label: "S", value: 1.15 },
+                      { label: "M", value: 1.3 },
+                      { label: "L", value: 1.45 },
+                      { label: "XL", value: 1.6 },
                     ].map((preset) => (
                       <Box
                         key={preset.label}
@@ -351,7 +351,7 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
                   </Box>
 
                   <Typography sx={{ fontSize: "0.65rem", color: "text.disabled", mt: 1.5, textAlign: "center" }}>
-                    {Math.round((fontScale || 1) * 100)}% — {(fontScale || 1) <= 0.9 ? "Compact" : (fontScale || 1) >= 1.3 ? "Extra Large" : (fontScale || 1) >= 1.1 ? "Large" : "Default"}
+                    {Math.round((fontScale || 1) * 100)}% — {(fontScale || 1) >= 1.5 ? "Extra Large" : (fontScale || 1) >= 1.35 ? "Large" : (fontScale || 1) >= 1.2 ? "Medium" : "Standard"}
                   </Typography>
                 </Box>
               </>
