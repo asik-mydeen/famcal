@@ -31,6 +31,10 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Invalid access token" });
     }
 
+    // Log which key we're using (helps debug RLS issues)
+    const usingServiceKey = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+    console.log("[dashboard] Using service role key:", usingServiceKey, "Family:", family.id, family.name);
+
     // Fetch all family data in parallel
     const [members, events, tasks, meals, lists, rewards, notes, countdowns] = await Promise.all([
       supabase.from("family_members").select("*").eq("family_id", family.id),
@@ -42,6 +46,13 @@ export default async function handler(req, res) {
       supabase.from("notes").select("*").eq("family_id", family.id),
       supabase.from("countdowns").select("*").eq("family_id", family.id),
     ]);
+
+    // Log any RLS errors
+    [members, events, tasks, meals, lists, rewards, notes, countdowns].forEach((r, i) => {
+      const names = ["members", "events", "tasks", "meals", "lists", "rewards", "notes", "countdowns"];
+      if (r.error) console.error(`[dashboard] ${names[i]} query failed:`, r.error.message);
+      else console.log(`[dashboard] ${names[i]}: ${r.data?.length || 0} rows`);
+    });
 
     // Fetch list items for the loaded lists
     let allListItems = [];
