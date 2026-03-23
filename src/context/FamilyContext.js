@@ -597,6 +597,12 @@ function FamilyProvider({ children }) {
             if (action.value.font_scale !== undefined) {
               famUpdate.font_scale = action.value.font_scale;
             }
+            if (action.value.dashboard_slug !== undefined) {
+              famUpdate.dashboard_slug = action.value.dashboard_slug;
+            }
+            if (action.value.dashboard_token !== undefined) {
+              famUpdate.dashboard_token = action.value.dashboard_token;
+            }
             persist("families", "update", famUpdate);
           }
           break;
