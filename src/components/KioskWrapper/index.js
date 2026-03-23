@@ -13,7 +13,7 @@ import PropTypes from "prop-types";
  * - Auto-hide tabs after 5 seconds of inactivity
  * - Exit button always visible
  */
-function KioskWrapper({ enabled, fontScale, onToggle, children }) {
+function KioskWrapper({ enabled, onToggle, children }) {
   const [tabsVisible, setTabsVisible] = useState(true);
   const hideTimerRef = useRef(null);
   const wakeLockRef = useRef(null);
@@ -82,13 +82,7 @@ function KioskWrapper({ enabled, fontScale, onToggle, children }) {
     };
   }, [enabled]);
 
-  // Font scaling
-  useEffect(() => {
-    if (enabled) {
-      document.documentElement.style.fontSize = `${fontScale * 100}%`;
-    }
-    return () => { document.documentElement.style.fontSize = ""; };
-  }, [enabled, fontScale]);
+  // Font scaling is now managed globally in App.js (always-on, not kiosk-only)
 
   // Auto-hide tabs
   useEffect(() => {
@@ -179,7 +173,6 @@ function KioskWrapper({ enabled, fontScale, onToggle, children }) {
 
 KioskWrapper.propTypes = {
   enabled: PropTypes.bool.isRequired,
-  fontScale: PropTypes.number.isRequired,
   onToggle: PropTypes.func.isRequired,
   children: PropTypes.node.isRequired,
 };

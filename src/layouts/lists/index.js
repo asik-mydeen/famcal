@@ -229,7 +229,7 @@ export default function Lists() {
                   },
                 }}
               >
-                <Icon sx={{ fontSize: 18 }}>{list.icon}</Icon>
+                <Icon sx={{ fontSize: "1.125rem" }}>{list.icon}</Icon>
                 <Typography variant="body2" fontWeight={600}>
                   {list.name}
                 </Typography>
@@ -265,7 +265,7 @@ export default function Lists() {
                       "&:hover": { opacity: 1 },
                     }}
                   >
-                    <Icon sx={{ fontSize: 16 }}>close</Icon>
+                    <Icon sx={{ fontSize: "1rem" }}>close</Icon>
                   </IconButton>
                 )}
               </Box>
@@ -410,7 +410,7 @@ export default function Lists() {
                                   "&:hover": { opacity: 1, color: "error.main" },
                                 }}
                               >
-                                <Icon sx={{ fontSize: 16 }}>close</Icon>
+                                <Icon sx={{ fontSize: "1rem" }}>close</Icon>
                               </IconButton>
                             )}
                           </Box>
@@ -429,7 +429,7 @@ export default function Lists() {
                   color: "text.secondary",
                 }}
               >
-                <Icon sx={{ fontSize: 48, mb: 2, opacity: 0.3 }}>checklist</Icon>
+                <Icon sx={{ fontSize: "3rem", mb: 2, opacity: 0.3 }}>checklist</Icon>
                 <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
                   List is empty
                 </Typography>
