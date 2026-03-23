@@ -631,6 +631,7 @@ FamilyProvider.propTypes = {
 };
 
 export {
+  FamilyContext,
   FamilyProvider,
   useFamilyController,
   MEMBER_COLORS,
