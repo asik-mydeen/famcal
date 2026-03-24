@@ -36,7 +36,7 @@ export function buildAIContext(state, currentPage) {
       .map((m) => ({ id: m.id, date: m.date, meal_type: m.meal_type, title: m.title })),
     lists: (lists || []).map((l) => ({
       id: l.id, name: l.name,
-      items: (l.items || []).slice(0, 15).map((i) => ({
+      items: (l.items || []).map((i) => ({
         id: i.id, text: i.text, checked: i.checked,
       })),
     })),
