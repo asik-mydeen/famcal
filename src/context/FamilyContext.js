@@ -670,7 +670,8 @@ function FamilyProvider({ children }) {
         }
         case "REMOVE_MEAL": {
           const mealId = typeof action.value === "string" ? action.value : action.value?.id;
-          if (mealId) {
+          // Only persist DELETE for real UUIDs (not composite keys like "2026-03-24-lunch")
+          if (mealId && mealId.includes("-") && mealId.length > 30) {
             import("lib/supabase").then(({ deleteMeal }) => {
               deleteMeal(mealId);
             });
