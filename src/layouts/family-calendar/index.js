@@ -642,8 +642,8 @@ function FamilyCalendar() {
             <Box sx={{ bgcolor: alpha(tokens.accent.main, 0.08), borderRadius: "12px", p: "3px", display: "inline-flex" }}>
               <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
                 sx={{ minHeight: 34,
-                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", bgcolor: "#fff", boxShadow: `0 2px 8px ${alpha(tokens.accent.main, 0.15)}` },
-                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", transition: "color 0.2s", "&.Mui-selected": { color: tokens.accent.main } },
+                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", background: gradient("primary"), boxShadow: `0 2px 8px ${alpha(tokens.accent.main, 0.25)}` },
+                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", transition: "color 0.2s", "&.Mui-selected": { color: "#fff" } },
                 }}
               >
                 <Tab label="Day" />
