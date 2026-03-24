@@ -35,21 +35,15 @@ export default async function handler(req, res) {
     return desc;
   }).join("\n") || "No members";
 
-  // Build today's tasks
-  const todayTasks = ctx.todayTasks?.map((t) => {
-    const who = ctx.members?.find((m) => m.id === t.assigned_to)?.name || "unassigned";
-    return `- [${t.completed ? "DONE" : "todo"}] "${t.title}" assigned to ${who} (${t.points_value || 0}pts, id: ${t.id})`;
-  }).join("\n") || "None";
-
-  // Build today's events
-  const todayEvents = ctx.todayEvents?.map((e) => {
+  // Build this week's events
+  const weekEvents = ctx.events?.map((e) => {
     const time = e.allDay ? "All day" : `${e.start?.split("T")[1]?.slice(0, 5) || "?"}-${e.end?.split("T")[1]?.slice(0, 5) || "?"}`;
     const who = ctx.members?.find((m) => m.id === e.member_id)?.name || "family";
     return `- ${time}: "${e.title}" (${who}, id: ${e.id})`;
   }).join("\n") || "None";
 
   // Build this week's meals
-  const weekMeals = ctx.meals?.slice(0, 21).map(
+  const weekMeals = ctx.meals?.map(
     (m) => `- ${m.date} ${m.meal_type}: "${m.title}"`
   ).join("\n") || "None";
 
@@ -67,9 +61,28 @@ export default async function handler(req, res) {
   ).join("\n") || "None";
 
   // Build notes
-  const notesStr = ctx.notes?.slice(0, 10).map((n) => {
+  const notesStr = ctx.notes?.map((n) => {
     const who = ctx.members?.find((m) => m.id === n.member_id)?.name || "family";
     return `- "${n.text}" by ${who}${n.pinned ? " (pinned)" : ""} (id: ${n.id})`;
+  }).join("\n") || "None";
+
+  // Build countdowns
+  const countdownsStr = ctx.countdowns?.map((c) => {
+    const daysLeft = Math.ceil((new Date(c.target_date) - new Date()) / (86400000));
+    return `- "${c.title}" on ${c.target_date} (${daysLeft > 0 ? daysLeft + ' days left' : 'today!'})`;
+  }).join("\n") || "None";
+
+  // Build active tasks + recently completed
+  const activeTasksStr = ctx.activeTasks?.map((t) => {
+    const who = ctx.members?.find((m) => m.id === t.assigned_to)?.name || "unassigned";
+    const pri = t.priority ? ` [${t.priority}]` : "";
+    const time = t.due_time ? ` at ${t.due_time}` : "";
+    return `- "${t.title}" assigned to ${who} (${t.points_value || 0}pts, due: ${t.due_date || "anytime"}${time}${pri}, id: ${t.id})`;
+  }).join("\n") || "None";
+
+  const recentDoneStr = ctx.recentCompletedTasks?.map((t) => {
+    const who = ctx.members?.find((m) => m.id === t.completed_by)?.name || "someone";
+    return `- "${t.title}" completed by ${who} on ${t.completed_at} (${t.points_value || 0}pts)`;
   }).join("\n") || "None";
 
   // ── Layer 1: Base Prompt ──
@@ -84,11 +97,14 @@ CURRENT PAGE: ${ctx.currentPage || "unknown"}
 FAMILY MEMBERS:
 ${memberList}
 
-TODAY'S TASKS/CHORES:
-${todayTasks}
+ACTIVE TASKS:
+${activeTasksStr}
 
-TODAY'S EVENTS:
-${todayEvents}
+RECENTLY COMPLETED:
+${recentDoneStr}
+
+THIS WEEK'S EVENTS:
+${weekEvents}
 
 THIS WEEK'S MEALS:
 ${weekMeals}
@@ -101,6 +117,17 @@ ${rewardsStr}
 
 NOTES:
 ${notesStr}
+
+COUNTDOWNS:
+${countdownsStr}
+
+PAGE CONTEXT: The user is currently on the "${ctx.currentPage || "unknown"}" page. When they say "add", "remove", or "check" something without specifying where, assume they mean the content relevant to this page:
+- "calendar" page → events
+- "chores" page → tasks/chores
+- "meals" page → meals
+- "lists" page → list items (default to Groceries list)
+- "rewards" page → rewards
+- "family" page → family members
 
 You MUST respond with valid JSON only. No markdown, no code blocks, no extra text.
 
@@ -199,7 +226,7 @@ CRITICAL — YOU MUST FOLLOW THESE:
   if (memories && Array.isArray(memories) && memories.length > 0) {
     const memoryLines = memories
       .filter(m => m.active)
-      .slice(0, 10) // Limit to most recent 10
+      .slice(0, 50) // Limit to most recent 50
       .map(m => `- ${m.content}`)
       .join("\n");
     if (memoryLines) {
@@ -212,7 +239,7 @@ CRITICAL — YOU MUST FOLLOW THESE:
       model: gateway("anthropic/claude-haiku-4-5"),
       system: systemPrompt,
       messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
-      maxTokens: 8192,
+      maxTokens: 16384,
     });
 
     const text = (result.text || "").trim();
