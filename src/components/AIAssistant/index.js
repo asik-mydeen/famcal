@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -22,6 +23,7 @@ import SuggestionPill from "./SuggestionPill";
 
 function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onExternalClose }) {
   const { darkMode } = useThemeMode();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -415,6 +417,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
               content={msg.content}
               actions={msg.actions}
               timestamp={msg.timestamp || new Date()}
+              onNavigate={(page) => { navigate(page); handleClose(); }}
             />
           ))}
         </AnimatePresence>

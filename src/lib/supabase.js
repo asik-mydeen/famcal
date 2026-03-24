@@ -177,7 +177,7 @@ export async function fetchAIPreferences(familyId) {
     .from("ai_preferences")
     .select("*")
     .eq("family_id", familyId)
-    .single();
+    .maybeSingle();
   if (error) {
     console.warn("fetchAIPreferences error:", error);
     return null;
@@ -201,10 +201,10 @@ export async function updateAIPreferences(familyId, preferences) {
 // ── Conversations ──
 export async function fetchConversations(familyId, limit = 10) {
   const { data, error } = await supabase
-    .from("ai_conversations")
+    .from("conversations")
     .select("*")
     .eq("family_id", familyId)
-    .order("updated_at", { ascending: false })
+    .order("last_message_at", { ascending: false })
     .limit(limit);
   if (error) {
     console.warn("fetchConversations error:", error);
@@ -215,7 +215,7 @@ export async function fetchConversations(familyId, limit = 10) {
 
 export async function createConversation(familyId, title = null) {
   const { data, error } = await supabase
-    .from("ai_conversations")
+    .from("conversations")
     .insert({
       family_id: familyId,
       title: title,
@@ -231,7 +231,7 @@ export async function createConversation(familyId, title = null) {
 
 export async function updateConversation(conversationId, updates) {
   const { data, error } = await supabase
-    .from("ai_conversations")
+    .from("conversations")
     .update(updates)
     .eq("id", conversationId)
     .select()
@@ -246,7 +246,7 @@ export async function updateConversation(conversationId, updates) {
 // ── Messages ──
 export async function fetchMessages(conversationId) {
   const { data, error } = await supabase
-    .from("ai_messages")
+    .from("conversation_messages")
     .select("*")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
@@ -259,7 +259,7 @@ export async function fetchMessages(conversationId) {
 
 export async function createMessage(conversationId, role, content, actions = []) {
   const { data, error } = await supabase
-    .from("ai_messages")
+    .from("conversation_messages")
     .insert({
       conversation_id: conversationId,
       role: role,
