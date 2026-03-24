@@ -8,17 +8,115 @@ import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-// CircularProgress replaced by TypingIndicator
-import { AnimatePresence } from "framer-motion";
+import Tooltip from "@mui/material/Tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 import { useThemeMode } from "context/ThemeContext";
 import { sendAIMessage, buildAIContext } from "lib/ai";
 import SlidePanel from "components/SlidePanel";
 import { getDynamicSuggestions } from "lib/aiSuggestions";
 
-// Import sub-components (will be created by agent)
+// Import sub-components
 import MemoryChip from "./MemoryChip";
 import MessageBubble, { TypingIndicator } from "./MessageBubble";
 import SuggestionPill from "./SuggestionPill";
+
+// Action summary labels for building human-readable summaries
+const ACTION_SUMMARY_LABELS = {
+  create_event: "event",
+  update_event: "event update",
+  remove_event: "event removal",
+  create_task: "task",
+  update_task: "task update",
+  complete_task: "task completion",
+  remove_task: "task removal",
+  add_meal: "meal",
+  update_meal: "meal update",
+  remove_meal: "meal removal",
+  create_list: "list",
+  add_list_items: "item",
+  toggle_list_item: "item toggle",
+  remove_list_item: "item removal",
+  add_note: "note",
+  remove_note: "note removal",
+  add_countdown: "countdown",
+  remove_countdown: "countdown removal",
+  add_reward: "reward",
+  claim_reward: "reward claim",
+};
+
+// Build a human-readable summary of executed actions (e.g. "3 meals added, 2 items added")
+function buildActionSummary(executedTypes) {
+  if (!executedTypes || executedTypes.length === 0) return null;
+
+  const counts = {};
+  executedTypes.forEach((type) => {
+    const label = ACTION_SUMMARY_LABELS[type] || type.replace(/_/g, " ");
+    counts[label] = (counts[label] || 0) + 1;
+  });
+
+  const parts = Object.entries(counts).map(
+    ([label, count]) => `${count} ${label}${count > 1 ? "s" : ""}`
+  );
+
+  return parts.join(", ");
+}
+
+// Voice input hook — wraps the Web Speech API
+function useVoiceInput({ onResult }) {
+  const [listening, setListening] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript && onResult) {
+          onResult(transcript);
+        }
+        setListening(false);
+      };
+
+      recognition.onerror = () => {
+        setListening(false);
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, [onResult]);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current && !listening) {
+      try {
+        recognitionRef.current.start();
+        setListening(true);
+      } catch {
+        // Already started or not allowed
+        setListening(false);
+      }
+    }
+  }, [listening]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current && listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    }
+  }, [listening]);
+
+  return { listening, supported, startListening, stopListening };
+}
 
 
 function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onExternalClose }) {
@@ -38,6 +136,8 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
   const memories = state?.memories || [];
   const lists = state?.lists || [];
 
+  const assistantName = aiPreferences.assistant_name || "Amara";
+
   // Build context for AI (with preferences + memories)
   const aiContext = useMemo(
     () => (state ? buildAIContext(state, currentPage) : {}),
@@ -48,6 +148,15 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
   const suggestions = useMemo(() => {
     return getDynamicSuggestions(currentPage, state);
   }, [currentPage, state]);
+
+  // Voice input
+  const handleVoiceResult = useCallback((transcript) => {
+    setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    inputRef.current?.focus();
+  }, []);
+
+  const { listening, supported: voiceSupported, startListening, stopListening } =
+    useVoiceInput({ onResult: handleVoiceResult });
 
   // Support external open trigger (from SpeedDial in App.js)
   useEffect(() => {
@@ -96,6 +205,10 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     const newConv = { id: `conv-${Date.now()}`, messages: [], title: null };
     dispatch({ type: "SET_ACTIVE_CONVERSATION", value: newConv });
     setInput("");
+  };
+
+  const handleClearChat = () => {
+    handleNewChat();
   };
 
   const handleSelectConversation = (conversation) => {
@@ -302,11 +415,15 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
 
       const executed = executeActions(response.actions || []);
 
+      // Build action summary for display
+      const summary = buildActionSummary(executed);
+
       const assistantMessage = {
         role: "assistant",
         content: response.reply,
         actions: response.actions || [],
         executedTypes: executed,
+        actionSummary: summary,
       };
 
       dispatch({
@@ -353,30 +470,6 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     dispatch({ type: "UPDATE_MEMORY", value: { id: memoryId, active: false } });
   };
 
-  // Render header with conversation selector + new chat button
-  const renderHeader = () => (
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Icon sx={{ fontSize: "1.2rem" }}>auto_awesome</Icon>
-        <Typography sx={{ fontWeight: 600, fontSize: "1rem" }}>
-          {aiPreferences.assistant_name || "Amara"}
-        </Typography>
-      </Box>
-      <Box sx={{ display: "flex", gap: 0.5 }}>
-        <IconButton
-          size="small"
-          onClick={(e) => setConversationMenuAnchor(e.currentTarget)}
-          sx={{ color: "text.secondary" }}
-        >
-          <Icon sx={{ fontSize: "1.1rem" }}>history</Icon>
-        </IconButton>
-        <IconButton size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
-          <Icon sx={{ fontSize: "1.1rem" }}>add</Icon>
-        </IconButton>
-      </Box>
-    </Box>
-  );
-
   // Render active memories
   const renderMemories = () => {
     const activeMemories = memories.filter((m) => m.active);
@@ -411,14 +504,50 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
       >
         <AnimatePresence mode="popLayout">
           {messages.map((msg, idx) => (
-            <MessageBubble
-              key={`${activeConversation.id}-${idx}`}
-              role={msg.role}
-              content={msg.content}
-              actions={msg.actions}
-              timestamp={msg.timestamp || new Date()}
-              onNavigate={(page) => { navigate(page); handleClose(); }}
-            />
+            <Box key={`${activeConversation.id}-${idx}`}>
+              <MessageBubble
+                role={msg.role}
+                content={msg.content}
+                actions={msg.actions}
+                timestamp={msg.timestamp || new Date()}
+                onNavigate={(page) => { navigate(page); handleClose(); }}
+              />
+              {/* Action summary after assistant messages with executed actions */}
+              {msg.role === "assistant" && msg.actionSummary && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.15 }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.75,
+                      ml: 0.5,
+                      mt: 0.5,
+                      px: 1.5,
+                      py: 0.6,
+                      borderRadius: "10px",
+                      background: darkMode ? "rgba(34,197,94,0.1)" : "rgba(34,197,94,0.08)",
+                      border: `1px solid ${darkMode ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.15)"}`,
+                      width: "fit-content",
+                    }}
+                  >
+                    <Icon sx={{ fontSize: "0.85rem", color: "#22c55e" }}>done_all</Icon>
+                    <Typography
+                      sx={{
+                        fontSize: "0.76rem",
+                        fontWeight: 600,
+                        color: "#22c55e",
+                      }}
+                    >
+                      {msg.actionSummary}
+                    </Typography>
+                  </Box>
+                </motion.div>
+              )}
+            </Box>
           ))}
         </AnimatePresence>
         {loading && <TypingIndicator />}
@@ -426,10 +555,69 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     );
   };
 
-  // Render suggestions (only if no messages)
-  const renderSuggestions = () => {
-    if (activeConversation?.messages?.length > 0) return null;
+  // Render welcome message when conversation is empty
+  const renderWelcome = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <Box
+        sx={{
+          px: 3,
+          pt: 4,
+          pb: 2,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          textAlign: "center",
+          gap: 1.5,
+        }}
+      >
+        <Box
+          sx={{
+            width: 56,
+            height: 56,
+            borderRadius: "16px",
+            background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 20px rgba(108,92,231,0.3)",
+          }}
+        >
+          <Icon sx={{ color: "#fff", fontSize: "1.6rem" }}>auto_awesome</Icon>
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: "1.1rem",
+              color: darkMode ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.85)",
+              mb: 0.5,
+            }}
+          >
+            Hi! I&apos;m {assistantName}
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: "0.85rem",
+              color: "text.secondary",
+              lineHeight: 1.5,
+              maxWidth: 300,
+              mx: "auto",
+            }}
+          >
+            Your family assistant. I can plan meals, manage chores, update your calendar, and more.
+            Try asking me something!
+          </Typography>
+        </Box>
+      </Box>
+    </motion.div>
+  );
 
+  // Render suggestions as a horizontal scrollable row
+  const renderSuggestions = () => {
     return (
       <Box
         sx={{
@@ -437,28 +625,28 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           py: 2,
           display: "flex",
           flexDirection: "column",
-          gap: 2,
+          gap: 1.5,
           alignItems: "flex-start",
         }}
       >
-        {/* Welcome message */}
-        <Box sx={{
-          display: "flex", alignItems: "center", gap: 1.5,
-          p: 2, borderRadius: "14px",
-          background: darkMode ? "rgba(108,92,231,0.08)" : "rgba(108,92,231,0.04)",
-          border: `1px solid ${darkMode ? "rgba(108,92,231,0.15)" : "rgba(108,92,231,0.08)"}`,
-          width: "100%",
-        }}>
-          <Icon sx={{ color: "#6C5CE7", fontSize: "1.4rem" }}>auto_awesome</Icon>
-          <Typography sx={{ fontSize: "0.88rem", color: "text.secondary", lineHeight: 1.5 }}>
-            Hi! I&apos;m <strong>{aiPreferences.assistant_name || "Amara"}</strong>, your family assistant.
-            I can plan meals, manage chores, update your calendar, and more.
-          </Typography>
-        </Box>
         <Typography sx={{ fontSize: "0.8rem", color: "text.secondary", fontWeight: 500 }}>
-          Try asking
+          Quick suggestions
         </Typography>
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            overflowX: "auto",
+            width: "100%",
+            pb: 1,
+            scrollSnapType: "x mandatory",
+            WebkitOverflowScrolling: "touch",
+            msOverflowStyle: "none",
+            scrollbarWidth: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+            "& > *": { scrollSnapAlign: "start", flexShrink: 0 },
+          }}
+        >
           {suggestions.map((sug, idx) => (
             <SuggestionPill
               key={idx}
@@ -472,7 +660,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     );
   };
 
-  // Render input bar
+  // Render input bar with voice input and send buttons
   const renderInput = () => (
     <Box
       sx={{
@@ -501,6 +689,53 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           },
         }}
       />
+      {/* Voice input button — only shown if Web Speech API is available */}
+      {voiceSupported && (
+        <Tooltip title={listening ? "Listening..." : "Voice input"} placement="top">
+          <IconButton
+            onClick={listening ? stopListening : startListening}
+            disabled={loading}
+            sx={{
+              position: "relative",
+              color: listening ? "#fff" : darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)",
+              background: listening
+                ? "linear-gradient(135deg, #6C5CE7, #A29BFE)"
+                : darkMode
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(0,0,0,0.04)",
+              "&:hover": {
+                background: listening
+                  ? "linear-gradient(135deg, #5B4CD6, #9189ED)"
+                  : darkMode
+                    ? "rgba(255,255,255,0.1)"
+                    : "rgba(0,0,0,0.08)",
+              },
+              "&.Mui-disabled": {
+                background: "rgba(0,0,0,0.04)",
+                color: "rgba(0,0,0,0.15)",
+              },
+              touchAction: "manipulation",
+            }}
+          >
+            {/* Pulse ring animation when listening */}
+            {listening && (
+              <Box
+                component={motion.div}
+                animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  border: "2px solid #6C5CE7",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
+            <Icon>{listening ? "hearing" : "mic"}</Icon>
+          </IconButton>
+        </Tooltip>
+      )}
       <IconButton
         onClick={handleSubmit}
         disabled={!input.trim() || loading}
@@ -509,6 +744,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           color: "#fff",
           "&:hover": { background: "linear-gradient(135deg, #5B4CD6, #9189ED)" },
           "&.Mui-disabled": { background: "rgba(108,92,231,0.3)", color: "rgba(255,255,255,0.3)" },
+          touchAction: "manipulation",
         }}
       >
         <Icon>send</Icon>
@@ -516,31 +752,68 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     </Box>
   );
 
+  const hasMessages = activeConversation?.messages?.length > 0;
+
   return (
     <>
-      <SlidePanel open={open} onClose={handleClose} width={420} title="" subtitle="">
-        {/* Custom header (overrides SlidePanel's default) */}
+      <SlidePanel
+        open={open}
+        onClose={handleClose}
+        width={420}
+        icon="auto_awesome"
+        title={assistantName}
+        subtitle="Your family assistant"
+      >
+        {/* Conversation controls — positioned below SlidePanel header */}
         <Box
           sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            px: 3,
-            py: 2.5,
-            borderBottom: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-            background: darkMode ? "rgba(10,10,26,0.98)" : "#ffffff",
-            zIndex: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: 0.5,
+            mt: -1.5,
+            mb: 0.5,
           }}
         >
-          {renderHeader()}
+          {hasMessages && (
+            <Tooltip title="Clear chat" placement="bottom">
+              <IconButton
+                size="small"
+                onClick={handleClearChat}
+                sx={{ color: "text.secondary" }}
+              >
+                <Icon sx={{ fontSize: "1.1rem" }}>delete_outline</Icon>
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Chat history" placement="bottom">
+            <IconButton
+              size="small"
+              onClick={(e) => setConversationMenuAnchor(e.currentTarget)}
+              sx={{ color: "text.secondary" }}
+            >
+              <Icon sx={{ fontSize: "1.1rem" }}>history</Icon>
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="New chat" placement="bottom">
+            <IconButton size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
+              <Icon sx={{ fontSize: "1.1rem" }}>add</Icon>
+            </IconButton>
+          </Tooltip>
         </Box>
 
         {/* Memories */}
         {renderMemories()}
 
-        {/* Messages or Suggestions */}
-        {activeConversation?.messages?.length > 0 ? renderMessages() : renderSuggestions()}
+        {/* Welcome + suggestions when empty, or messages when active */}
+        {hasMessages ? (
+          renderMessages()
+        ) : (
+          <>
+            {renderWelcome()}
+            {renderSuggestions()}
+          </>
+        )}
 
         {/* Spacer to push input to bottom */}
         <Box sx={{ flex: 1 }} />
