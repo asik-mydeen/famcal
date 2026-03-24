@@ -198,8 +198,10 @@ function reducer(state, action) {
       return { ...state, meals: [...state.meals, action.value] };
     case "UPDATE_MEAL":
       return { ...state, meals: state.meals.map((m) => (m.id === action.value.id ? action.value : m)) };
-    case "REMOVE_MEAL":
-      return { ...state, meals: state.meals.filter((m) => m.id !== action.value) };
+    case "REMOVE_MEAL": {
+      const mealId = typeof action.value === "string" ? action.value : action.value?.id;
+      return { ...state, meals: state.meals.filter((m) => m.id !== mealId) };
+    }
     // Lists (nested items)
     case "SET_LISTS":
       return { ...state, lists: action.value };
@@ -667,14 +669,17 @@ function FamilyProvider({ children }) {
           break;
         }
         case "REMOVE_MEAL": {
-          import("lib/supabase").then(({ deleteMeal }) => {
-            deleteMeal(action.value);
-          });
+          const mealId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (mealId) {
+            import("lib/supabase").then(({ deleteMeal }) => {
+              deleteMeal(mealId);
+            });
+          }
           break;
         }
         case "ADD_LIST": {
           import("lib/supabase").then(({ createList }) => {
-            const { items: _items, ...listData } = action.value;
+            const { items: _items, id: _localId, ...listData } = action.value;
             createList({ ...listData, family_id: state.family.id });
           });
           break;
@@ -682,7 +687,12 @@ function FamilyProvider({ children }) {
         case "ADD_LIST_ITEM": {
           import("lib/supabase").then(({ createListItem }) => {
             const item = action.value.item || action.value;
-            createListItem({ ...item, list_id: action.value.listId || item.list_id });
+            const { id: _localId, ...itemData } = item;
+            const listId = action.value.listId || item.list_id;
+            // Only persist if list has a real UUID (not local temp ID)
+            if (listId && !listId.startsWith("list-")) {
+              createListItem({ ...itemData, list_id: listId });
+            }
           });
           break;
         }
