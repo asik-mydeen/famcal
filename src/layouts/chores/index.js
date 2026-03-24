@@ -780,8 +780,10 @@ function Chores() {
           color="primary"
           sx={{
             position: "fixed",
-            bottom: 160,
-            right: 24,
+            bottom: { xs: 90, md: 28 },
+            left: { xs: "50%", md: 28 },
+            transform: { xs: "translateX(-50%)", md: "none" },
+            right: "auto",
             background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
             boxShadow: "0 8px 24px rgba(108, 92, 231, 0.35)",
             "&:hover": {
