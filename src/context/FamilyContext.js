@@ -525,9 +525,12 @@ function FamilyProvider({ children }) {
             fetchConversations(family.id, 10),
           ]);
 
+          console.log("[ai-load] Preferences:", aiPrefs ? "loaded" : "none", aiPrefs?.cuisine_preferences || "");
+          console.log("[ai-load] Memories:", memoriesData?.length || 0);
+          console.log("[ai-load] Conversations:", conversationsData?.length || 0);
           if (aiPrefs) dispatch({ type: "SET_AI_PREFERENCES", value: aiPrefs });
-          dispatch({ type: "SET_MEMORIES", value: memoriesData });
-          dispatch({ type: "SET_CONVERSATIONS", value: conversationsData });
+          dispatch({ type: "SET_MEMORIES", value: memoriesData || [] });
+          dispatch({ type: "SET_CONVERSATIONS", value: conversationsData || [] });
         } catch (e) {
           console.log("[supabase] AI tables not available yet:", e.message);
         }

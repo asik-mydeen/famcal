@@ -406,6 +406,12 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     setLoading(true);
 
     try {
+      console.log("[ai-send] Preferences being sent:", JSON.stringify({
+        cuisine: aiPreferences?.cuisine_preferences,
+        dietary: aiPreferences?.dietary_restrictions,
+        servings: aiPreferences?.servings,
+        name: aiPreferences?.assistant_name,
+      }));
       const response = await sendAIMessage(
         [...(activeConversation?.messages || []), userMessage],
         aiContext,
