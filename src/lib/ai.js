@@ -2,7 +2,7 @@
 import { apiUrl } from "lib/api";
 
 export function buildAIContext(state, currentPage) {
-  const { members, tasks, events, meals, lists, notes, rewards } = state;
+  const { family, members, tasks, events, meals, lists, notes, rewards } = state;
   const today = new Date().toISOString().split("T")[0];
   const weekEnd = new Date();
   weekEnd.setDate(weekEnd.getDate() + 7);
@@ -44,6 +44,7 @@ export function buildAIContext(state, currentPage) {
       id: r.id, title: r.title, points_cost: r.points_cost,
     })),
     currentPage: currentPage || "unknown",
+    familyId: family?.id || null,
   };
 }
 

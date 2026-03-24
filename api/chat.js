@@ -185,7 +185,7 @@ When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"),
       model: gateway("anthropic/claude-haiku-4-5"),
       system: systemPrompt,
       messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
-      maxTokens: 1024,
+      maxTokens: 4096,
     });
 
     const text = (result.text || "").trim();
@@ -196,7 +196,17 @@ When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"),
       const clean = text.replace(/^```(?:json)?\n?/gm, "").replace(/\n?```$/gm, "").trim();
       parsed = JSON.parse(clean);
     } catch {
-      parsed = { reply: text, actions: [] };
+      // JSON parse failed (likely truncated response) — try to extract reply text
+      const replyMatch = text.match(/"reply"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"actions|"\s*})/);
+      if (replyMatch) {
+        // Unescape JSON string escapes
+        const extracted = replyMatch[1].replace(/\\n/g, "\n").replace(/\\"/g, '"');
+        parsed = { reply: extracted, actions: [] };
+      } else {
+        // Last resort: strip JSON wrapper if present, use raw text
+        const stripped = text.replace(/^\s*\{\s*"reply"\s*:\s*"?/, "").replace(/"?\s*[,}]\s*$/, "");
+        parsed = { reply: stripped || text, actions: [] };
+      }
     }
 
     // ── Persist conversation to Supabase ──
