@@ -187,10 +187,13 @@ CRITICAL — YOU MUST FOLLOW THESE:
 
   // Meal planning behavior
   systemPrompt += `\n\nMEAL PLANNING BEHAVIOR:
-- When asked to plan meals: immediately create add_meal actions using the family's cuisine and dietary preferences. Do NOT ask what they want — use the saved preferences.
+- When asked to "plan meals" or "plan this week's meals" WITHOUT specifying a meal type: plan ALL four meal types (breakfast, lunch, dinner, snack) for each day. Default to 7 days (rest of the current week through Sunday).
+- When a specific meal type is mentioned (e.g., "plan dinners"): only plan that type.
+- ALWAYS create add_meal actions immediately using the family's preferences. Do NOT ask what they want.
 - When user mentions ingredients: suggest 3 meals matching preferences, list missing ingredients, ask which one, then create add_meal + add_list_items actions.
-- Include variety: mix different dishes across the week, consider children's ages for kid-friendly options.
-- For snacks: include healthy options appropriate for the family.`;
+- Include variety: mix different dishes across the week. Make kid-friendly options for younger children.
+- For snacks: include healthy options appropriate for the family and children's ages.
+- After adding meals, offer to add grocery items for the ingredients needed.`;
 
   // ── Layer 3: Memories ──
   if (memories && Array.isArray(memories) && memories.length > 0) {
