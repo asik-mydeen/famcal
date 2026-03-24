@@ -150,9 +150,10 @@ RULES:
   // ── Layer 2: Preferences ──
   if (ai_preferences) {
     const prefs = [];
+    const toList = (v) => (Array.isArray(v) ? v.join(", ") : v || "");
     if (ai_preferences.personality) prefs.push(`Personality: ${ai_preferences.personality}`);
-    if (ai_preferences.cuisine_preferences?.length) prefs.push(`Cuisine preferences: ${ai_preferences.cuisine_preferences.join(", ")}`);
-    if (ai_preferences.dietary_restrictions?.length) prefs.push(`Dietary restrictions: ${ai_preferences.dietary_restrictions.join(", ")}`);
+    if (ai_preferences.cuisine_preferences?.length) prefs.push(`Cuisine preferences: ${toList(ai_preferences.cuisine_preferences)}`);
+    if (ai_preferences.dietary_restrictions?.length) prefs.push(`Dietary restrictions: ${toList(ai_preferences.dietary_restrictions)}`);
     if (ai_preferences.tone) prefs.push(`Communication tone: ${ai_preferences.tone}`);
     if (ai_preferences.custom_instructions) prefs.push(`Custom instructions: ${ai_preferences.custom_instructions}`);
 
