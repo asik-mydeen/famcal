@@ -11,6 +11,9 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Slider from "@mui/material/Slider";
 import IconButton from "@mui/material/IconButton";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
 import GlassCard from "components/GlassCard";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -23,7 +26,7 @@ import { uploadPhoto, deletePhoto } from "lib/supabase";
 
 function Settings() {
   const [state, dispatch] = useFamilyController();
-  const { family, isSupabaseConnected, photos } = state;
+  const { family, isSupabaseConnected, photos, ai_preferences, memories } = state;
   const { darkMode, setMode: setDarkModeValue } = useThemeMode();
   const { user, signOut } = useAuth();
 
@@ -116,6 +119,14 @@ function Settings() {
   };
 
   const [saved, setSaved] = useState(false);
+
+  // AI preferences - with defaults
+  const [assistantName, setAssistantName] = useState(ai_preferences?.assistant_name || "Amara");
+  const [cuisinePreferences, setCuisinePreferences] = useState(ai_preferences?.cuisine_preferences || "");
+  const [dietaryRestrictions, setDietaryRestrictions] = useState(ai_preferences?.dietary_restrictions || "");
+  const [tone, setTone] = useState(ai_preferences?.tone || "friendly");
+  const [customInstructions, setCustomInstructions] = useState(ai_preferences?.custom_instructions || "");
+  const [editingMemory, setEditingMemory] = useState(null);
 
   // Sync familyName when Supabase data loads
   useEffect(() => {
@@ -276,6 +287,48 @@ function Settings() {
   };
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
+
+  // AI preferences handlers
+  const handleSaveAIPreferences = () => {
+    const prefs = {
+      assistant_name: assistantName,
+      cuisine_preferences: cuisinePreferences,
+      dietary_restrictions: dietaryRestrictions,
+      tone,
+      custom_instructions: customInstructions,
+    };
+
+    if (ai_preferences) {
+      dispatch({ type: "UPDATE_AI_PREFERENCES", value: prefs });
+    } else {
+      dispatch({ type: "SET_AI_PREFERENCES", value: prefs });
+    }
+
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const handleDeleteMemory = (memory) => {
+    if (!window.confirm("Delete this memory?")) return;
+    dispatch({ type: "REMOVE_MEMORY", value: memory });
+  };
+
+  const handleEditMemory = (memory) => {
+    setEditingMemory(memory);
+  };
+
+  const handleSaveMemoryEdit = () => {
+    if (!editingMemory) return;
+    dispatch({ type: "UPDATE_MEMORY", value: editingMemory });
+    setEditingMemory(null);
+  };
+
+  const toneOptions = [
+    { key: "friendly", label: "Friendly", icon: "sentiment_satisfied", desc: "Warm & helpful" },
+    { key: "professional", label: "Professional", icon: "business_center", desc: "Formal & clear" },
+    { key: "casual", label: "Casual", icon: "waving_hand", desc: "Relaxed & fun" },
+    { key: "fun", label: "Fun", icon: "celebration", desc: "Playful & energetic" },
+  ];
 
   const fontOptions = [
     { name: "Inter", family: "Inter", style: "Modern clean" },
@@ -696,6 +749,215 @@ function Settings() {
               <Typography variant="body2" color="text.secondary">Version</Typography>
               <Typography variant="body2" fontWeight="bold">FamCal v3.0</Typography>
             </Box>
+          </GlassCard>
+        </Grid>
+
+        {/* AI Assistant (full width) */}
+        <Grid item xs={12}>
+          <GlassCard delay={0.7}>
+            <Box display="flex" alignItems="center" gap={1} mb={3}>
+              <Icon sx={{ color: "primary.main" }}>auto_awesome</Icon>
+              <Typography variant="h6" fontWeight="bold">AI Assistant</Typography>
+            </Box>
+
+            {/* Assistant Name */}
+            <Box mb={2}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Assistant Name"
+                value={assistantName}
+                onChange={(e) => setAssistantName(e.target.value)}
+                placeholder="e.g., Amara"
+              />
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Cuisine Preferences */}
+            <Box mb={2}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label="Cuisine Preferences"
+                value={cuisinePreferences}
+                onChange={(e) => setCuisinePreferences(e.target.value)}
+                placeholder="e.g., Indian, Italian, quick 30-min meals"
+                helperText="Help me suggest meals you'll love"
+              />
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Dietary Restrictions */}
+            <Box mb={2}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label="Dietary Restrictions"
+                value={dietaryRestrictions}
+                onChange={(e) => setDietaryRestrictions(e.target.value)}
+                placeholder="e.g., halal, no pork, nut allergy"
+                helperText="I'll respect these in all meal suggestions"
+              />
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Tone */}
+            <Box mb={2}>
+              <Typography variant="body2" fontWeight={600} mb={1.5}>Tone</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5 }}>
+                {toneOptions.map((option) => {
+                  const isSelected = tone === option.key;
+                  return (
+                    <Box
+                      key={option.key}
+                      onClick={() => setTone(option.key)}
+                      sx={{
+                        px: 2, py: 1.5, borderRadius: "14px",
+                        border: "2px solid",
+                        borderColor: isSelected ? "primary.main" : "divider",
+                        bgcolor: isSelected ? "rgba(108,92,231,0.08)" : "transparent",
+                        cursor: "pointer", textAlign: "center",
+                        transition: "all 0.2s ease",
+                        "&:hover": {
+                          borderColor: isSelected ? "primary.dark" : "primary.light",
+                          transform: "translateY(-2px)",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                        },
+                      }}
+                    >
+                      <Icon sx={{ fontSize: "1.5rem", mb: 0.5, color: isSelected ? "primary.main" : "text.secondary" }}>
+                        {option.icon}
+                      </Icon>
+                      <Typography sx={{ fontWeight: 600, fontSize: "0.9rem", mb: 0.25 }}>
+                        {option.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.65rem", color: "text.disabled" }}>
+                        {option.desc}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Custom Instructions */}
+            <Box mb={2}>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                size="small"
+                label="Custom Instructions"
+                value={customInstructions}
+                onChange={(e) => setCustomInstructions(e.target.value)}
+                placeholder="Advanced: Add custom system prompt additions..."
+                helperText="Additional instructions for the AI (optional)"
+              />
+            </Box>
+
+            {/* Save Button */}
+            <Box display="flex" gap={1} alignItems="center">
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleSaveAIPreferences}
+                sx={{ minWidth: 80, borderRadius: "10px", textTransform: "none" }}
+              >
+                Save
+              </Button>
+              {saved && (
+                <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
+              )}
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* What I Remember */}
+            <Accordion sx={{ boxShadow: "none", border: "1px solid", borderColor: "divider", borderRadius: "12px !important", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<Icon>expand_more</Icon>}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Icon sx={{ color: "primary.main" }}>psychology</Icon>
+                  <Typography variant="body1" fontWeight={600}>What I Remember</Typography>
+                  <Chip label={memories?.length || 0} size="small" sx={{ ml: 1 }} />
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                {memories && memories.length > 0 ? (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                    {memories.map((memory) => (
+                      <Box
+                        key={memory.id}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: "10px",
+                          bgcolor: "rgba(108,92,231,0.04)",
+                          border: "1px solid rgba(108,92,231,0.12)",
+                        }}
+                      >
+                        {editingMemory?.id === memory.id ? (
+                          <Box>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              multiline
+                              rows={2}
+                              value={editingMemory.content}
+                              onChange={(e) => setEditingMemory({ ...editingMemory, content: e.target.value })}
+                              sx={{ mb: 1 }}
+                            />
+                            <Box display="flex" gap={1}>
+                              <Button size="small" variant="contained" onClick={handleSaveMemoryEdit}>
+                                Save
+                              </Button>
+                              <Button size="small" variant="outlined" onClick={() => setEditingMemory(null)}>
+                                Cancel
+                              </Button>
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Box>
+                            <Box display="flex" alignItems="flex-start" gap={1} mb={0.5}>
+                              <Chip
+                                label={memory.category || "general"}
+                                size="small"
+                                sx={{ fontSize: "0.65rem", height: 20 }}
+                              />
+                              <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.6 }}>
+                                {memory.content}
+                              </Typography>
+                            </Box>
+                            <Box display="flex" gap={1} mt={1}>
+                              <IconButton size="small" onClick={() => handleEditMemory(memory)}>
+                                <Icon sx={{ fontSize: "1rem" }}>edit</Icon>
+                              </IconButton>
+                              <IconButton size="small" onClick={() => handleDeleteMemory(memory)}>
+                                <Icon sx={{ fontSize: "1rem", color: "error.main" }}>delete</Icon>
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Box sx={{ textAlign: "center", py: 3 }}>
+                    <Icon sx={{ fontSize: "2rem", color: "text.disabled", mb: 1 }}>psychology</Icon>
+                    <Typography variant="body2" color="text.secondary">
+                      No memories yet. Chat with me to learn!
+                    </Typography>
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
           </GlassCard>
         </Grid>
 
