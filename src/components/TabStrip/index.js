@@ -3,8 +3,8 @@ import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
-import { useTheme } from "@mui/material/styles";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 const TABS = [
   { key: "calendar", label: "Calendar", icon: "calendar_today", path: "/calendar" },
@@ -17,8 +17,7 @@ const TABS = [
 ];
 
 function TabStrip({ activeTab, onTabChange, rightSlot, hideTabs }) {
-  const theme = useTheme();
-  const { darkMode } = useThemeMode();
+  const { tokens, gradient } = useAppTheme();
 
   const visibleTabs = hideTabs ? TABS.filter((t) => !hideTabs.includes(t.key)) : TABS;
 
@@ -32,7 +31,7 @@ function TabStrip({ activeTab, onTabChange, rightSlot, hideTabs }) {
         px: 1.5,
         py: 1,
         borderRadius: "14px",
-        backgroundColor: darkMode ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.03)",
+        backgroundColor: tokens.glass.overlay,
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -56,17 +55,15 @@ function TabStrip({ activeTab, onTabChange, rightSlot, hideTabs }) {
                 transition: "all 0.2s ease",
                 ...(isActive
                   ? {
-                      background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                      background: gradient("primary"),
                       color: "#FFFFFF",
                       fontWeight: 700,
-                      boxShadow: "0 3px 10px rgba(108, 92, 231, 0.25)",
+                      boxShadow: `0 3px 10px ${alpha(tokens.accent.main, 0.25)}`,
                     }
                   : {
-                      color: darkMode ? "rgba(255, 255, 255, 0.4)" : "#8B8680",
+                      color: "text.secondary",
                       "&:hover": {
-                        backgroundColor: darkMode
-                          ? "rgba(255, 255, 255, 0.06)"
-                          : "rgba(0, 0, 0, 0.05)",
+                        backgroundColor: tokens.glass.overlayHover,
                       },
                     }),
               }}

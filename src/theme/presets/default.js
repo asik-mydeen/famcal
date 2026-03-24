@@ -76,13 +76,32 @@ export default function defaultPreset(mode) {
 
     // ── Glass / surface tokens ──
     glass: {
-      bg: t("#1c1c2e", "#ffffff"),
-      border: t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.04)"),
+      bg: t("rgba(255,255,255,0.05)", "#ffffff"),       // GlassCard: translucent dark, solid light
+      solidBg: t("#1c1c2e", "#ffffff"),                  // MUI Card/Dialog: solid surfaces
+      border: t("rgba(255,255,255,0.08)", "none"),
       borderHover: t("rgba(255,255,255,0.14)", "rgba(0,0,0,0.08)"),
-      shadow: t("0 4px 20px rgba(0,0,0,0.4)", "0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)"),
-      hoverShadow: t("0 8px 32px rgba(0,0,0,0.5)", "0 4px 20px rgba(0,0,0,0.1)"),
+      shadow: t(
+        "0 8px 32px rgba(0,0,0,0.25)",
+        "0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.02)"
+      ),
+      hoverShadow: t("0 12px 40px rgba(0,0,0,0.3)", "0 4px 16px rgba(0,0,0,0.1)"),
       overlay: t("rgba(255,255,255,0.05)", "rgba(0,0,0,0.03)"),
       overlayHover: t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)"),
+      divider: t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.06)"),
+    },
+
+    // ── Panel / header surfaces ──
+    panel: {
+      bg: t("rgba(10,10,26,0.98)", "#ffffff"),
+      border: t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.06)"),
+    },
+    header: {
+      bg: t("rgba(10,10,26,0.95)", "#ffffff"),
+      border: t("rgba(255,255,255,0.06)", "rgba(0,0,0,0.08)"),
+    },
+    nav: {
+      bg: t("#111127", "#ffffff"),
+      border: t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)"),
     },
 
     // ── Gradient tokens ──

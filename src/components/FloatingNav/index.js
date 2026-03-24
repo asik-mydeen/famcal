@@ -5,8 +5,9 @@ import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { useTheme } from "@mui/material/styles";
 import { motion } from "framer-motion";
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 const navItems = [
   { path: "/calendar", label: "Calendar", icon: "calendar_month" },
@@ -25,9 +26,8 @@ const moreMenuItems = [
 export default function FloatingNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const dark = theme.palette.mode === "dark";
-  const accent = theme.palette.primary.main;
+  const { tokens, darkMode } = useAppTheme();
+  const accent = tokens.accent.main;
   const [moreAnchorEl, setMoreAnchorEl] = useState(null);
   const moreMenuOpen = Boolean(moreAnchorEl);
 
@@ -64,9 +64,9 @@ export default function FloatingNav() {
           gap: 0,
           px: 1,
           py: 0.5,
-          background: dark ? "#111127" : "#ffffff",
-          borderTop: dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.06)",
-          boxShadow: dark ? "none" : "0 -2px 12px rgba(0,0,0,0.04)",
+          background: tokens.nav.bg,
+          borderTop: `1px solid ${tokens.nav.border}`,
+          boxShadow: darkMode ? "none" : "0 -2px 12px rgba(0,0,0,0.04)",
           paddingBottom: "max(8px, env(safe-area-inset-bottom))",
         }}
       >
@@ -101,7 +101,7 @@ export default function FloatingNav() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: isActive ? `${accent}18` : "transparent",
+                  background: isActive ? alpha(accent, 0.094) : "transparent",
                   transition: "background 0.2s ease",
                   mb: 0.25,
                 }}
@@ -109,7 +109,7 @@ export default function FloatingNav() {
                 <Icon
                   sx={{
                     fontSize: "1.5rem",
-                    color: isActive ? accent : dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)",
+                    color: isActive ? accent : "text.disabled",
                     transition: "color 0.2s ease",
                   }}
                 >
@@ -120,7 +120,7 @@ export default function FloatingNav() {
                 sx={{
                   fontSize: "0.625rem",
                   fontWeight: isActive ? 700 : 500,
-                  color: isActive ? accent : dark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.4)",
+                  color: isActive ? accent : "text.disabled",
                   transition: "color 0.2s ease",
                   lineHeight: 1,
                 }}
@@ -143,7 +143,7 @@ export default function FloatingNav() {
           "& .MuiPaper-root": {
             borderRadius: "12px",
             minWidth: 160,
-            background: dark ? "#1A1A2E" : "#ffffff",
+            background: tokens.glass.solidBg,
             boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
             mb: 1,
           },
@@ -159,9 +159,9 @@ export default function FloatingNav() {
               gap: 1.5,
               py: 1.25,
               px: 2,
-              color: dark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.85)",
+              color: "text.primary",
               "&:hover": {
-                backgroundColor: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                backgroundColor: tokens.glass.overlayHover,
               },
             }}
           >
