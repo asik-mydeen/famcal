@@ -685,12 +685,20 @@ function FamilyProvider({ children }) {
           break;
         }
         case "ADD_LIST_ITEM": {
-          import("lib/supabase").then(({ createListItem }) => {
+          import("lib/supabase").then(async ({ createListItem, fetchLists }) => {
             const item = action.value.item || action.value;
             const { id: _localId, ...itemData } = item;
-            const listId = action.value.listId || item.list_id;
-            // Only persist if list has a real UUID (not local temp ID)
-            if (listId && !listId.startsWith("list-")) {
+            let listId = action.value.listId || item.list_id;
+            // If list has a temp ID, look up the real UUID from Supabase
+            if (listId && listId.startsWith("list-")) {
+              const dbLists = await fetchLists(state.family.id);
+              const matchingList = dbLists?.find((l) =>
+                state.lists.some((sl) => sl.id === listId && sl.name.toLowerCase() === l.name.toLowerCase())
+              );
+              if (matchingList) listId = matchingList.id;
+              else return; // List doesn't exist in DB yet
+            }
+            if (listId) {
               createListItem({ ...itemData, list_id: listId });
             }
           });
