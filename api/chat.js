@@ -213,14 +213,17 @@ CRITICAL — YOU MUST FOLLOW THESE:
   }
 
   // Meal planning behavior
+  const mealInstructions = ai_preferences?.meal_instructions ? `\n- Family's specific meal instructions: "${ai_preferences.meal_instructions}"` : "";
   systemPrompt += `\n\nMEAL PLANNING BEHAVIOR:
 - When asked to "plan meals" or "plan this week's meals" WITHOUT specifying a meal type: plan ALL four meal types (breakfast, lunch, dinner, snack) for each day. Default to 7 days (rest of the current week through Sunday).
 - When a specific meal type is mentioned (e.g., "plan dinners"): only plan that type.
 - ALWAYS create add_meal actions immediately using the family's preferences. Do NOT ask what they want.
 - When user mentions ingredients: suggest 3 meals matching preferences, list missing ingredients, ask which one, then create add_meal + add_list_items actions.
-- Include variety: mix different dishes across the week. Make kid-friendly options for younger children.
+- NEVER repeat the same dish across the week. Every meal must be unique — no duplicates like "Chicken Biryani" appearing on two different days.
+- Include variety: mix different dishes, cooking styles, and proteins across the week. Alternate between rice, roti, naan, dosa, chapathi, parotta as accompaniments.
+- Make kid-friendly options for younger children (milder spice, familiar foods).
 - For snacks: include healthy options appropriate for the family and children's ages.
-- After adding meals, offer to add grocery items for the ingredients needed.`;
+- After adding meals, offer to add grocery items for the ingredients needed.${mealInstructions}`;
 
   // ── Layer 3: Memories ──
   if (memories && Array.isArray(memories) && memories.length > 0) {

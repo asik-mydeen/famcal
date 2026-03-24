@@ -38,6 +38,7 @@ function Meals() {
   const [prefsDietary, setPrefsDietary] = useState(ai_preferences?.dietary_restrictions || "");
   const [prefsServings, setPrefsServings] = useState(ai_preferences?.servings || 4);
   const [prefsSpeed, setPrefsSpeed] = useState(ai_preferences?.cooking_speed || "any");
+  const [prefsMealInstructions, setPrefsMealInstructions] = useState(ai_preferences?.meal_instructions || "");
   const [openDialog, setOpenDialog] = useState(false);
   const [openGroceryDialog, setOpenGroceryDialog] = useState(false);
   const [mealForm, setMealForm] = useState(INITIAL_MEAL_FORM);
@@ -239,13 +240,14 @@ function Meals() {
       dietary_restrictions: prefsDietary,
       servings: prefsServings,
       cooking_speed: prefsSpeed,
+      meal_instructions: prefsMealInstructions,
     };
 
     // Always use UPDATE — persistingDispatch upsert handles both insert and update
     dispatch({ type: "UPDATE_AI_PREFERENCES", value: prefs });
 
     setPrefsExpanded(false);
-  }, [prefsCuisine, prefsDietary, prefsServings, prefsSpeed, ai_preferences, dispatch]);
+  }, [prefsCuisine, prefsDietary, prefsServings, prefsSpeed, prefsMealInstructions, dispatch]);
 
   // Build chips from current preferences for collapsed view
   const prefsChips = useMemo(() => {
@@ -255,6 +257,7 @@ function Meals() {
     if (prefs.dietary_restrictions) chips.push(prefs.dietary_restrictions);
     if (prefs.servings) chips.push(`${prefs.servings} servings`);
     if (prefs.cooking_speed && prefs.cooking_speed !== "any") chips.push("Quick (30 min)");
+    if (prefs.meal_instructions) chips.push("Custom instructions");
     return chips;
   }, [ai_preferences]);
 
@@ -353,6 +356,22 @@ function Meals() {
                     <MenuItem value="any">Any</MenuItem>
                   </Select>
                 </Box>
+              </Box>
+              {/* Meal planning instructions */}
+              <Box>
+                <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, mb: 0.5, color: "text.secondary" }}>
+                  Meal planning instructions
+                </Typography>
+                <TextField
+                  value={prefsMealInstructions}
+                  onChange={(e) => setPrefsMealInstructions(e.target.value)}
+                  multiline
+                  rows={3}
+                  fullWidth
+                  size="small"
+                  placeholder="e.g., Dinner should be simple dishes with chapathi/roti/dosa. Include South Indian breakfast options. Kids prefer mild spice."
+                  sx={{ "& .MuiInputBase-root": { borderRadius: "8px", fontSize: "0.85rem" } }}
+                />
               </Box>
               <Box display="flex" justifyContent="flex-end">
                 <Button
