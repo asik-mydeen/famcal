@@ -243,7 +243,7 @@ function getComponents(mode) {
 
 // ── Export theme factory ──
 
-export function createAppTheme(mode = "dark", fontFamily) {
+export function createAppTheme(mode = "dark", fontFamily, preset = "default") {
   const typoBase = getTypographyBase(fontFamily);
   return createTheme({
     palette: getPalette(mode),
