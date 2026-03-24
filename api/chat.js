@@ -24,10 +24,16 @@ export default async function handler(req, res) {
   const today = new Date().toISOString().split("T")[0];
   const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
 
-  // Build member list
-  const memberList = ctx.members?.map(
-    (m) => `- ${m.name} (id: ${m.id}, ${m.points || 0}pts, level ${m.level || 1})`
-  ).join("\n") || "No members";
+  // Build member list with ages
+  const memberList = ctx.members?.map((m) => {
+    let desc = `- ${m.name} (id: ${m.id}, ${m.points || 0}pts, level ${m.level || 1}`;
+    if (m.birth_date) {
+      const age = Math.floor((Date.now() - new Date(m.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      desc += `, age ${age}`;
+    }
+    desc += ")";
+    return desc;
+  }).join("\n") || "No members";
 
   // Build today's tasks
   const todayTasks = ctx.todayTasks?.map((t) => {
@@ -67,7 +73,10 @@ export default async function handler(req, res) {
   }).join("\n") || "None";
 
   // ── Layer 1: Base Prompt ──
-  let systemPrompt = `You are FamCal AI, a warm and helpful family assistant for a wall-mounted family calendar app.
+  const familyName = ctx.familyName || "the family";
+  const assistantName = ai_preferences?.assistant_name || "Amara";
+
+  let systemPrompt = `You are ${assistantName}, the ${familyName}'s personal family assistant on their wall-mounted family calendar. You know this family well — their preferences, routines, and members. Act like a trusted family helper, not a generic AI.
 
 TODAY: ${today} (${dayName})
 CURRENT PAGE: ${ctx.currentPage || "unknown"}
@@ -138,14 +147,16 @@ Info (no mutation, just answer):
 - info: {} — use when the user asks a question that doesn't need data changes. Put the answer in "reply".
 
 RULES:
-1. Match member names to IDs (case-insensitive). "Mom"/"Nikkath", "Dad"/"Asik", "Aarish", "Aaraa" etc.
-2. If the request is AMBIGUOUS (who? when? what?), return {"reply":"clarifying question here","actions":[]} — do NOT guess.
-3. For dates: "tomorrow" = today+1, "next Monday" = actual date, "Friday" = upcoming Friday. Always output YYYY-MM-DD.
-4. For times: "2pm" = "14:00", "morning" = "09:00". Use 24h format HH:mm for start/end times.
-5. When updating/deleting, find the item by name in the data above and use its ID.
-6. Multiple actions OK (e.g., "add eggs, milk, bread to groceries" = one add_list_items).
-7. Be warm, concise, family-friendly. Address members by name.
-8. For queries ("how many points?", "what's for dinner?"), use reply text + info action with no data changes.
+1. Match member names to IDs (case-insensitive). Use their names naturally in responses.
+2. NEVER ask for information you already have. You know this family's preferences, dietary restrictions, cuisine choices, and member details. USE THEM. If the user says "plan meals" — you already know what kind of food they like. Just do it.
+3. Only ask clarifying questions when genuinely needed (e.g., "which day?" when multiple are possible). Do NOT ask about preferences, dietary restrictions, or cuisine — that information is in the PREFERENCES section above.
+4. For dates: "tomorrow" = today+1, "next Monday" = actual date, "Friday" = upcoming Friday. Always output YYYY-MM-DD.
+5. For times: "2pm" = "14:00", "morning" = "09:00". Use 24h format HH:mm for start/end times.
+6. When updating/deleting, find the item by name in the data above and use its ID.
+7. Multiple actions OK (e.g., "add eggs, milk, bread to groceries" = one add_list_items).
+8. Be warm, concise, family-friendly. Address members by name. Personalize responses — you know this family.
+9. For queries ("how many points?", "what's for dinner?"), use reply text + info action with no data changes.
+10. When assigning chores to children, consider their ages. Younger children get simpler tasks.
 
 CRITICAL — YOU MUST FOLLOW THESE:
 1. Your ENTIRE response must be valid JSON: {"reply":"...","actions":[...]}
@@ -156,26 +167,30 @@ CRITICAL — YOU MUST FOLLOW THESE:
 6. Keep your reply text SHORT (2-3 sentences summary). Put the details in the actions.
 7. NEVER respond with plain text. ALWAYS respond with JSON.`;
 
-  // ── Layer 2: Preferences ──
+  // ── Layer 2: Family Preferences (ALWAYS USE THESE — never ask for them) ──
   if (ai_preferences) {
-    const prefs = [];
     const toList = (v) => (Array.isArray(v) ? v.join(", ") : v || "");
-    if (ai_preferences.personality) prefs.push(`Personality: ${ai_preferences.personality}`);
-    if (ai_preferences.cuisine_preferences?.length) prefs.push(`Cuisine preferences: ${toList(ai_preferences.cuisine_preferences)}`);
-    if (ai_preferences.dietary_restrictions?.length) prefs.push(`Dietary restrictions: ${toList(ai_preferences.dietary_restrictions)}`);
-    if (ai_preferences.tone) prefs.push(`Communication tone: ${ai_preferences.tone}`);
-    if (ai_preferences.custom_instructions) prefs.push(`Custom instructions: ${ai_preferences.custom_instructions}`);
+    const prefLines = [];
+    if (ai_preferences.cuisine_preferences) prefLines.push(`Cuisine: ${toList(ai_preferences.cuisine_preferences)}`);
+    if (ai_preferences.dietary_restrictions) prefLines.push(`Dietary restrictions: ${toList(ai_preferences.dietary_restrictions)}`);
+    if (ai_preferences.servings) prefLines.push(`Default servings: ${ai_preferences.servings} people`);
+    if (ai_preferences.cooking_speed) prefLines.push(`Cooking preference: ${ai_preferences.cooking_speed === "quick" ? "Quick meals (30 min or less)" : "Mix of quick and elaborate"}`);
+    if (ai_preferences.personality) prefLines.push(`Assistant personality: ${ai_preferences.personality}`);
+    if (ai_preferences.tone) prefLines.push(`Tone: ${ai_preferences.tone}`);
+    if (ai_preferences.custom_instructions) prefLines.push(`Special instructions: ${ai_preferences.custom_instructions}`);
 
-    if (prefs.length > 0) {
-      systemPrompt += `\n\n── PREFERENCES ──\n${prefs.join("\n")}`;
-    }
-
-    // Meal planning behavior
-    if (ai_preferences.cuisine_preferences?.length) {
-      systemPrompt += `\n\nMEAL PLANNING BEHAVIOR:
-When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"), suggest 3 meals matching the family's cuisine preferences. List any missing ingredients, then ask for confirmation. Once confirmed, use add_meal for the chosen meal and add_list_items to add missing ingredients to the grocery list.`;
+    if (prefLines.length > 0) {
+      systemPrompt += `\n\n── THIS FAMILY'S PREFERENCES (you already know these — NEVER ask for them) ──\n${prefLines.join("\n")}`;
+      systemPrompt += `\n\nIMPORTANT: These preferences are ALREADY SET by the family. When they ask you to plan meals, create tasks, or do anything — use these preferences automatically. Do NOT ask "what cuisine?", "any dietary restrictions?", or "how many servings?" — you already know. Just act on the request immediately using these preferences.`;
     }
   }
+
+  // Meal planning behavior
+  systemPrompt += `\n\nMEAL PLANNING BEHAVIOR:
+- When asked to plan meals: immediately create add_meal actions using the family's cuisine and dietary preferences. Do NOT ask what they want — use the saved preferences.
+- When user mentions ingredients: suggest 3 meals matching preferences, list missing ingredients, ask which one, then create add_meal + add_list_items actions.
+- Include variety: mix different dishes across the week, consider children's ages for kid-friendly options.
+- For snacks: include healthy options appropriate for the family.`;
 
   // ── Layer 3: Memories ──
   if (memories && Array.isArray(memories) && memories.length > 0) {
