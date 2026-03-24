@@ -64,14 +64,7 @@ function TimerAlarmPanel({ open, onClose }) {
 
   const handleStartTimer = (label, minutes) => {
     if (!minutes || minutes <= 0) return;
-    addTimer({
-      id: `timer-${Date.now()}`,
-      label: label || `${minutes} min timer`,
-      icon: "timer",
-      duration: minutes * 60,
-      remaining: minutes * 60,
-      status: "running",
-    });
+    addTimer(label || `${minutes} min timer`, minutes, "timer");
     setTimerLabel("");
     setTimerMinutes("");
     setShowTimerForm(false);
@@ -317,12 +310,12 @@ function TimerAlarmPanel({ open, onClose }) {
                   <IconButton
                     size="small"
                     onClick={() =>
-                      timer.status === "running" ? pauseTimer(timer.id) : resumeTimer(timer.id)
+                      timer.running ? pauseTimer(timer.id) : resumeTimer(timer.id)
                     }
                     sx={actionBtnSx}
                   >
                     <Icon sx={{ fontSize: "1.1rem" }}>
-                      {timer.status === "running" ? "pause" : "play_arrow"}
+                      {timer.running ? "pause" : "play_arrow"}
                     </Icon>
                   </IconButton>
                   <IconButton size="small" onClick={() => cancelTimer(timer.id)} sx={actionBtnSx}>
