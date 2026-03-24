@@ -639,6 +639,83 @@ function FamilyProvider({ children }) {
           }
           break;
         }
+        // ── v3 entities: meals, lists, notes, countdowns ──
+        case "ADD_MEAL": {
+          import("lib/supabase").then(({ upsertMeal }) => {
+            const { id: _localId, ...mealData } = action.value;
+            upsertMeal({ ...mealData, family_id: state.family.id });
+          });
+          break;
+        }
+        case "UPDATE_MEAL": {
+          import("lib/supabase").then(({ upsertMeal }) => {
+            upsertMeal(action.value);
+          });
+          break;
+        }
+        case "REMOVE_MEAL": {
+          import("lib/supabase").then(({ deleteMeal }) => {
+            deleteMeal(action.value);
+          });
+          break;
+        }
+        case "ADD_LIST": {
+          import("lib/supabase").then(({ createList }) => {
+            const { items: _items, ...listData } = action.value;
+            createList({ ...listData, family_id: state.family.id });
+          });
+          break;
+        }
+        case "ADD_LIST_ITEM": {
+          import("lib/supabase").then(({ createListItem }) => {
+            const item = action.value.item || action.value;
+            createListItem({ ...item, list_id: action.value.listId || item.list_id });
+          });
+          break;
+        }
+        case "TOGGLE_LIST_ITEM": {
+          import("lib/supabase").then(({ updateListItem }) => {
+            // Find the item to get its current checked state
+            const list = state.lists.find((l) => l.id === action.value.listId);
+            const item = list?.items?.find((i) => i.id === action.value.itemId);
+            if (item) {
+              updateListItem(item.id, { checked: !item.checked, checked_at: !item.checked ? new Date().toISOString() : null });
+            }
+          });
+          break;
+        }
+        case "REMOVE_LIST_ITEM": {
+          import("lib/supabase").then(({ deleteListItem }) => {
+            deleteListItem(action.value.itemId || action.value.id);
+          });
+          break;
+        }
+        case "ADD_NOTE": {
+          import("lib/supabase").then(({ createNote }) => {
+            const { id: _localId, ...noteData } = action.value;
+            createNote({ ...noteData, family_id: state.family.id });
+          });
+          break;
+        }
+        case "REMOVE_NOTE": {
+          import("lib/supabase").then(({ deleteNote }) => {
+            deleteNote(action.value.id || action.value);
+          });
+          break;
+        }
+        case "ADD_COUNTDOWN": {
+          import("lib/supabase").then(({ createCountdown }) => {
+            const { id: _localId, ...cdData } = action.value;
+            createCountdown({ ...cdData, family_id: state.family.id });
+          });
+          break;
+        }
+        case "REMOVE_COUNTDOWN": {
+          import("lib/supabase").then(({ deleteCountdown }) => {
+            deleteCountdown(action.value.id || action.value);
+          });
+          break;
+        }
         case "SET_FAMILY": {
           if (action.value.id && !action.value.id.startsWith("demo")) {
             const famUpdate = { id: action.value.id, name: action.value.name };

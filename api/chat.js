@@ -2,8 +2,8 @@ import { generateText, gateway } from "ai";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL || "https://your-project.supabase.co",
-  process.env.SUPABASE_ANON_KEY || "your-anon-key"
+  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || "https://your-project.supabase.co",
+  process.env.SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY || "your-anon-key"
 );
 
 export default async function handler(req, res) {
