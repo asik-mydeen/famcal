@@ -274,14 +274,16 @@ function reducer(state, action) {
       return { ...state, conversations: action.value };
     case "SET_ACTIVE_CONVERSATION":
       return { ...state, activeConversation: action.value };
-    case "ADD_MESSAGE":
+    case "ADD_MESSAGE": {
+      const msg = action.value.message || action.value;
       return {
         ...state,
         activeConversation: {
           ...state.activeConversation,
-          messages: [...(state.activeConversation?.messages || []), action.value],
+          messages: [...(state.activeConversation?.messages || []), msg],
         },
       };
+    }
     case "SET_MEMORIES":
       return { ...state, memories: action.value };
     case "ADD_MEMORY":
@@ -679,13 +681,14 @@ function FamilyProvider({ children }) {
           break;
         }
         case "ADD_MESSAGE": {
+          const msg = action.value.message || action.value;
           import("lib/supabase").then(({ createMessage }) => {
             if (state.activeConversation) {
               createMessage(
                 state.activeConversation.id,
-                action.value.role,
-                action.value.content,
-                action.value.actions || []
+                msg.role,
+                msg.content,
+                msg.actions || []
               );
             }
           });
