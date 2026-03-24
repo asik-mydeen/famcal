@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
   // Build lists
   const listsStr = ctx.lists?.map((l) => {
-    const items = l.items?.slice(0, 10).map(
+    const items = l.items?.map(
       (i) => `  ${i.checked ? "[x]" : "[ ]"} ${i.text} (id: ${i.id})`
     ).join("\n") || "  (empty)";
     return `"${l.name}" (id: ${l.id}):\n${items}`;
