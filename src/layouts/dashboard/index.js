@@ -19,6 +19,9 @@ import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import { fetchWeather } from "lib/weather";
 import AIAssistant from "components/AIAssistant";
+import { TimerAlarmProvider } from "context/TimerAlarmContext";
+import AlertOverlay from "components/AlertOverlay";
+import TimerAlarmPanel from "components/TimerAlarmPanel";
 
 import FamilyCalendar from "layouts/family-calendar";
 import Chores from "layouts/chores";
@@ -332,6 +335,7 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
   // AI Command Bar
   const [aiOpen, setAiOpen] = useState(false);
+  const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
   // Weather
   const weatherLocation = family?.weather_location || "";
@@ -360,7 +364,9 @@ function DashboardShell({ data, slug, onDisconnect }) {
   ) : null;
 
   return (
+    <TimerAlarmProvider familyId={family?.id}>
     <FamilyContext.Provider value={contextValue}>
+      <AlertOverlay />
       <AnimatedBackground />
       <HeaderBar
         members={state.members}
@@ -370,6 +376,7 @@ function DashboardShell({ data, slug, onDisconnect }) {
         onKioskToggle={toggleKiosk}
         fontScale={fontScale}
         onFontScaleChange={handleFontScaleChange}
+        onOpenTimerPanel={() => setTimerPanelOpen(true)}
       />
       <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
         <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
@@ -510,7 +517,12 @@ function DashboardShell({ data, slug, onDisconnect }) {
         externalOpen={aiOpen}
         onExternalClose={() => setAiOpen(false)}
       />
+      <TimerAlarmPanel
+        open={timerPanelOpen}
+        onClose={() => setTimerPanelOpen(false)}
+      />
     </FamilyContext.Provider>
+    </TimerAlarmProvider>
   );
 }
 
