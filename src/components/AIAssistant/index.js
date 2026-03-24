@@ -494,6 +494,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
         ref={scrollRef}
         sx={{
           flex: 1,
+          minHeight: 0,
           overflow: "auto",
           px: 3,
           py: 2,
@@ -812,11 +813,10 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           <>
             {renderWelcome()}
             {renderSuggestions()}
+            {/* Spacer pushes input to bottom when no messages */}
+            <Box sx={{ flex: 1 }} />
           </>
         )}
-
-        {/* Spacer to push input to bottom */}
-        <Box sx={{ flex: 1 }} />
 
         {/* Input bar */}
         {renderInput()}
