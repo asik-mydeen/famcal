@@ -189,7 +189,7 @@ export async function fetchAIPreferences(familyId) {
 export async function updateAIPreferences(familyId, preferences) {
   const { data, error } = await supabase
     .from("ai_preferences")
-    .upsert({ family_id: familyId, ...preferences })
+    .upsert({ family_id: familyId, ...preferences, updated_at: new Date().toISOString() }, { onConflict: "family_id" })
     .select()
     .single();
   if (error) {
