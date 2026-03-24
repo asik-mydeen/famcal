@@ -167,22 +167,30 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
   const contextValue = useMemo(() => [state, dispatch], [state, dispatch]);
 
-  // Kiosk/fullscreen for dashboard
+  // Kiosk/fullscreen for dashboard — tries Tauri API first, falls back to browser API
   const [kioskEnabled, setKioskEnabled] = useState(false);
-  const toggleKiosk = useCallback(() => {
-    setKioskEnabled((prev) => {
-      const next = !prev;
+  const toggleKiosk = useCallback(async () => {
+    const next = !kioskEnabled;
+    setKioskEnabled(next);
+    try {
+      // Try Tauri window API first (works in Tauri app)
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const win = getCurrentWindow();
+      await win.setFullscreen(next);
+    } catch {
+      // Fallback to browser Fullscreen API
       if (next) {
         const el = document.documentElement;
         const req = el.requestFullscreen || el.webkitRequestFullscreen;
         if (req) req.call(el).catch(() => {});
       } else {
         const exit = document.exitFullscreen || document.webkitExitFullscreen;
-        if (document.fullscreenElement) exit.call(document).catch(() => {});
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          exit.call(document).catch(() => {});
+        }
       }
-      return next;
-    });
-  }, []);
+    }
+  }, [kioskEnabled]);
 
   // Sync kiosk state when user exits fullscreen via Esc
   useEffect(() => {
@@ -198,6 +206,25 @@ function DashboardShell({ data, slug, onDisconnect }) {
       document.removeEventListener("webkitfullscreenchange", handler);
     };
   }, []);
+
+  // Font scale (per-device, stored in localStorage)
+  const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
+  const handleFontScaleChange = useCallback((newScale) => {
+    const clamped = Math.max(1.0, Math.min(1.7, newScale));
+    const rounded = Math.round(clamped * 20) / 20;
+    setFontScale(rounded);
+    localStorage.setItem("famcal_font_scale", String(rounded));
+    document.documentElement.style.fontSize = `${rounded * 100}%`;
+  }, []);
+
+  // Apply font scale on mount
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontScale * 100}%`;
+    return () => { document.documentElement.style.fontSize = ""; };
+  }, [fontScale]);
+
+  // Kiosk settings panel
+  const [showKioskSettings, setShowKioskSettings] = useState(false);
 
   // Weather
   const weatherLocation = family?.weather_location || "";
@@ -234,6 +261,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
         countdownWidget={headerCountdownWidget}
         kioskEnabled={kioskEnabled}
         onKioskToggle={toggleKiosk}
+        fontScale={fontScale}
+        onFontScaleChange={handleFontScaleChange}
       />
       <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
         <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
@@ -256,6 +285,85 @@ function DashboardShell({ data, slug, onDisconnect }) {
       <Box sx={{ display: { xs: "flex", md: "none" }, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1100, px: 1, pb: 1, bgcolor: "background.default" }}>
         <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
       </Box>
+
+      {/* Kiosk settings gear button */}
+      <Box
+        onClick={() => setShowKioskSettings(true)}
+        sx={{
+          position: "fixed", bottom: { xs: 70, md: 20 }, left: 20, zIndex: 1200,
+          width: 40, height: 40, borderRadius: "12px",
+          bgcolor: "rgba(0,0,0,0.06)", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          opacity: 0.4, "&:hover": { opacity: 1, bgcolor: "rgba(108,92,231,0.1)" },
+          transition: "all 0.2s ease",
+        }}
+      >
+        <Icon sx={{ fontSize: "1.2rem", color: "text.secondary" }}>settings</Icon>
+      </Box>
+
+      {/* Kiosk settings panel */}
+      {showKioskSettings && (
+        <>
+          <Box onClick={() => setShowKioskSettings(false)} sx={{ position: "fixed", inset: 0, bgcolor: "rgba(0,0,0,0.3)", zIndex: 1300 }} />
+          <Box sx={{
+            position: "fixed", bottom: 80, left: 20, zIndex: 1301, width: 360,
+            bgcolor: "background.paper", borderRadius: "20px",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.15)", p: 3,
+          }}>
+            <Typography sx={{ fontWeight: 700, fontSize: "1rem", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+              <Icon sx={{ fontSize: "1.1rem", color: "primary.main" }}>settings</Icon>
+              Kiosk Settings
+            </Typography>
+
+            {/* Current config display */}
+            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mb: 0.5 }}>Dashboard</Typography>
+            <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, mb: 1.5, wordBreak: "break-all" }}>
+              /d/{slug}
+            </Typography>
+
+            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary", mb: 0.5 }}>Access Token</Typography>
+            <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, mb: 2, fontFamily: "monospace", letterSpacing: "0.1em" }}>
+              {localStorage.getItem(`famcal_dashboard_token_${slug}`) || "—"}
+            </Typography>
+
+            {/* Reconfigure button */}
+            <Button
+              fullWidth
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                localStorage.removeItem("famcal_kiosk_slug");
+                localStorage.removeItem("famcal_kiosk_token");
+                localStorage.removeItem(`famcal_dashboard_token_${slug}`);
+                window.location.href = "/kiosk";
+              }}
+              startIcon={<Icon>link</Icon>}
+              sx={{ mb: 1.5, borderRadius: "12px", textTransform: "none" }}
+            >
+              Change Dashboard / Token
+            </Button>
+
+            {/* Disconnect */}
+            <Button
+              fullWidth
+              variant="text"
+              size="small"
+              color="error"
+              onClick={() => {
+                localStorage.removeItem("famcal_kiosk_slug");
+                localStorage.removeItem("famcal_kiosk_token");
+                localStorage.removeItem(`famcal_dashboard_token_${slug}`);
+                if (onDisconnect) onDisconnect();
+                window.location.href = "/kiosk";
+              }}
+              startIcon={<Icon>logout</Icon>}
+              sx={{ borderRadius: "12px", textTransform: "none", fontSize: "0.8rem" }}
+            >
+              Disconnect Kiosk
+            </Button>
+          </Box>
+        </>
+      )}
     </FamilyContext.Provider>
   );
 }
