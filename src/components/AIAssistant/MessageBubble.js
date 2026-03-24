@@ -280,56 +280,64 @@ function MessageBubble({ role, content, actions, timestamp, onNavigate }) {
             )}
           </Box>
 
-          {/* Action badges (if present) */}
-          {actions && actions.length > 0 && (
-            <Box
-              sx={{
-                display: "flex",
-                gap: 0.75,
-                flexWrap: "wrap",
-                alignSelf: isUser ? "flex-end" : "flex-start",
-                mt: 0.25,
-              }}
-            >
-              {actions.map((action, i) => {
-                const badge = ACTION_BADGES[action.type] || {
-                  icon: "info",
-                  color: "#6C5CE7",
-                  label: action.type.replace(/_/g, " "),
-                };
+          {/* Action badges — grouped by type with counts */}
+          {actions && actions.length > 0 && (() => {
+            // Group actions by type and count
+            const grouped = {};
+            actions.forEach((a) => {
+              grouped[a.type] = (grouped[a.type] || 0) + 1;
+            });
+            const entries = Object.entries(grouped);
 
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.25, delay: i * 0.08 }}
-                    style={{ display: "inline-flex" }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: "10px",
-                        background: `${badge.color}15`,
-                        border: `1px solid ${badge.color}25`,
-                        fontSize: "0.76rem",
-                        fontWeight: 600,
-                        color: badge.color,
-                        transition: "all 0.15s ease",
-                      }}
+            return (
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 0.75,
+                  flexWrap: "wrap",
+                  alignSelf: isUser ? "flex-end" : "flex-start",
+                  mt: 0.25,
+                }}
+              >
+                {entries.map(([type, count], i) => {
+                  const badge = ACTION_BADGES[type] || {
+                    icon: "info",
+                    color: "#6C5CE7",
+                    label: type.replace(/_/g, " "),
+                  };
+
+                  return (
+                    <motion.div
+                      key={type}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.25, delay: i * 0.1 }}
+                      style={{ display: "inline-flex" }}
                     >
-                      <Icon sx={{ fontSize: "0.9rem" }}>{badge.icon}</Icon>
-                      {badge.label}
-                    </Box>
-                  </motion.div>
-                );
-              })}
-            </Box>
-          )}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: "10px",
+                          background: `${badge.color}15`,
+                          border: `1px solid ${badge.color}25`,
+                          fontSize: "0.76rem",
+                          fontWeight: 600,
+                          color: badge.color,
+                        }}
+                      >
+                        <Icon sx={{ fontSize: "0.9rem" }}>{badge.icon}</Icon>
+                        {count > 1 ? `${count} ${badge.label}s` : badge.label}
+                      </Box>
+                    </motion.div>
+                  );
+                })}
+              </Box>
+            );
+          })()}
 
           {/* Navigation buttons based on actions */}
           {actions && actions.length > 0 && onNavigate && (() => {
