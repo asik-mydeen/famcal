@@ -168,7 +168,110 @@ function DashboardShell({ data, slug, onDisconnect }) {
     dispatch({ type: "SET_COUNTDOWNS", value: countdowns || [] });
   }, [members, events, tasks, meals, lists, rewards, notes, countdowns]);
 
-  const contextValue = useMemo(() => [state, dispatch], [state, dispatch]);
+  // Persisting dispatch — updates local state AND writes to Supabase via API
+  const persistingDispatch = useCallback((action) => {
+    // Always update local state first
+    dispatch(action);
+
+    // Map dispatch actions to API write calls
+    const writeToApi = async (apiAction, table, payload) => {
+      try {
+        const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+        if (!cachedToken) return;
+        await fetch(apiUrl("/api/dashboard-write"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, token: cachedToken, action: apiAction, table, payload }),
+        });
+      } catch (err) {
+        console.warn("[dashboard-write]", err.message);
+      }
+    };
+
+    // Event field mapping (client → DB)
+    const eventToDb = (evt) => ({
+      family_id: evt.family_id, member_id: evt.member_id || null,
+      title: evt.title, start_time: evt.start, end_time: evt.end || evt.start,
+      all_day: evt.allDay || false, color: evt.className || "info",
+      source: evt.source || "manual", updated_at: new Date().toISOString(),
+      ...(evt.google_event_id && { google_event_id: evt.google_event_id }),
+    });
+
+    switch (action.type) {
+      case "ADD_EVENT":
+        writeToApi("insert", "events", eventToDb(action.value));
+        break;
+      case "UPDATE_EVENT": {
+        const { id, ...rest } = action.value;
+        const dbFields = {};
+        if (rest.title !== undefined) dbFields.title = rest.title;
+        if (rest.start !== undefined) dbFields.start_time = rest.start;
+        if (rest.end !== undefined) dbFields.end_time = rest.end;
+        if (rest.allDay !== undefined) dbFields.all_day = rest.allDay;
+        if (rest.member_id !== undefined) dbFields.member_id = rest.member_id;
+        if (rest.className !== undefined) dbFields.color = rest.className;
+        writeToApi("update", "events", { id, ...dbFields });
+        break;
+      }
+      case "REMOVE_EVENT":
+        writeToApi("delete", "events", { id: action.value });
+        break;
+      case "ADD_TASK":
+        writeToApi("insert", "tasks", action.value);
+        break;
+      case "UPDATE_TASK":
+        writeToApi("update", "tasks", action.value);
+        break;
+      case "COMPLETE_TASK": {
+        const { taskId, memberId } = action.value || {};
+        if (taskId) writeToApi("update", "tasks", { id: taskId, completed: true, completed_at: new Date().toISOString(), completed_by: memberId });
+        break;
+      }
+      case "REMOVE_TASK":
+        writeToApi("delete", "tasks", { id: action.value });
+        break;
+      case "ADD_MEAL":
+        writeToApi("insert", "meals", action.value);
+        break;
+      case "UPDATE_MEAL":
+        writeToApi("update", "meals", action.value);
+        break;
+      case "REMOVE_MEAL":
+        writeToApi("delete", "meals", { id: action.value });
+        break;
+      case "ADD_LIST":
+        writeToApi("insert", "lists", { name: action.value.name, icon: action.value.icon || "checklist" });
+        break;
+      case "ADD_LIST_ITEM":
+        if (action.value?.item) writeToApi("insert", "list_items", action.value.item);
+        break;
+      case "TOGGLE_LIST_ITEM":
+        if (action.value?.itemId) writeToApi("update", "list_items", { id: action.value.itemId, checked: true });
+        break;
+      case "REMOVE_LIST_ITEM":
+        if (action.value?.itemId) writeToApi("delete", "list_items", { id: action.value.itemId });
+        break;
+      case "ADD_NOTE":
+        writeToApi("insert", "notes", action.value);
+        break;
+      case "REMOVE_NOTE":
+        writeToApi("delete", "notes", { id: action.value });
+        break;
+      case "ADD_COUNTDOWN":
+        writeToApi("insert", "countdowns", action.value);
+        break;
+      case "REMOVE_COUNTDOWN":
+        writeToApi("delete", "countdowns", { id: action.value });
+        break;
+      case "ADD_REWARD":
+        writeToApi("insert", "rewards", action.value);
+        break;
+      default:
+        break;
+    }
+  }, [slug]);
+
+  const contextValue = useMemo(() => [state, persistingDispatch], [state, persistingDispatch]);
 
   // Kiosk/fullscreen for dashboard — tries Tauri API first, falls back to browser API
   const [kioskEnabled, setKioskEnabled] = useState(false);
@@ -255,7 +358,7 @@ function DashboardShell({ data, slug, onDisconnect }) {
   ) : null;
 
   const headerCountdownWidget = (countdowns || []).length > 0 ? (
-    <CountdownWidget variant="header" countdowns={countdowns || []} members={state.members} dispatch={dispatch} familyId={family?.id} />
+    <CountdownWidget variant="header" countdowns={countdowns || []} members={state.members} dispatch={persistingDispatch} familyId={family?.id} />
   ) : null;
 
   return (
@@ -401,7 +504,7 @@ function DashboardShell({ data, slug, onDisconnect }) {
       {/* AI Command Bar */}
       <AICommandBar
         familyId={family?.id}
-        dispatch={dispatch}
+        dispatch={persistingDispatch}
         state={state}
         currentPage={activeTab}
         externalOpen={aiOpen}
