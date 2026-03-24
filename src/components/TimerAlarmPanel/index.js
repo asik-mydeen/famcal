@@ -117,9 +117,10 @@ function TimerAlarmPanel({ open, onClose }) {
     return `${m}:${String(s).padStart(2, "0")}`;
   };
 
-  // Format alarm time for display
+  // Format alarm time for display — handle invalid dates gracefully
   const formatAlarmTime = (timeValue) => {
     const d = new Date(timeValue);
+    if (isNaN(d.getTime())) return "Invalid time";
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   };
 

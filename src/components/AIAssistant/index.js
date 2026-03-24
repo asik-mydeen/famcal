@@ -411,22 +411,47 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             executed.push(action.type);
             break;
           case "set_alarm": {
-            const alarmTime = d.date
-              ? new Date(`${d.date}T${d.time}:00`)
-              : (() => {
-                  const t = new Date();
-                  const [h, m] = d.time.split(":");
-                  t.setHours(h, m, 0, 0);
-                  if (t < new Date()) t.setDate(t.getDate() + 1);
-                  return t;
-                })();
-            timerAlarmRef.current.addAlarm(
-              d.title || "Alarm",
-              alarmTime.toISOString(),
-              d.recurring || null,
-              d.icon || "alarm"
-            );
-            executed.push(action.type);
+            try {
+              let alarmTime;
+              if (d.date && d.time) {
+                alarmTime = new Date(`${d.date}T${d.time}:00`);
+              } else if (d.time) {
+                const t = new Date();
+                const parts = d.time.split(":");
+                t.setHours(parseInt(parts[0], 10), parseInt(parts[1] || "0", 10), 0, 0);
+                if (t < new Date()) t.setDate(t.getDate() + 1);
+                alarmTime = t;
+              } else {
+                // No time provided, skip
+                break;
+              }
+              if (isNaN(alarmTime.getTime())) break; // Invalid date, skip
+              timerAlarmRef.current.addAlarm(
+                d.title || "Alarm",
+                alarmTime.toISOString(),
+                d.recurring || null,
+                d.icon || "alarm"
+              );
+              // Also create a calendar event for the alarm
+              const alarmEnd = new Date(alarmTime);
+              alarmEnd.setMinutes(alarmEnd.getMinutes() + 15);
+              dispatch({
+                type: "ADD_EVENT",
+                value: {
+                  id: `event-alarm-${Date.now()}`,
+                  family_id: familyId,
+                  title: `⏰ ${d.title || "Alarm"}`,
+                  start: alarmTime.toISOString(),
+                  end: alarmEnd.toISOString(),
+                  allDay: false,
+                  className: "warning",
+                  source: "alarm",
+                },
+              });
+              executed.push(action.type);
+            } catch (e) {
+              console.warn("[ai] set_alarm failed:", e);
+            }
             break;
           }
           case "cancel_alarm":
