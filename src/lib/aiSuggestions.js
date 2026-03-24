@@ -108,7 +108,7 @@ function getPageSuggestions(currentPage) {
       {
         icon: "person_add",
         label: "Assign chore",
-        prompt: "Give Aarish a chore to do after school",
+        prompt: "Assign a chore to the kids",
       },
       {
         icon: "warning",
@@ -159,7 +159,7 @@ function getPageSuggestions(currentPage) {
       {
         icon: "emoji_events",
         label: "Earn points",
-        prompt: "How can Aaraa earn more points?",
+        prompt: "How can the kids earn more points?",
       },
       {
         icon: "trending_up",
@@ -176,7 +176,7 @@ function getPageSuggestions(currentPage) {
       {
         icon: "stars",
         label: "Claim reward",
-        prompt: "Claim a reward for Aarish",
+        prompt: "What rewards can the kids claim?",
       },
       {
         icon: "military_tech",

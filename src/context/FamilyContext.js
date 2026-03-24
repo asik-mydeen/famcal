@@ -748,6 +748,48 @@ function FamilyProvider({ children }) {
           });
           break;
         }
+        case "UPDATE_TASK": {
+          const taskRow = taskToDb(action.value);
+          persist("tasks", "update", taskRow);
+          break;
+        }
+        case "UPDATE_LIST": {
+          const { id, ...updates } = action.value;
+          if (id && !id.startsWith("list-")) {
+            supabase.from("lists").update(updates).eq("id", id).then(({ error }) => {
+              if (error) console.warn("[supabase] lists update failed:", error.message);
+            });
+          }
+          break;
+        }
+        case "REMOVE_LIST": {
+          const listId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (listId && !listId.startsWith("list-")) {
+            // Delete list items first (cascade), then the list
+            supabase.from("list_items").delete().eq("list_id", listId).then(() => {
+              supabase.from("lists").delete().eq("id", listId).then(({ error }) => {
+                if (error) console.warn("[supabase] lists delete failed:", error.message);
+              });
+            });
+          }
+          break;
+        }
+        case "UPDATE_NOTE": {
+          import("lib/supabase").then(({ updateNote }) => {
+            if (action.value?.id && !action.value.id.startsWith("note-")) {
+              updateNote(action.value.id, action.value);
+            }
+          });
+          break;
+        }
+        case "UPDATE_MEMORY": {
+          import("lib/supabase").then(({ updateMemory }) => {
+            if (action.value?.id) {
+              updateMemory(action.value.id, action.value);
+            }
+          });
+          break;
+        }
         case "SET_FAMILY": {
           if (action.value.id && !action.value.id.startsWith("demo")) {
             const famUpdate = { id: action.value.id, name: action.value.name };
