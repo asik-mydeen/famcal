@@ -218,26 +218,40 @@ function reducer(state, action) {
           l.id === action.value.listId ? { ...l, items: [...(l.items || []), action.value.item] } : l
         ),
       };
-    case "TOGGLE_LIST_ITEM":
+    case "TOGGLE_LIST_ITEM": {
+      // Handle both formats: string (item ID) or { listId, itemId }
+      const toggleItemId = typeof action.value === "string" ? action.value : action.value?.itemId;
+      const toggleListId = typeof action.value === "string" ? null : action.value?.listId;
       return {
         ...state,
-        lists: state.lists.map((l) => ({
-          ...l,
-          items: (l.items || []).map((i) =>
-            i.id === action.value
-              ? { ...i, checked: !i.checked, checked_at: !i.checked ? new Date().toISOString() : null }
-              : i
-          ),
-        })),
+        lists: state.lists.map((l) => {
+          if (toggleListId && l.id !== toggleListId) return l;
+          return {
+            ...l,
+            items: (l.items || []).map((i) =>
+              i.id === toggleItemId
+                ? { ...i, checked: !i.checked, checked_at: !i.checked ? new Date().toISOString() : null }
+                : i
+            ),
+          };
+        }),
       };
-    case "REMOVE_LIST_ITEM":
+    }
+    case "REMOVE_LIST_ITEM": {
+      // Handle both formats: string (item ID) or { listId, itemId }
+      const removeItemId = typeof action.value === "string" ? action.value : action.value?.itemId;
+      const removeListId = typeof action.value === "string" ? null : action.value?.listId;
       return {
         ...state,
-        lists: state.lists.map((l) => ({
-          ...l,
-          items: (l.items || []).filter((i) => i.id !== action.value),
-        })),
+        lists: state.lists.map((l) => {
+          if (removeListId && l.id !== removeListId) return l;
+          return {
+            ...l,
+            items: (l.items || []).filter((i) => i.id !== removeItemId),
+          };
+        }),
       };
+    }
     // Notes
     case "SET_NOTES":
       return { ...state, notes: action.value };
