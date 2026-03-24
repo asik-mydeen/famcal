@@ -189,9 +189,6 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
           </Box>
         ))}
 
-        {/* Timer & Alarm Chips */}
-        <TimerAlarmChips onOpenPanel={onOpenTimerPanel} />
-
         {/* Family Avatars (hidden on mobile) */}
         {members && members.length > 0 && !isMobile && (
           <Box
