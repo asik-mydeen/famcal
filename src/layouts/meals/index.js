@@ -4,11 +4,15 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Icon from "@mui/material/Icon";
+import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
 import { useTheme } from "@mui/material/styles";
 import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "components/PageTransition";
@@ -26,9 +30,14 @@ function Meals() {
   const theme = useTheme();
   const darkMode = theme.palette.mode === "dark";
   const [state, dispatch] = useFamilyController();
-  const { meals, family, lists } = state;
+  const { meals, family, lists, ai_preferences } = state;
 
   const [weekOffset, setWeekOffset] = useState(0);
+  const [prefsExpanded, setPrefsExpanded] = useState(false);
+  const [prefsCuisine, setPrefsCuisine] = useState(ai_preferences?.cuisine_preferences || "");
+  const [prefsDietary, setPrefsDietary] = useState(ai_preferences?.dietary_restrictions || "");
+  const [prefsServings, setPrefsServings] = useState(ai_preferences?.servings || 4);
+  const [prefsSpeed, setPrefsSpeed] = useState(ai_preferences?.cooking_speed || "any");
   const [openDialog, setOpenDialog] = useState(false);
   const [openGroceryDialog, setOpenGroceryDialog] = useState(false);
   const [mealForm, setMealForm] = useState(INITIAL_MEAL_FORM);
@@ -224,6 +233,34 @@ function Meals() {
     });
   }, [weekOffset, meals, family.id, dispatch, getMonday]);
 
+  const handleSavePreferences = useCallback(() => {
+    const prefs = {
+      cuisine_preferences: prefsCuisine,
+      dietary_restrictions: prefsDietary,
+      servings: prefsServings,
+      cooking_speed: prefsSpeed,
+    };
+
+    if (ai_preferences) {
+      dispatch({ type: "UPDATE_AI_PREFERENCES", value: prefs });
+    } else {
+      dispatch({ type: "SET_AI_PREFERENCES", value: prefs });
+    }
+
+    setPrefsExpanded(false);
+  }, [prefsCuisine, prefsDietary, prefsServings, prefsSpeed, ai_preferences, dispatch]);
+
+  // Build chips from current preferences for collapsed view
+  const prefsChips = useMemo(() => {
+    const chips = [];
+    const prefs = ai_preferences || {};
+    if (prefs.cuisine_preferences) chips.push(prefs.cuisine_preferences);
+    if (prefs.dietary_restrictions) chips.push(prefs.dietary_restrictions);
+    if (prefs.servings) chips.push(`${prefs.servings} servings`);
+    if (prefs.cooking_speed && prefs.cooking_speed !== "any") chips.push("Quick (30 min)");
+    return chips;
+  }, [ai_preferences]);
+
   return (
     <PageTransition>
       <Box p={3} pb={6}>
@@ -233,6 +270,119 @@ function Meals() {
             Meal Plan
           </Typography>
         </Box>
+
+        {/* Meal Preferences */}
+        <GlassCard sx={{ mb: 3 }}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ cursor: "pointer" }}
+            onClick={() => setPrefsExpanded((prev) => !prev)}
+          >
+            <Box display="flex" alignItems="center" gap={1}>
+              <Icon sx={{ color: darkMode ? "#a855f7" : "#0f766e", fontSize: "1.3rem" }}>tune</Icon>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Meal Preferences
+              </Typography>
+            </Box>
+            <Icon sx={{ color: "text.secondary", transition: "transform 0.2s", transform: prefsExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
+              expand_more
+            </Icon>
+          </Box>
+
+          {/* Collapsed: show current preferences as chips */}
+          {!prefsExpanded && prefsChips.length > 0 && (
+            <Box display="flex" flexWrap="wrap" gap={0.75} mt={1.5}>
+              {prefsChips.map((chip) => (
+                <Chip
+                  key={chip}
+                  label={chip}
+                  size="small"
+                  sx={{
+                    borderRadius: "8px",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                    background: darkMode ? "rgba(168,85,247,0.15)" : "rgba(78,205,196,0.12)",
+                    color: darkMode ? "#d8b4fe" : "#0f766e",
+                    border: darkMode ? "1px solid rgba(168,85,247,0.25)" : "1px solid rgba(78,205,196,0.25)",
+                  }}
+                />
+              ))}
+            </Box>
+          )}
+
+          {/* Expanded: editable fields */}
+          <Collapse in={prefsExpanded}>
+            <Box mt={2} display="flex" flexDirection="column" gap={2}>
+              <TextField
+                label="Cuisine type"
+                placeholder="e.g., Indian, Italian, Mexican"
+                value={prefsCuisine}
+                onChange={(e) => setPrefsCuisine(e.target.value)}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="Dietary restrictions"
+                placeholder="e.g., halal, vegetarian, nut allergy"
+                value={prefsDietary}
+                onChange={(e) => setPrefsDietary(e.target.value)}
+                fullWidth
+                size="small"
+              />
+              <Box display="flex" gap={2} alignItems="center">
+                <TextField
+                  label="Servings"
+                  type="number"
+                  value={prefsServings}
+                  onChange={(e) => setPrefsServings(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  size="small"
+                  inputProps={{ min: 1, max: 20 }}
+                  sx={{ width: 100 }}
+                />
+                <Box flex={1}>
+                  <Typography variant="caption" color="text.secondary" mb={0.5} display="block">
+                    Cooking time
+                  </Typography>
+                  <Select
+                    value={prefsSpeed}
+                    onChange={(e) => setPrefsSpeed(e.target.value)}
+                    size="small"
+                    fullWidth
+                    sx={{ borderRadius: "8px" }}
+                  >
+                    <MenuItem value="quick">Quick (30 min)</MenuItem>
+                    <MenuItem value="any">Any</MenuItem>
+                  </Select>
+                </Box>
+              </Box>
+              <Box display="flex" justifyContent="flex-end">
+                <Button
+                  onClick={handleSavePreferences}
+                  variant="contained"
+                  size="small"
+                  sx={{
+                    borderRadius: "12px",
+                    textTransform: "none",
+                    px: 3,
+                    background: darkMode
+                      ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+                      : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
+                    color: "#fff",
+                    "&:hover": {
+                      background: darkMode
+                        ? "linear-gradient(135deg, #6d28d9, #9333ea)"
+                        : "linear-gradient(135deg, #44a6a0, #3d9590)",
+                    },
+                  }}
+                >
+                  Save
+                </Button>
+              </Box>
+            </Box>
+          </Collapse>
+        </GlassCard>
 
         {/* Tonight's Dinner Banner */}
         {tonightsDinner && (
