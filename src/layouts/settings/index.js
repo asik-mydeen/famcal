@@ -20,6 +20,7 @@ import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useFamilyController } from "context/FamilyContext";
 import { useAppTheme } from "context/ThemeContext";
+import { PRESET_META } from "theme/tokens";
 import { useAuth } from "context/AuthContext";
 import { getGoogleClientId } from "lib/googleCalendar";
 import { connectGooglePhotos, disconnectGooglePhotos, isGooglePhotosConnected, fetchAlbums } from "lib/googlePhotos";
@@ -28,7 +29,7 @@ import { uploadPhoto, deletePhoto } from "lib/supabase";
 function Settings() {
   const [state, dispatch] = useFamilyController();
   const { family, isSupabaseConnected, photos, ai_preferences, memories } = state;
-  const { tokens, alpha, darkMode, setMode: setDarkModeValue } = useAppTheme();
+  const { tokens, alpha, darkMode, setMode: setDarkModeValue, preset, setPreset, presetNames } = useAppTheme();
   const { user, signOut } = useAuth();
 
   const [familyName, setFamilyName] = useState(family.name);
@@ -369,6 +370,58 @@ function Settings() {
               label="Dark Mode"
               sx={{ display: "flex", mb: 2 }}
             />
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Theme Preset */}
+            <Box mb={2}>
+              <Typography variant="body2" fontWeight={600} mb={1.5}>Theme</Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5 }}>
+                {presetNames.map((name) => {
+                  const meta = PRESET_META[name] || { label: name, icon: "palette", colors: ["#888", "#aaa"] };
+                  const isSelected = preset === name;
+                  return (
+                    <Box
+                      key={name}
+                      onClick={() => setPreset(name)}
+                      sx={{
+                        p: 2,
+                        borderRadius: "14px",
+                        cursor: "pointer",
+                        border: "2px solid",
+                        borderColor: isSelected ? tokens.accent.main : "transparent",
+                        background: isSelected ? alpha(tokens.accent.main, 0.08) : tokens.glass.overlay,
+                        transition: "all 0.2s ease",
+                        touchAction: "manipulation",
+                        "&:hover": { background: alpha(tokens.accent.main, 0.12) },
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                        <Icon sx={{ fontSize: "1.2rem !important", color: meta.colors[0] }}>{meta.icon}</Icon>
+                        <Typography variant="body2" fontWeight={isSelected ? 700 : 500}>
+                          {meta.label}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 0.75 }}>
+                        {meta.colors.map((c, i) => (
+                          <Box
+                            key={i}
+                            sx={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: "50%",
+                              background: c,
+                              border: "2px solid",
+                              borderColor: darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
 
             <Divider sx={{ my: 2 }} />
 

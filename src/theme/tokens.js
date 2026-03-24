@@ -7,10 +7,24 @@
  */
 
 import defaultPreset from "theme/presets/default";
+import oceanPreset from "theme/presets/ocean";
+import sunsetPreset from "theme/presets/sunset";
+import forestPreset from "theme/presets/forest";
 
 // Registry of available presets
 const PRESETS = {
   default: defaultPreset,
+  ocean: oceanPreset,
+  sunset: sunsetPreset,
+  forest: forestPreset,
+};
+
+// Display metadata for the Settings UI
+export const PRESET_META = {
+  default: { label: "Amethyst", icon: "diamond", colors: ["#6C5CE7", "#A29BFE"] },
+  ocean: { label: "Ocean", icon: "waves", colors: ["#0284c7", "#38bdf8"] },
+  sunset: { label: "Sunset", icon: "wb_twilight", colors: ["#ea580c", "#fb923c"] },
+  forest: { label: "Forest", icon: "park", colors: ["#059669", "#34d399"] },
 };
 
 /**

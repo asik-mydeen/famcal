@@ -15,7 +15,7 @@ import TextField from "@mui/material/TextField";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { createAppTheme } from "assets/theme";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { getGoogleClientId } from "lib/googleCalendar";
@@ -454,7 +454,7 @@ function SetupWizard() {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { darkMode } = useThemeMode();
+  const { darkMode, preset } = useAppTheme();
 
   // Font state must be declared BEFORE useMemo that depends on it
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
@@ -474,8 +474,8 @@ export default function App() {
     const ff = fontFamily === "System"
       ? "-apple-system, BlinkMacSystemFont, sans-serif"
       : `"${fontFamily}", "Helvetica", "Arial", sans-serif`;
-    return createAppTheme(darkMode ? "dark" : "light", ff);
-  }, [darkMode, fontFamily]);
+    return createAppTheme(darkMode ? "dark" : "light", ff, preset);
+  }, [darkMode, fontFamily, preset]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
   const { members, photos, countdowns, family, dataLoaded } = state;

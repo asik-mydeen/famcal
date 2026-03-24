@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import { getTokens } from "theme/tokens";
 
 // ── Shared values ──
 
@@ -245,8 +246,22 @@ function getComponents(mode) {
 
 export function createAppTheme(mode = "dark", fontFamily, preset = "default") {
   const typoBase = getTypographyBase(fontFamily);
+  const tokens = getTokens(mode, preset);
+  const basePalette = getPalette(mode);
+
+  // Override MUI primary with the preset's accent so MUI components match
+  const palette = {
+    ...basePalette,
+    primary: {
+      main: tokens.accent.main,
+      light: tokens.accent.light,
+      dark: tokens.accent.dark,
+      contrastText: "#fff",
+    },
+  };
+
   return createTheme({
-    palette: getPalette(mode),
+    palette,
     typography: {
       ...typoBase,
       subtitle1: { fontSize: "1rem", fontWeight: 500, lineHeight: 1.5, color: mode === "dark" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)" },
