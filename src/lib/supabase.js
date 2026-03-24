@@ -40,7 +40,8 @@ export async function fetchMeals(familyId, startDate, endDate) {
 }
 
 export async function upsertMeal(meal) {
-  const { data } = await supabase.from("meals").upsert(meal).select().single();
+  const { data, error } = await supabase.from("meals").upsert(meal).select().single();
+  if (error) console.warn("upsertMeal error:", error);
   return data;
 }
 
