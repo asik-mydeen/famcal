@@ -47,16 +47,21 @@ export default function Lists() {
   const theme = useTheme();
   const dark = theme.palette.mode === "dark";
   const [state, dispatch] = useFamilyController();
-  const { lists, members } = state;
+  const { lists, members, dataLoaded } = state;
 
   const [activeListId, setActiveListId] = useState(null);
   const [openNewListDialog, setOpenNewListDialog] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListIcon, setNewListIcon] = useState("shopping_cart");
   const [newItemText, setNewItemText] = useState("");
+  const [initializationComplete, setInitializationComplete] = useState(false);
 
-  // Auto-create default "Groceries" list if no lists exist
+  // Robust list initialization - only run after data is loaded
   useEffect(() => {
+    // Don't initialize until context data is loaded
+    if (!dataLoaded) return;
+
+    // If no lists exist, create default "Groceries" list
     if (lists.length === 0) {
       const defaultList = {
         id: `list-${Date.now()}`,
@@ -67,12 +72,27 @@ export default function Lists() {
       };
       dispatch({ type: "ADD_LIST", value: defaultList });
       setActiveListId(defaultList.id);
-    } else if (!activeListId && lists.length > 0) {
+      setInitializationComplete(true);
+      return;
+    }
+
+    // If lists exist but no active list selected, select first one
+    if (!activeListId || !lists.find(l => l.id === activeListId)) {
       setActiveListId(lists[0].id);
     }
-  }, [lists, activeListId, dispatch]);
 
-  const activeList = useMemo(() => lists.find(l => l.id === activeListId), [lists, activeListId]);
+    setInitializationComplete(true);
+  }, [lists, activeListId, dispatch, dataLoaded]);
+
+  // Fallback: ensure we always have a valid activeListId
+  const safeActiveListId = useMemo(() => {
+    if (!activeListId && lists.length > 0) {
+      return lists[0].id;
+    }
+    return activeListId;
+  }, [activeListId, lists]);
+
+  const activeList = useMemo(() => lists.find(l => l.id === safeActiveListId), [lists, safeActiveListId]);
 
   // Categorize and sort items
   const categorizedItems = useMemo(() => {
@@ -141,14 +161,14 @@ export default function Lists() {
 
   const handleAddItem = useCallback((e) => {
     e.preventDefault();
-    if (!newItemText.trim() || !activeListId) return;
+    if (!newItemText.trim() || !safeActiveListId) return;
 
     const isGroceryList = activeList?.name.toLowerCase().includes("groceries");
     const category = isGroceryList ? categorizeItem(newItemText) : "Items";
 
     const newItem = {
       id: `item-${Date.now()}`,
-      list_id: activeListId,
+      list_id: safeActiveListId,
       text: newItemText.trim(),
       category,
       checked: false,
@@ -157,28 +177,28 @@ export default function Lists() {
       sort_order: activeList?.items.length || 0,
     };
 
-    dispatch({ type: "ADD_LIST_ITEM", value: { listId: activeListId, item: newItem } });
+    dispatch({ type: "ADD_LIST_ITEM", value: { listId: safeActiveListId, item: newItem } });
     setNewItemText("");
-  }, [newItemText, activeListId, activeList, members, dispatch]);
+  }, [newItemText, safeActiveListId, activeList, members, dispatch]);
 
   const handleToggleItem = useCallback((itemId) => {
-    if (!activeListId) return;
-    dispatch({ type: "TOGGLE_LIST_ITEM", value: { listId: activeListId, itemId } });
-  }, [activeListId, dispatch]);
+    if (!safeActiveListId) return;
+    dispatch({ type: "TOGGLE_LIST_ITEM", value: { listId: safeActiveListId, itemId } });
+  }, [safeActiveListId, dispatch]);
 
   const handleRemoveItem = useCallback((itemId) => {
-    if (!activeListId) return;
-    dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: activeListId, itemId } });
-  }, [activeListId, dispatch]);
+    if (!safeActiveListId) return;
+    dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: safeActiveListId, itemId } });
+  }, [safeActiveListId, dispatch]);
 
   const handleClearCompleted = useCallback(() => {
     if (!activeList) return;
 
     const checkedItemIds = activeList.items.filter(item => item.checked).map(item => item.id);
     checkedItemIds.forEach(itemId => {
-      dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: activeListId, itemId } });
+      dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: safeActiveListId, itemId } });
     });
-  }, [activeList, activeListId, dispatch]);
+  }, [activeList, safeActiveListId, dispatch]);
 
   const getMemberById = useCallback((memberId) => {
     return members.find(m => m.id === memberId);
@@ -214,12 +234,12 @@ export default function Lists() {
                   px: 2,
                   py: 1,
                   borderRadius: "19px",
-                  background: activeListId === list.id
+                  background: safeActiveListId === list.id
                     ? dark ? "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)"
                     : dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                  color: activeListId === list.id ? "#fff" : "text.primary",
+                  color: safeActiveListId === list.id ? "#fff" : "text.primary",
                   cursor: "pointer",
-                  border: activeListId === list.id ? "none" : dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                  border: safeActiveListId === list.id ? "none" : dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
                   transition: "all 0.2s ease",
                   touchAction: "manipulation",
                   "&:hover": {
@@ -293,8 +313,20 @@ export default function Lists() {
           </motion.div>
         </Box>
 
-        {/* Active list content */}
-        {activeList ? (
+        {/* Loading state */}
+        {(!dataLoaded || !initializationComplete) ? (
+          <GlassCard sx={{ minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
+              <Icon sx={{ fontSize: "3rem", mb: 2, opacity: 0.3 }}>hourglass_empty</Icon>
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+                Loading Lists...
+              </Typography>
+              <Typography variant="body2">
+                Setting up your family lists
+              </Typography>
+            </Box>
+          </GlassCard>
+        ) : activeList ? (
           <GlassCard sx={{ minHeight: 400 }}>
             {/* Clear completed button */}
             {checkedItemsCount > 0 && (
@@ -485,7 +517,33 @@ export default function Lists() {
               </Box>
             </Box>
           </GlassCard>
-        ) : null}
+        ) : (
+          // Fallback: no active list but initialization complete
+          <GlassCard sx={{ minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box sx={{ textAlign: "center", py: 8, color: "text.secondary" }}>
+              <Icon sx={{ fontSize: "3rem", mb: 2, opacity: 0.3 }}>error_outline</Icon>
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 0.5 }}>
+                No List Selected
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Create a new list to get started
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<Icon>add</Icon>}
+                onClick={() => setOpenNewListDialog(true)}
+                sx={{
+                  background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  color: "#fff",
+                  textTransform: "none",
+                  borderRadius: "12px",
+                }}
+              >
+                Create List
+              </Button>
+            </Box>
+          </GlassCard>
+        )}
 
         {/* New List SlidePanel */}
         <SlidePanel

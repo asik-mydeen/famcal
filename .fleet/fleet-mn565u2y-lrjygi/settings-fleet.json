@@ -1,0 +1,100 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(brazil-build *)",
+      "Bash(bb *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npm install *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(bun *)",
+      "Bash(git *)",
+      "Bash(aws *)",
+      "Bash(ada *)",
+      "Bash(cdk *)",
+      "Bash(sam *)",
+      "Bash(docker *)",
+      "Bash(podman *)",
+      "Bash(cargo *)",
+      "Bash(python3 *)",
+      "Bash(pip3 *)",
+      "Bash(uv *)",
+      "Bash(mise *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(which *)",
+      "Bash(echo *)",
+      "Bash(wc *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(diff *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(touch *)",
+      "Bash(note *)",
+      "Bash(clips *)",
+      "Bash(micro *)",
+      "Bash(codex *)",
+      "Bash(gemini *)",
+      "Bash(amp *)",
+      "Bash($HOME/.claude/scripts/enforce.sh *)",
+      "Bash($HOME/.claude/scripts/hook-handler.sh *)",
+      "Bash(cmux *)",
+      "Bash(kiro-cli *)",
+      "Bash(ov *)",
+      "Bash(openviking-server *)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:docs.aws.amazon.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:developer.mozilla.org)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./.aws/credentials)",
+      "Read(./.ssh/**)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./secrets/**)"
+    ]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "serena@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "claude-mem@thedotmack": true
+  },
+  "extraKnownMarketplaces": {
+    "ui-ux-pro-max-skill": {
+      "source": {
+        "source": "github",
+        "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "showTurnDuration": true
+}
