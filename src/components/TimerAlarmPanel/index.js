@@ -233,7 +233,7 @@ function TimerAlarmPanel({ open, onClose }) {
     },
   };
 
-  const activeTimers = timers.filter((t) => t.status === "running" || t.status === "paused");
+  const activeTimers = timers.filter((t) => t.running || t.remaining > 0);
 
   return (
     <SlidePanel
@@ -244,7 +244,7 @@ function TimerAlarmPanel({ open, onClose }) {
       width={420}
     >
       {/* ---- Timers Section ---- */}
-      <Box>
+      <Box sx={{ flexShrink: 0 }}>
         <Typography sx={sectionLabel}>Active Timers</Typography>
 
         <AnimatePresence mode="popLayout">
@@ -441,7 +441,7 @@ function TimerAlarmPanel({ open, onClose }) {
       />
 
       {/* ---- Alarms Section ---- */}
-      <Box>
+      <Box sx={{ flexShrink: 0 }}>
         <Typography sx={sectionLabel}>Alarms</Typography>
 
         <AnimatePresence mode="popLayout">
