@@ -8,8 +8,9 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useThemeMode } from "context/ThemeContext";
+import TimerAlarmChips from "components/TimerAlarmChips";
 
-function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange }) {
+function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel }) {
   const theme = useTheme();
   const { darkMode } = useThemeMode();
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
@@ -138,6 +139,9 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
           </Box>
         )}
 
+        {/* Timer/Alarm Chips */}
+        <TimerAlarmChips onOpenPanel={onOpenTimerPanel} />
+
         {/* Countdown Pill (hidden on mobile) - prefer widget node, fallback to data-driven */}
         {!isMobile && (countdownWidget ? countdownWidget : topCountdown && (
           <Box
@@ -184,6 +188,9 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
             </Typography>
           </Box>
         ))}
+
+        {/* Timer & Alarm Chips */}
+        <TimerAlarmChips onOpenPanel={onOpenTimerPanel} />
 
         {/* Family Avatars (hidden on mobile) */}
         {members && members.length > 0 && !isMobile && (
@@ -430,6 +437,7 @@ HeaderBar.propTypes = {
   onKioskToggle: PropTypes.func,
   fontScale: PropTypes.number,
   onFontScaleChange: PropTypes.func,
+  onOpenTimerPanel: PropTypes.func,
 };
 
 export default memo(HeaderBar);

@@ -72,6 +72,17 @@ export default async function handler(req, res) {
     return `- "${c.title}" on ${c.target_date} (${daysLeft > 0 ? daysLeft + ' days left' : 'today!'})`;
   }).join("\n") || "None";
 
+  // Build timers & alarms
+  const timersStr = ctx.activeTimers?.map(t =>
+    `- "${t.label}" — ${t.remaining_formatted} remaining (id: ${t.id})`
+  ).join("\n") || "None";
+
+  const alarmsStr = ctx.upcomingAlarms?.map(a => {
+    const time = new Date(a.alarm_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const rec = a.recurring ? ` (${a.recurring})` : "";
+    return `- "${a.title}" at ${time}${rec} (id: ${a.id})`;
+  }).join("\n") || "None";
+
   // Build active tasks + recently completed
   const activeTasksStr = ctx.activeTasks?.map((t) => {
     const who = ctx.members?.find((m) => m.id === t.assigned_to)?.name || "unassigned";
@@ -121,6 +132,12 @@ ${notesStr}
 COUNTDOWNS:
 ${countdownsStr}
 
+ACTIVE TIMERS:
+${timersStr}
+
+UPCOMING ALARMS:
+${alarmsStr}
+
 PAGE CONTEXT: The user is currently on the "${ctx.currentPage || "unknown"}" page. When they say "add", "remove", or "check" something without specifying where, assume they mean the content relevant to this page:
 - "calendar" page → events
 - "chores" page → tasks/chores
@@ -169,6 +186,12 @@ Countdowns:
 Rewards:
 - add_reward: {title, description?, points_cost, icon?}
 - claim_reward: {reward_id, member_id}
+
+Timers & Alarms:
+- set_timer: {label, minutes, icon?:"timer"} — starts a countdown timer
+- cancel_timer: {timer_id}
+- set_alarm: {title, time:"HH:mm", date?:"YYYY-MM-DD", recurring?:"daily|weekdays|weekends", icon?:"alarm"}
+- cancel_alarm: {alarm_id}
 
 Info (no mutation, just answer):
 - info: {} — use when the user asks a question that doesn't need data changes. Put the answer in "reply".
