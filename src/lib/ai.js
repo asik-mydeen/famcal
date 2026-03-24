@@ -9,8 +9,11 @@ export function buildAIContext(state, currentPage) {
   const weekEndStr = weekEnd.toISOString().split("T")[0];
 
   return {
+    familyName: family?.name || "My Family",
     members: (members || []).map((m) => ({
       id: m.id, name: m.name, points: m.points || 0, level: m.level || 1,
+      birth_date: m.birth_date || null,
+      avatar_color: m.avatar_color || null,
     })),
     todayTasks: (tasks || [])
       .filter((t) => !t.completed && (t.due_date === today || !t.due_date))
