@@ -23,6 +23,9 @@ import GlassCard from "components/GlassCard";
 import SlidePanel from "components/SlidePanel";
 import PageShell from "components/PageShell";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
+import { useAppTheme } from "context/ThemeContext";
+import { getTokens } from "theme/tokens";
+import { alpha } from "theme/helpers";
 
 const LEVEL_TITLES = [
   "",
@@ -46,10 +49,12 @@ const REWARD_ICONS = [
   "park", "music_note", "palette", "pets", "bed", "countertops",
 ];
 
+const staticTokens = getTokens("light");
+
 const RANK_COLORS = {
-  1: "#fbbf24",
-  2: "#94a3b8",
-  3: "#d97706",
+  1: staticTokens.level.gold,
+  2: staticTokens.level.silver,
+  3: staticTokens.level.bronze,
 };
 
 function getLevelTitle(level) {
@@ -65,6 +70,7 @@ function getLevel(points) {
 function Rewards() {
   const [state, dispatch] = useFamilyController();
   const { members, rewards, tasks } = state;
+  const { tokens, alpha: alphaFn, gradient, darkMode } = useAppTheme();
 
   const [claimDialog, setClaimDialog] = useState(false);
   const [selectedReward, setSelectedReward] = useState(null);
@@ -155,8 +161,7 @@ function Rewards() {
           sx={{
             position: "absolute",
             inset: 0,
-            background:
-              "linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(168,85,247,0.06) 50%, rgba(245,158,11,0.08) 100%)",
+            background: `linear-gradient(135deg, ${alpha(tokens.accent.main, 0.12)} 0%, ${alpha(tokens.accent.light, 0.06)} 50%, ${alpha(tokens.priority.medium, 0.08)} 100%)`,
             borderRadius: "inherit",
             pointerEvents: "none",
           }}
@@ -170,11 +175,11 @@ function Rewards() {
           {/* Total Points */}
           <Grid item xs={4} textAlign="center">
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 0.5 }}>
-              <Icon sx={{ fontSize: "1.4rem !important", color: "#f59e0b" }}>stars</Icon>
+              <Icon sx={{ fontSize: "1.4rem !important", color: tokens.priority.medium }}>stars</Icon>
             </Box>
             <Typography
               variant={isSmall ? "h4" : "h3"}
-              sx={{ fontWeight: 800, color: "#f59e0b", lineHeight: 1.2 }}
+              sx={{ fontWeight: 800, color: tokens.priority.medium, lineHeight: 1.2 }}
             >
               {totalPoints.toLocaleString()}
             </Typography>
@@ -186,11 +191,11 @@ function Rewards() {
           {/* Tasks Done */}
           <Grid item xs={4} textAlign="center">
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 0.5 }}>
-              <Icon sx={{ fontSize: "1.4rem !important", color: "#22c55e" }}>task_alt</Icon>
+              <Icon sx={{ fontSize: "1.4rem !important", color: tokens.priority.low }}>task_alt</Icon>
             </Box>
             <Typography
               variant={isSmall ? "h4" : "h3"}
-              sx={{ fontWeight: 800, color: "#22c55e", lineHeight: 1.2 }}
+              sx={{ fontWeight: 800, color: tokens.priority.low, lineHeight: 1.2 }}
             >
               {tasksDone}
             </Typography>
@@ -202,13 +207,13 @@ function Rewards() {
           {/* Best Streak */}
           <Grid item xs={4} textAlign="center">
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 0.5 }}>
-              <Icon sx={{ fontSize: "1.4rem !important", color: "#f43f5e" }}>
+              <Icon sx={{ fontSize: "1.4rem !important", color: tokens.priority.high }}>
                 local_fire_department
               </Icon>
             </Box>
             <Typography
               variant={isSmall ? "h4" : "h3"}
-              sx={{ fontWeight: 800, color: "#f43f5e", lineHeight: 1.2 }}
+              sx={{ fontWeight: 800, color: tokens.priority.high, lineHeight: 1.2 }}
             >
               {bestStreak}
             </Typography>
@@ -224,7 +229,7 @@ function Rewards() {
         {/* ── Leaderboard ── */}
         <Grid item xs={12} md={5}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <Icon sx={{ fontSize: "1.5rem !important", color: "#fbbf24" }}>emoji_events</Icon>
+            <Icon sx={{ fontSize: "1.5rem !important", color: tokens.level.gold }}>emoji_events</Icon>
             <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
               Leaderboard
             </Typography>
@@ -241,12 +246,12 @@ function Rewards() {
                   key={member.id}
                   delay={0.08 * (index + 1)}
                   hover
-                  glow={isFirst ? "#fbbf24" : undefined}
+                  glow={isFirst ? tokens.level.gold : undefined}
                   sx={{
                     p: { xs: 2, md: 2.5 },
                     ...(isFirst && {
-                      border: "1px solid rgba(251,191,36,0.25)",
-                      background: "rgba(251,191,36,0.06)",
+                      border: `1px solid ${alpha(tokens.level.gold, 0.25)}`,
+                      background: alpha(tokens.level.gold, 0.06),
                     }),
                   }}
                 >
@@ -313,12 +318,12 @@ function Rewards() {
                           {member.name}
                         </Typography>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          <Icon sx={{ fontSize: "0.9rem !important", color: "#f59e0b" }}>star</Icon>
+                          <Icon sx={{ fontSize: "0.9rem !important", color: tokens.priority.medium }}>star</Icon>
                           <Typography
                             variant="body2"
                             sx={{
                               fontWeight: 700,
-                              color: "#f59e0b",
+                              color: tokens.priority.medium,
                               fontSize: isSmall ? "0.8rem" : "0.9rem",
                             }}
                           >
@@ -349,14 +354,14 @@ function Rewards() {
                           }}
                         />
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          <Icon sx={{ fontSize: "0.8rem !important", color: "#f43f5e" }}>
+                          <Icon sx={{ fontSize: "0.8rem !important", color: tokens.priority.high }}>
                             local_fire_department
                           </Icon>
                           <Typography
                             variant="caption"
                             sx={{
                               fontWeight: 700,
-                              color: "#f43f5e",
+                              color: tokens.priority.high,
                               fontSize: "0.7rem",
                             }}
                           >
@@ -398,7 +403,7 @@ function Rewards() {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Icon sx={{ fontSize: "1.5rem !important", color: "#6C5CE7" }}>storefront</Icon>
+              <Icon sx={{ fontSize: "1.5rem !important", color: tokens.accent.main }}>storefront</Icon>
               <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
                 Rewards Store
               </Typography>
@@ -409,13 +414,13 @@ function Rewards() {
               startIcon={<Icon>add</Icon>}
               onClick={() => setAddDialog(true)}
               sx={{
-                bgcolor: "#6C5CE7",
+                bgcolor: tokens.accent.main,
                 color: "#fff",
                 fontWeight: 600,
                 borderRadius: "12px",
                 textTransform: "none",
                 px: 2,
-                "&:hover": { bgcolor: "#5A4BD1" },
+                "&:hover": { bgcolor: tokens.accent.dark },
               }}
             >
               {isSmall ? "" : "Add"}
@@ -486,11 +491,11 @@ function Rewards() {
                     label={`\u2B50 ${reward.points_cost}`}
                     size="small"
                     sx={{
-                      bgcolor: "rgba(245,158,11,0.15)",
-                      color: "#f59e0b",
+                      bgcolor: alpha(tokens.priority.medium, 0.15),
+                      color: tokens.priority.medium,
                       fontWeight: 700,
                       fontSize: "0.78rem",
-                      border: "1px solid rgba(245,158,11,0.25)",
+                      border: `1px solid ${alpha(tokens.priority.medium, 0.25)}`,
                       mb: 1.5,
                       "& .MuiChip-label": { px: 1.5 },
                     }}
@@ -506,13 +511,13 @@ function Rewards() {
                       handleOpenClaim(reward);
                     }}
                     sx={{
-                      bgcolor: "#22c55e",
+                      bgcolor: tokens.priority.low,
                       color: "text.primary",
                       fontWeight: 600,
                       borderRadius: "10px",
                       textTransform: "none",
                       fontSize: "0.8rem",
-                      "&:hover": { bgcolor: "#16a34a" },
+                      "&:hover": { bgcolor: tokens.priority.low, filter: "brightness(0.9)" },
                     }}
                   >
                     Claim
@@ -554,12 +559,12 @@ function Rewards() {
               disabled={!canClaim}
               onClick={handleClaim}
               sx={{
-                bgcolor: "#22c55e",
+                bgcolor: tokens.priority.low,
                 color: "#fff",
                 fontWeight: 600,
                 borderRadius: "12px",
                 textTransform: "none",
-                "&:hover": { bgcolor: "#16a34a" },
+                "&:hover": { bgcolor: tokens.priority.low, filter: "brightness(0.9)" },
                 "&.Mui-disabled": {
                   bgcolor: "action.hover",
                   color: "text.disabled",
@@ -584,10 +589,10 @@ function Rewards() {
               <Chip
                 label={`\u2B50 ${selectedReward.points_cost} points`}
                 sx={{
-                  bgcolor: "rgba(245,158,11,0.15)",
-                  color: "#f59e0b",
+                  bgcolor: alpha(tokens.priority.medium, 0.15),
+                  color: tokens.priority.medium,
                   fontWeight: 700,
-                  border: "1px solid rgba(245,158,11,0.25)",
+                  border: `1px solid ${alpha(tokens.priority.medium, 0.25)}`,
                 }}
               />
             </Box>
@@ -605,7 +610,7 @@ function Rewards() {
                   color: "text.primary",
                   "& fieldset": { borderColor: "divider" },
                   "&:hover fieldset": { borderColor: "text.disabled" },
-                  "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+                  "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                 },
                 "& .MuiInputLabel-root": { color: "text.secondary" },
                 "& .MuiSelect-icon": { color: "text.secondary" },
@@ -624,7 +629,7 @@ function Rewards() {
                       variant="caption"
                       sx={{
                         fontWeight: 600,
-                        color: m.points >= selectedReward.points_cost ? "#22c55e" : "#f43f5e",
+                        color: m.points >= selectedReward.points_cost ? tokens.priority.low : tokens.priority.high,
                       }}
                     >
                       {m.points} pts
@@ -640,8 +645,8 @@ function Rewards() {
                 sx={{
                   p: 2,
                   borderRadius: "12px",
-                  bgcolor: canClaim ? "rgba(34,197,94,0.08)" : "rgba(244,63,94,0.08)",
-                  border: `1px solid ${canClaim ? "rgba(34,197,94,0.2)" : "rgba(244,63,94,0.2)"}`,
+                  bgcolor: canClaim ? alpha(tokens.priority.low, 0.08) : alpha(tokens.priority.high, 0.08),
+                  border: `1px solid ${canClaim ? alpha(tokens.priority.low, 0.2) : alpha(tokens.priority.high, 0.2)}`,
                 }}
               >
                 {canClaim ? (
@@ -649,14 +654,14 @@ function Rewards() {
                     {claimMember.name} will have{" "}
                     <Typography
                       component="span"
-                      sx={{ fontWeight: 700, color: "#22c55e" }}
+                      sx={{ fontWeight: 700, color: tokens.priority.low }}
                     >
                       {remainingPoints} points
                     </Typography>{" "}
                     remaining
                   </Typography>
                 ) : (
-                  <Typography variant="body2" sx={{ color: "#f43f5e", fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ color: tokens.priority.high, fontWeight: 600 }}>
                     Not enough points ({claimMember.points} / {selectedReward.points_cost} needed)
                   </Typography>
                 )}
@@ -696,12 +701,12 @@ function Rewards() {
               disabled={!newReward.title}
               onClick={handleAddReward}
               sx={{
-                bgcolor: "#6C5CE7",
+                bgcolor: tokens.accent.main,
                 color: "#fff",
                 fontWeight: 600,
                 borderRadius: "12px",
                 textTransform: "none",
-                "&:hover": { bgcolor: "#5A4BD1" },
+                "&:hover": { bgcolor: tokens.accent.dark },
                 "&.Mui-disabled": {
                   bgcolor: "action.hover",
                   color: "text.disabled",
@@ -743,11 +748,11 @@ function Rewards() {
                   cursor: "pointer",
                   border:
                     newReward.icon === iconName
-                      ? "2px solid #6C5CE7"
+                      ? `2px solid ${tokens.accent.main}`
                       : "1px solid rgba(0,0,0,0.06)",
                   bgcolor:
                     newReward.icon === iconName
-                      ? "rgba(108,92,231,0.15)"
+                      ? alpha(tokens.accent.main, 0.15)
                       : "rgba(0,0,0,0.02)",
                   transition: "all 0.2s",
                   touchAction: "manipulation",
@@ -776,7 +781,7 @@ function Rewards() {
               color: "text.primary",
               "& fieldset": { borderColor: "divider" },
               "&:hover fieldset": { borderColor: "text.disabled" },
-              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+              "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
             },
             "& .MuiInputLabel-root": { color: "text.secondary" },
           }}
@@ -797,7 +802,7 @@ function Rewards() {
               color: "text.primary",
               "& fieldset": { borderColor: "divider" },
               "&:hover fieldset": { borderColor: "text.disabled" },
-              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+              "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
             },
             "& .MuiInputLabel-root": { color: "text.secondary" },
           }}
@@ -819,7 +824,7 @@ function Rewards() {
               color: "text.primary",
               "& fieldset": { borderColor: "divider" },
               "&:hover fieldset": { borderColor: "text.disabled" },
-              "&.Mui-focused fieldset": { borderColor: "#6C5CE7" },
+              "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
             },
             "& .MuiInputLabel-root": { color: "text.secondary" },
           }}

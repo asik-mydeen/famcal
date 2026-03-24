@@ -17,12 +17,14 @@ import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import ChoreGrid from "components/ChoreGrid";
 import { useFamilyController, TASK_CATEGORIES } from "context/FamilyContext";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
+import { getTokens } from "theme/tokens";
 
+const staticTokens = getTokens("light");
 const PRIORITY_OPTIONS = [
-  { value: "low", label: "Low", color: "#22c55e" },
-  { value: "medium", label: "Medium", color: "#f59e0b" },
-  { value: "high", label: "High", color: "#ef4444" },
+  { value: "low", label: "Low", color: staticTokens.priority.low },
+  { value: "medium", label: "Medium", color: staticTokens.priority.medium },
+  { value: "high", label: "High", color: staticTokens.priority.high },
 ];
 
 const RECURRING_PATTERNS = [
@@ -35,7 +37,7 @@ const RECURRING_PATTERNS = [
 function Chores() {
   const [state, dispatch] = useFamilyController();
   const { tasks, members } = state;
-  const { darkMode } = useThemeMode();
+  const { tokens, alpha, gradient, darkMode } = useAppTheme();
 
   // View state
   const [viewMode, setViewMode] = useState("grid"); // grid | list
@@ -239,13 +241,13 @@ function Chores() {
                     width: 40,
                     height: 40,
                     borderRadius: "12px",
-                    background: darkMode ? "rgba(124,58,237,0.15)" : "rgba(108,92,231,0.08)",
+                    background: darkMode ? alpha(tokens.accent.main, 0.15) : alpha(tokens.accent.main, 0.08),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "1.25rem", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: darkMode ? tokens.accent.light : tokens.accent.main }}>
                     trending_up
                   </Icon>
                 </Box>
@@ -269,13 +271,13 @@ function Chores() {
                     width: 40,
                     height: 40,
                     borderRadius: "12px",
-                    background: darkMode ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.08)",
+                    background: darkMode ? alpha(tokens.priority.medium, 0.15) : alpha(tokens.priority.medium, 0.08),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "1.25rem", color: "#f59e0b" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: tokens.priority.medium }}>
                     pending_actions
                   </Icon>
                 </Box>
@@ -299,13 +301,13 @@ function Chores() {
                     width: 40,
                     height: 40,
                     borderRadius: "12px",
-                    background: darkMode ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.08)",
+                    background: darkMode ? alpha(tokens.priority.low, 0.15) : alpha(tokens.priority.low, 0.08),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Icon sx={{ fontSize: "1.25rem", color: "#22c55e" }}>
+                  <Icon sx={{ fontSize: "1.25rem", color: tokens.priority.low }}>
                     check_circle
                   </Icon>
                 </Box>
@@ -365,19 +367,19 @@ function Chores() {
                     background:
                       viewMode === "grid"
                         ? darkMode
-                          ? "rgba(124,58,237,0.2)"
-                          : "rgba(108,92,231,0.1)"
+                          ? alpha(tokens.accent.main, 0.2)
+                          : alpha(tokens.accent.main, 0.1)
                         : "transparent",
-                    color: viewMode === "grid" ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    color: viewMode === "grid" ? (darkMode ? tokens.accent.light : tokens.accent.main) : darkMode ? alpha("#fff", 0.6) : "inherit",
                     "&:hover": {
                       background:
                         viewMode === "grid"
                           ? darkMode
-                            ? "rgba(124,58,237,0.3)"
-                            : "rgba(108,92,231,0.15)"
+                            ? alpha(tokens.accent.main, 0.3)
+                            : alpha(tokens.accent.main, 0.15)
                           : darkMode
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(0,0,0,0.05)",
+                          ? alpha("#fff", 0.05)
+                          : alpha("#000", 0.05),
                     },
                   }}
                 >
@@ -392,19 +394,19 @@ function Chores() {
                     background:
                       viewMode === "list"
                         ? darkMode
-                          ? "rgba(124,58,237,0.2)"
-                          : "rgba(108,92,231,0.1)"
+                          ? alpha(tokens.accent.main, 0.2)
+                          : alpha(tokens.accent.main, 0.1)
                         : "transparent",
-                    color: viewMode === "list" ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    color: viewMode === "list" ? (darkMode ? tokens.accent.light : tokens.accent.main) : darkMode ? alpha("#fff", 0.6) : "inherit",
                     "&:hover": {
                       background:
                         viewMode === "list"
                           ? darkMode
-                            ? "rgba(124,58,237,0.3)"
-                            : "rgba(108,92,231,0.15)"
+                            ? alpha(tokens.accent.main, 0.3)
+                            : alpha(tokens.accent.main, 0.15)
                           : darkMode
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(0,0,0,0.05)",
+                          ? alpha("#fff", 0.05)
+                          : alpha("#000", 0.05),
                     },
                   }}
                 >
@@ -422,12 +424,12 @@ function Chores() {
                 sx={{
                   background: !selectedMemberId
                     ? darkMode
-                      ? "rgba(124,58,237,0.2)"
-                      : "rgba(108,92,231,0.1)"
+                      ? alpha(tokens.accent.main, 0.2)
+                      : alpha(tokens.accent.main, 0.1)
                     : darkMode
-                    ? "rgba(255,255,255,0.05)"
+                    ? alpha("#fff", 0.05)
                     : "#f1f5f9",
-                  color: !selectedMemberId ? (darkMode ? "#a78bfa" : "#6C5CE7") : "inherit",
+                  color: !selectedMemberId ? (darkMode ? tokens.accent.light : tokens.accent.main) : "inherit",
                   fontWeight: !selectedMemberId ? 600 : 400,
                   borderRadius: "19px",
                   touchAction: "manipulation",
@@ -456,12 +458,12 @@ function Chores() {
                     background:
                       selectedMemberId === member.id
                         ? darkMode
-                          ? "rgba(124,58,237,0.2)"
-                          : "rgba(108,92,231,0.1)"
+                          ? alpha(tokens.accent.main, 0.2)
+                          : alpha(tokens.accent.main, 0.1)
                         : darkMode
-                        ? "rgba(255,255,255,0.05)"
+                        ? alpha("#fff", 0.05)
                         : "#f1f5f9",
-                    color: selectedMemberId === member.id ? (darkMode ? "#a78bfa" : "#6C5CE7") : "inherit",
+                    color: selectedMemberId === member.id ? (darkMode ? tokens.accent.light : tokens.accent.main) : "inherit",
                     fontWeight: selectedMemberId === member.id ? 600 : 400,
                     borderRadius: "19px",
                     touchAction: "manipulation",
@@ -531,10 +533,10 @@ function Chores() {
                     background:
                       listFilter === tab.key
                         ? darkMode
-                          ? "rgba(124,58,237,0.2)"
-                          : "rgba(108,92,231,0.1)"
+                          ? alpha(tokens.accent.main, 0.2)
+                          : alpha(tokens.accent.main, 0.1)
                         : "transparent",
-                    color: listFilter === tab.key ? (darkMode ? "#a78bfa" : "#6C5CE7") : darkMode ? "rgba(255,255,255,0.6)" : "inherit",
+                    color: listFilter === tab.key ? (darkMode ? tokens.accent.light : tokens.accent.main) : darkMode ? alpha("#fff", 0.6) : "inherit",
                     fontWeight: listFilter === tab.key ? 600 : 400,
                     borderRadius: "12px",
                     px: 2,
@@ -542,11 +544,11 @@ function Chores() {
                       background:
                         listFilter === tab.key
                           ? darkMode
-                            ? "rgba(124,58,237,0.3)"
-                            : "rgba(108,92,231,0.15)"
+                            ? alpha(tokens.accent.main, 0.3)
+                            : alpha(tokens.accent.main, 0.15)
                           : darkMode
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(0,0,0,0.05)",
+                          ? alpha("#fff", 0.05)
+                          : alpha("#000", 0.05),
                     },
                   }}
                 >
@@ -574,7 +576,7 @@ function Chores() {
                         borderLeft: member
                           ? `4px solid ${member.avatar_color}`
                           : darkMode
-                          ? "4px solid rgba(255,255,255,0.1)"
+                          ? `4px solid ${alpha("#fff", 0.1)}`
                           : "4px solid #e2e8f0",
                       }}
                     >
@@ -595,7 +597,7 @@ function Chores() {
                           {task.description && (
                             <Typography
                               fontSize="0.85rem"
-                              color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}
+                              color={darkMode ? alpha("#fff", 0.6) : "text.secondary"}
                               mt={0.5}
                             >
                               {task.description}
@@ -633,17 +635,17 @@ function Chores() {
                                 <Icon sx={{ fontSize: "1rem", color: category.color }}>
                                   {category.icon}
                                 </Icon>
-                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                <Typography fontSize="0.75rem" color={darkMode ? alpha("#fff", 0.6) : "text.secondary"}>
                                   {category.label}
                                 </Typography>
                               </Box>
                             )}
                             {task.due_date && (
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Icon sx={{ fontSize: "1rem", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                <Icon sx={{ fontSize: "1rem", color: darkMode ? alpha("#fff", 0.5) : "#94a3b8" }}>
                                   event
                                 </Icon>
-                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                <Typography fontSize="0.75rem" color={darkMode ? alpha("#fff", 0.6) : "text.secondary"}>
                                   {new Date(task.due_date).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
@@ -653,10 +655,10 @@ function Chores() {
                             )}
                             {task.due_time && (
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Icon sx={{ fontSize: "1rem", color: darkMode ? "rgba(255,255,255,0.5)" : "#94a3b8" }}>
+                                <Icon sx={{ fontSize: "1rem", color: darkMode ? alpha("#fff", 0.5) : "#94a3b8" }}>
                                   schedule
                                 </Icon>
-                                <Typography fontSize="0.75rem" color={darkMode ? "rgba(255,255,255,0.6)" : "text.secondary"}>
+                                <Typography fontSize="0.75rem" color={darkMode ? alpha("#fff", 0.6) : "text.secondary"}>
                                   {task.due_time}
                                 </Typography>
                               </Box>
@@ -671,13 +673,13 @@ function Chores() {
                             />
                             <Box
                               sx={{
-                                background: darkMode ? "rgba(255,255,255,0.08)" : "#f8f9fa",
+                                background: darkMode ? alpha("#fff", 0.08) : "#f8f9fa",
                                 borderRadius: "12px",
                                 px: 1.5,
                                 py: 0.25,
                                 fontSize: "0.75rem",
                                 fontWeight: 600,
-                                color: darkMode ? "#a78bfa" : "#7c3aed",
+                                color: darkMode ? tokens.accent.light : tokens.accent.main,
                               }}
                             >
                               {task.points_value}pt
@@ -707,7 +709,7 @@ function Chores() {
                                   handleToggleComplete(task.id, new Date(), task.assigned_to)
                                 }
                                 sx={{
-                                  color: "#22c55e",
+                                  color: tokens.priority.low,
                                 }}
                               >
                                 <Icon>check_circle</Icon>
@@ -719,7 +721,7 @@ function Chores() {
                               size="small"
                               onClick={() => handleOpenEditDialog(task)}
                               sx={{
-                                color: darkMode ? "rgba(255,255,255,0.6)" : "#64748b",
+                                color: darkMode ? alpha("#fff", 0.6) : "#64748b",
                               }}
                             >
                               <Icon>edit</Icon>
@@ -730,7 +732,7 @@ function Chores() {
                               size="small"
                               onClick={() => handleDeleteTask(task.id)}
                               sx={{
-                                color: "#ef4444",
+                                color: tokens.priority.high,
                               }}
                             >
                               <Icon>delete</Icon>
@@ -751,7 +753,7 @@ function Chores() {
                   <Icon
                     sx={{
                       fontSize: "4rem",
-                      color: darkMode ? "rgba(255,255,255,0.2)" : "#cbd5e1",
+                      color: darkMode ? alpha("#fff", 0.2) : "#cbd5e1",
                       mb: 2,
                     }}
                   >
@@ -760,12 +762,12 @@ function Chores() {
                   <Typography
                     variant="h6"
                     fontWeight={600}
-                    color={darkMode ? "rgba(255,255,255,0.5)" : "text.secondary"}
+                    color={darkMode ? alpha("#fff", 0.5) : "text.secondary"}
                     mb={1}
                   >
                     No tasks found
                   </Typography>
-                  <Typography fontSize="0.9rem" color={darkMode ? "rgba(255,255,255,0.4)" : "text.secondary"}>
+                  <Typography fontSize="0.9rem" color={darkMode ? alpha("#fff", 0.4) : "text.secondary"}>
                     Try changing the filters or add a new task
                   </Typography>
                 </Box>
@@ -783,11 +785,12 @@ function Chores() {
             left: { xs: "50%", md: 28 },
             transform: { xs: "translateX(-50%)", md: "none" },
             right: "auto",
-            background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
-            boxShadow: "0 8px 24px rgba(108, 92, 231, 0.35)",
+            background: gradient("primary"),
+            boxShadow: `0 8px 24px ${alpha(tokens.accent.main, 0.35)}`,
             "&:hover": {
-              background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
-              boxShadow: "0 12px 32px rgba(108, 92, 231, 0.45)",
+              background: gradient("primary"),
+              boxShadow: `0 12px 32px ${alpha(tokens.accent.main, 0.45)}`,
+              filter: "brightness(0.95)",
             },
           }}
           onClick={handleOpenAddDialog}
@@ -819,9 +822,10 @@ function Chores() {
                 sx={{
                   borderRadius: "12px",
                   px: 3,
-                  background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)",
+                  background: gradient("primary"),
                   "&:hover": {
-                    background: "linear-gradient(135deg, #5b4bc4 0%, #9775fa 100%)",
+                    background: gradient("primary"),
+                    filter: "brightness(0.95)",
                   },
                 }}
               >

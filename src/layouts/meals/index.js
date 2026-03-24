@@ -13,13 +13,14 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
-import { useTheme } from "@mui/material/styles";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import MealGrid from "components/MealGrid";
 import SlidePanel from "components/SlidePanel";
 import { useFamilyController } from "context/FamilyContext";
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 const INITIAL_MEAL_FORM = {
   title: "",
@@ -27,8 +28,7 @@ const INITIAL_MEAL_FORM = {
 };
 
 function Meals() {
-  const theme = useTheme();
-  const darkMode = theme.palette.mode === "dark";
+  const { tokens, alpha: alphaFn, gradient, darkMode } = useAppTheme();
   const [state, dispatch] = useFamilyController();
   const { meals, family, lists, ai_preferences } = state;
 
@@ -280,7 +280,7 @@ function Meals() {
             onClick={() => setPrefsExpanded((prev) => !prev)}
           >
             <Box display="flex" alignItems="center" gap={1}>
-              <Icon sx={{ color: darkMode ? "#a855f7" : "#0f766e", fontSize: "1.3rem" }}>tune</Icon>
+              <Icon sx={{ color: darkMode ? tokens.accent.light : tokens.meals.dark, fontSize: "1.3rem" }}>tune</Icon>
               <Typography variant="subtitle1" fontWeight={600}>
                 Meal Preferences
               </Typography>
@@ -302,9 +302,9 @@ function Meals() {
                     borderRadius: "8px",
                     fontSize: "0.75rem",
                     fontWeight: 500,
-                    background: darkMode ? "rgba(168,85,247,0.15)" : "rgba(78,205,196,0.12)",
-                    color: darkMode ? "#d8b4fe" : "#0f766e",
-                    border: darkMode ? "1px solid rgba(168,85,247,0.25)" : "1px solid rgba(78,205,196,0.25)",
+                    background: alphaFn(darkMode ? tokens.accent.light : tokens.meals.main, darkMode ? 0.15 : 0.12),
+                    color: darkMode ? "#d8b4fe" : tokens.meals.dark,
+                    border: `1px solid ${alphaFn(darkMode ? tokens.accent.light : tokens.meals.main, darkMode ? 0.25 : 0.25)}`,
                   }}
                 />
               ))}
@@ -381,14 +381,10 @@ function Meals() {
                     borderRadius: "12px",
                     textTransform: "none",
                     px: 3,
-                    background: darkMode
-                      ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-                      : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
+                    background: gradient(darkMode ? "accent" : "meals"),
                     color: "#fff",
                     "&:hover": {
-                      background: darkMode
-                        ? "linear-gradient(135deg, #6d28d9, #9333ea)"
-                        : "linear-gradient(135deg, #44a6a0, #3d9590)",
+                      opacity: 0.9,
                     },
                   }}
                 >
@@ -412,20 +408,20 @@ function Meals() {
                 p: 2,
                 borderRadius: "12px",
                 background: darkMode
-                  ? "linear-gradient(135deg, rgba(124,58,237,0.2), rgba(168,85,247,0.2))"
-                  : "linear-gradient(135deg, rgba(78,205,196,0.15), rgba(78,205,196,0.08))",
-                border: darkMode ? "1px solid rgba(168,85,247,0.3)" : "1px solid rgba(78,205,196,0.2)",
+                  ? `linear-gradient(135deg, ${alphaFn(tokens.accent.main, 0.2)}, ${alphaFn(tokens.accent.light, 0.2)})`
+                  : `linear-gradient(135deg, ${alphaFn(tokens.meals.main, 0.15)}, ${alphaFn(tokens.meals.main, 0.08)})`,
+                border: `1px solid ${alphaFn(darkMode ? tokens.accent.light : tokens.meals.main, darkMode ? 0.3 : 0.2)}`,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.5,
               }}
             >
-              <Icon sx={{ color: darkMode ? "#a855f7" : "#0f766e", fontSize: "1.5rem" }}>restaurant</Icon>
+              <Icon sx={{ color: darkMode ? tokens.accent.light : tokens.meals.dark, fontSize: "1.5rem" }}>restaurant</Icon>
               <Box>
                 <Typography variant="caption" fontWeight={600} color="text.secondary">
                   Tonight&apos;s Dinner
                 </Typography>
-                <Typography variant="body1" fontWeight={700} color={darkMode ? "#e9d5ff" : "#0f766e"}>
+                <Typography variant="body1" fontWeight={700} color={darkMode ? "#e9d5ff" : tokens.meals.dark}>
                   {tonightsDinner.title}
                 </Typography>
               </Box>
@@ -456,11 +452,11 @@ function Meals() {
               sx={{
                 borderRadius: "12px",
                 textTransform: "none",
-                borderColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                borderColor: tokens.glass.border,
                 color: darkMode ? "#fff" : "#000",
                 "&:hover": {
-                  borderColor: darkMode ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-                  background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)",
+                  borderColor: alphaFn(darkMode ? "#fff" : "#000", 0.3),
+                  background: tokens.glass.hover,
                 },
               }}
             >
@@ -508,11 +504,11 @@ function Meals() {
                 sx={{
                   borderRadius: "12px",
                   textTransform: "none",
-                  borderColor: darkMode ? "rgba(78,205,196,0.3)" : "rgba(78,205,196,0.5)",
-                  color: darkMode ? "#4ECDC4" : "#0f766e",
+                  borderColor: alphaFn(tokens.meals.main, darkMode ? 0.3 : 0.5),
+                  color: darkMode ? tokens.meals.main : tokens.meals.dark,
                   "&:hover": {
-                    borderColor: darkMode ? "rgba(78,205,196,0.5)" : "rgba(78,205,196,0.7)",
-                    background: darkMode ? "rgba(78,205,196,0.05)" : "rgba(78,205,196,0.05)",
+                    borderColor: alphaFn(tokens.meals.main, darkMode ? 0.5 : 0.7),
+                    background: alphaFn(tokens.meals.main, 0.05),
                   },
                 }}
               >
@@ -525,7 +521,7 @@ function Meals() {
                   borderRadius: "12px",
                   textTransform: "none",
                   color: darkMode ? "#fff" : "#000",
-                  borderColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                  borderColor: tokens.glass.border,
                 }}
               >
                 Cancel
@@ -537,14 +533,10 @@ function Meals() {
                 sx={{
                   borderRadius: "12px",
                   textTransform: "none",
-                  background: darkMode
-                    ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-                    : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
+                  background: gradient(darkMode ? "accent" : "meals"),
                   color: "#fff",
                   "&:hover": {
-                    background: darkMode
-                      ? "linear-gradient(135deg, #6d28d9, #9333ea)"
-                      : "linear-gradient(135deg, #44a6a0, #3d9590)",
+                    opacity: 0.9,
                   },
                 }}
               >
@@ -579,8 +571,8 @@ function Meals() {
           PaperProps={{
             sx: {
               borderRadius: "20px",
-              background: darkMode ? "rgba(30,30,30,0.98)" : "#fff",
-              border: darkMode ? "1px solid rgba(255,255,255,0.1)" : "none",
+              background: tokens.glass.bg,
+              border: darkMode ? `1px solid ${tokens.glass.border}` : "none",
             },
           }}
         >
@@ -613,7 +605,7 @@ function Meals() {
                 borderRadius: "12px",
                 textTransform: "none",
                 color: darkMode ? "#fff" : "#000",
-                borderColor: darkMode ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                borderColor: tokens.glass.border,
               }}
             >
               Cancel
@@ -625,14 +617,10 @@ function Meals() {
               sx={{
                 borderRadius: "12px",
                 textTransform: "none",
-                background: darkMode
-                  ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-                  : "linear-gradient(135deg, #4ECDC4, #44a6a0)",
+                background: gradient(darkMode ? "accent" : "meals"),
                 color: "#fff",
                 "&:hover": {
-                  background: darkMode
-                    ? "linear-gradient(135deg, #6d28d9, #9333ea)"
-                    : "linear-gradient(135deg, #44a6a0, #3d9590)",
+                  opacity: 0.9,
                 },
               }}
             >

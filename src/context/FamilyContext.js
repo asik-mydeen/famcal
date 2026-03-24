@@ -2,31 +2,24 @@ import { createContext, useContext, useReducer, useMemo, useEffect } from "react
 import PropTypes from "prop-types";
 import { supabase } from "lib/supabase";
 import { useAuth } from "context/AuthContext";
+import { getTokens } from "theme/tokens";
 
 const FamilyContext = createContext(null);
 FamilyContext.displayName = "FamilyContext";
 
-const MEMBER_COLORS = [
-  { name: "Purple", value: "#6C5CE7", gradient: "primary" },
-  { name: "Coral", value: "#E17055", gradient: "error" },
-  { name: "Green", value: "#00B894", gradient: "success" },
-  { name: "Gold", value: "#FDCB6E", gradient: "warning" },
-  { name: "Blue", value: "#0984E3", gradient: "info" },
-  { name: "Cyan", value: "#06b6d4", gradient: "secondary" },
-  { name: "Pink", value: "#ec4899", gradient: "error" },
-  { name: "Teal", value: "#14b8a6", gradient: "success" },
-];
+// Source member colors from theme tokens (light mode for DB storage)
+const _tokens = getTokens("light");
 
-
+const MEMBER_COLORS = _tokens.member;
 
 const TASK_CATEGORIES = [
-  { key: "chores", label: "Chores", icon: "cleaning_services", color: "#7c3aed" },
-  { key: "homework", label: "Homework", icon: "menu_book", color: "#3b82f6" },
-  { key: "errands", label: "Errands", icon: "shopping_cart", color: "#f59e0b" },
-  { key: "health", label: "Health", icon: "fitness_center", color: "#22c55e" },
-  { key: "cooking", label: "Cooking", icon: "restaurant", color: "#f59e0b" },
-  { key: "pets", label: "Pets", icon: "pets", color: "#f43f5e" },
-  { key: "other", label: "Other", icon: "push_pin", color: "#64748b" },
+  { key: "chores", label: "Chores", icon: "cleaning_services", color: _tokens.category.chores },
+  { key: "homework", label: "Homework", icon: "menu_book", color: _tokens.category.homework },
+  { key: "errands", label: "Errands", icon: "shopping_cart", color: _tokens.category.errands },
+  { key: "health", label: "Health", icon: "fitness_center", color: _tokens.category.health },
+  { key: "cooking", label: "Cooking", icon: "restaurant", color: _tokens.category.cooking },
+  { key: "pets", label: "Pets", icon: "pets", color: _tokens.category.pets },
+  { key: "other", label: "Other", icon: "push_pin", color: _tokens.category.other },
 ];
 
 const INITIAL_FAMILY = {

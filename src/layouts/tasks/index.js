@@ -25,12 +25,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import { useFamilyController, TASK_CATEGORIES, MEMBER_COLORS } from "context/FamilyContext";
-
-const PRIORITY_COLORS = {
-  high: "#f43f5e",
-  medium: "#f59e0b",
-  low: "rgba(0,0,0,0.15)",
-};
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 const INITIAL_TASK_FORM = {
   title: "",
@@ -48,10 +44,17 @@ const INITIAL_TASK_FORM = {
 function Tasks() {
   const [state, dispatch] = useFamilyController();
   const { members, tasks } = state;
+  const { tokens, gradient } = useAppTheme();
   const [activeTab, setActiveTab] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [newTask, setNewTask] = useState(INITIAL_TASK_FORM);
   const isSmall = useMediaQuery("(max-width:599px)");
+
+  const PRIORITY_COLORS = {
+    high: tokens.priority.high,
+    medium: tokens.priority.medium,
+    low: tokens.priority.low,
+  };
 
   const todayStr = useMemo(() => {
     const today = new Date();
@@ -143,26 +146,26 @@ function Tasks() {
       value: `${todayCompleted}/${todayTotal}`,
       subValue: `${progressPercent}%`,
       icon: "checklist",
-      color: "#22c55e",
+      color: tokens.priority.low,
       hasProgress: true,
     },
     {
       label: "Pending",
       value: pendingCount,
       icon: "pending_actions",
-      color: "#f59e0b",
+      color: tokens.priority.medium,
     },
     {
       label: "Completed",
       value: completedCount,
       icon: "check_circle",
-      color: "#22c55e",
+      color: tokens.priority.low,
     },
     {
       label: "Points Today",
       value: `+${pointsToday}`,
       icon: "star",
-      color: "#f59e0b",
+      color: tokens.priority.medium,
     },
   ];
 
@@ -222,7 +225,7 @@ function Tasks() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: `${stat.color}18`,
+                    background: alpha(stat.color, 0.1),
                     flexShrink: 0,
                   }}
                 >
@@ -239,10 +242,10 @@ function Tasks() {
                     sx={{
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: "rgba(34,197,94,0.12)",
+                      backgroundColor: alpha(tokens.priority.low, 0.12),
                       "& .MuiLinearProgress-bar": {
                         borderRadius: 3,
-                        background: "linear-gradient(90deg, #22c55e, #4ade80)",
+                        background: gradient("success"),
                       },
                     }}
                   />
@@ -360,7 +363,7 @@ function Tasks() {
                       touchAction: "manipulation",
                       "&:hover": {
                         borderColor: "divider",
-                        boxShadow: task.completed ? "none" : "0 8px 32px rgba(0,0,0,0.2)",
+                        boxShadow: task.completed ? "none" : tokens.glass.shadow,
                       },
                     }}
                   >
@@ -398,7 +401,7 @@ function Tasks() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: `${category?.color || "#64748b"}18`,
+                            background: alpha(category?.color || "#64748b", 0.1),
                             flexShrink: 0,
                           }}
                         >
@@ -433,9 +436,9 @@ function Tasks() {
                                   height: 22,
                                   fontSize: "0.6rem",
                                   fontWeight: 700,
-                                  background: `${memberColor}20`,
+                                  background: alpha(memberColor, 0.13),
                                   color: memberColor,
-                                  border: `1px solid ${memberColor}30`,
+                                  border: `1px solid ${alpha(memberColor, 0.2)}`,
                                   "& .MuiChip-label": { px: isSmall ? 0.75 : 1 },
                                 }}
                               />
@@ -490,14 +493,14 @@ function Tasks() {
                         <Chip
                           size="small"
                           icon={
-                            <Icon sx={{ fontSize: "0.75rem !important", color: "#f59e0b !important" }}>star</Icon>
+                            <Icon sx={{ fontSize: "0.75rem !important", color: `${tokens.priority.medium} !important` }}>star</Icon>
                           }
                           label={task.points_value}
                           sx={{
                             height: 26,
-                            background: "rgba(245,158,11,0.1)",
-                            border: "1px solid rgba(245,158,11,0.15)",
-                            color: "#fbbf24",
+                            background: alpha(tokens.priority.medium, 0.1),
+                            border: `1px solid ${alpha(tokens.priority.medium, 0.15)}`,
+                            color: tokens.priority.medium,
                             fontWeight: 800,
                             fontSize: "0.7rem",
                             "& .MuiChip-label": { px: 0.5 },
@@ -510,14 +513,14 @@ function Tasks() {
                             size="small"
                             onClick={() => handleCompleteTask(task.id)}
                             sx={{
-                              color: "#22c55e",
-                              background: "rgba(34,197,94,0.1)",
-                              border: "1px solid rgba(34,197,94,0.2)",
+                              color: tokens.priority.low,
+                              background: alpha(tokens.priority.low, 0.1),
+                              border: `1px solid ${alpha(tokens.priority.low, 0.2)}`,
                               width: isSmall ? 32 : 36,
                               height: isSmall ? 32 : 36,
                               transition: "all 0.2s",
                               "&:hover": {
-                                background: "rgba(34,197,94,0.2)",
+                                background: alpha(tokens.priority.low, 0.2),
                                 transform: "scale(1.1)",
                               },
                             }}
@@ -539,8 +542,8 @@ function Tasks() {
                               height: isSmall ? 28 : 32,
                               transition: "all 0.2s",
                               "&:hover": {
-                                color: "#f43f5e",
-                                background: "rgba(244,63,94,0.1)",
+                                color: tokens.priority.high,
+                                background: alpha(tokens.priority.high, 0.1),
                               },
                             }}
                           >
@@ -569,12 +572,12 @@ function Tasks() {
           zIndex: 1200,
           width: 56,
           height: 56,
-          background: "linear-gradient(135deg, #7c3aed, #a855f7)",
+          background: gradient("primary"),
           color: "text.primary",
-          boxShadow: "0 8px 32px rgba(124,58,237,0.4)",
+          boxShadow: `0 8px 32px ${alpha(tokens.accent.main, 0.4)}`,
           "&:hover": {
-            background: "linear-gradient(135deg, #6d28d9, #9333ea)",
-            boxShadow: "0 12px 40px rgba(124,58,237,0.5)",
+            background: gradient("primary"),
+            boxShadow: `0 12px 40px ${alpha(tokens.accent.main, 0.5)}`,
             transform: "scale(1.05)",
           },
           transition: "all 0.2s ease",
@@ -650,7 +653,7 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                     "& .MuiSvgIcon-root": { color: "text.secondary" },
                   }}
@@ -675,7 +678,7 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                     "& .MuiSvgIcon-root": { color: "text.secondary" },
                   }}
@@ -704,7 +707,7 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                     "& input::-webkit-calendar-picker-indicator": { filter: "invert(0.7)" },
                   }}
@@ -723,7 +726,7 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                     "& input::-webkit-calendar-picker-indicator": { filter: "invert(0.7)" },
                   }}
@@ -742,26 +745,26 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                     "& .MuiSvgIcon-root": { color: "text.secondary" },
                   }}
                 >
                   <MenuItem value="high">
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: "#f43f5e" }} />
+                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: tokens.priority.high }} />
                       High
                     </Box>
                   </MenuItem>
                   <MenuItem value="medium">
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b" }} />
+                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: tokens.priority.medium }} />
                       Medium
                     </Box>
                   </MenuItem>
                   <MenuItem value="low">
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: "text.disabled" }} />
+                      <Box sx={{ width: 8, height: 8, borderRadius: "50%", background: tokens.priority.low }} />
                       Low
                     </Box>
                   </MenuItem>
@@ -785,7 +788,7 @@ function Tasks() {
                       color: "text.primary",
                       "& fieldset": { borderColor: "divider" },
                       "&:hover fieldset": { borderColor: "text.disabled" },
-                      "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                      "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                     },
                   }}
                 />
@@ -797,9 +800,9 @@ function Tasks() {
                       checked={newTask.recurring}
                       onChange={(e) => handleFieldChange("recurring", e.target.checked)}
                       sx={{
-                        "& .MuiSwitch-switchBase.Mui-checked": { color: "#7c3aed" },
+                        "& .MuiSwitch-switchBase.Mui-checked": { color: tokens.accent.main },
                         "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                          backgroundColor: "#7c3aed",
+                          backgroundColor: tokens.accent.main,
                         },
                       }}
                     />
@@ -825,7 +828,7 @@ function Tasks() {
                         color: "text.primary",
                         "& fieldset": { borderColor: "divider" },
                         "&:hover fieldset": { borderColor: "text.disabled" },
-                        "&.Mui-focused fieldset": { borderColor: "#7c3aed" },
+                        "&.Mui-focused fieldset": { borderColor: tokens.accent.main },
                       },
                       "& .MuiSvgIcon-root": { color: "text.secondary" },
                     }}
@@ -867,16 +870,16 @@ function Tasks() {
             fullWidth={isSmall}
             disabled={!newTask.title || !newTask.assigned_to}
             sx={{
-              background: "linear-gradient(135deg, #22c55e, #16a34a)",
+              background: gradient("success"),
               borderRadius: "12px",
               textTransform: "none",
               fontWeight: 700,
               px: 4,
               py: 1.2,
-              boxShadow: "0 4px 16px rgba(34,197,94,0.3)",
+              boxShadow: `0 4px 16px ${alpha(tokens.priority.low, 0.3)}`,
               "&:hover": {
-                background: "linear-gradient(135deg, #16a34a, #15803d)",
-                boxShadow: "0 6px 24px rgba(34,197,94,0.4)",
+                background: gradient("success"),
+                boxShadow: `0 6px 24px ${alpha(tokens.priority.low, 0.4)}`,
               },
               "&.Mui-disabled": {
                 background: "action.hover",

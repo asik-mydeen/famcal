@@ -19,7 +19,7 @@ import PageShell from "components/PageShell";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useFamilyController } from "context/FamilyContext";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
 import { useAuth } from "context/AuthContext";
 import { getGoogleClientId } from "lib/googleCalendar";
 import { connectGooglePhotos, disconnectGooglePhotos, isGooglePhotosConnected, fetchAlbums } from "lib/googlePhotos";
@@ -28,7 +28,7 @@ import { uploadPhoto, deletePhoto } from "lib/supabase";
 function Settings() {
   const [state, dispatch] = useFamilyController();
   const { family, isSupabaseConnected, photos, ai_preferences, memories } = state;
-  const { darkMode, setMode: setDarkModeValue } = useThemeMode();
+  const { tokens, alpha, darkMode, setMode: setDarkModeValue } = useAppTheme();
   const { user, signOut } = useAuth();
 
   const [familyName, setFamilyName] = useState(family.name);
@@ -386,7 +386,7 @@ function Settings() {
                         px: 2, py: 1.5, borderRadius: "14px",
                         border: "2px solid",
                         borderColor: isSelected ? "primary.main" : "divider",
-                        bgcolor: isSelected ? "rgba(108,92,231,0.08)" : "transparent",
+                        bgcolor: isSelected ? alpha(tokens.accent.main, 0.08) : "transparent",
                         cursor: "pointer", textAlign: "center",
                         transition: "all 0.2s ease",
                         "&:hover": {
@@ -424,7 +424,7 @@ function Settings() {
                       borderRadius: "12px",
                       border: "2px solid",
                       borderColor: fontScale === preset.scale ? "primary.main" : "divider",
-                      bgcolor: fontScale === preset.scale ? "rgba(108,92,231,0.08)" : "transparent",
+                      bgcolor: fontScale === preset.scale ? alpha(tokens.accent.main, 0.08) : "transparent",
                       cursor: "pointer",
                       textAlign: "center",
                       transition: "all 0.2s ease",
@@ -498,7 +498,7 @@ function Settings() {
             </Box>
 
             {localStorage.getItem("famcal_joined_family_id") && (
-              <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", bgcolor: "rgba(108,92,231,0.06)", border: "1px solid rgba(108,92,231,0.12)" }}>
+              <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", bgcolor: alpha(tokens.accent.main, 0.06), border: `1px solid ${alpha(tokens.accent.main, 0.12)}` }}>
                 <Typography sx={{ fontSize: "0.8rem", color: "primary.main", fontWeight: 600, mb: 0.5 }}>
                   Viewing a shared family
                 </Typography>
@@ -539,7 +539,7 @@ function Settings() {
                 Save
               </Button>
               {saved && (
-                <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
+                <Chip label="Saved" size="small" sx={{ bgcolor: alpha("#22c55e", 0.15), color: "#22c55e", fontWeight: 600 }} />
               )}
             </Box>
           </GlassCard>
@@ -722,7 +722,7 @@ function Settings() {
                 label={isSupabaseConnected ? "Connected" : "Offline"}
                 size="small"
                 sx={{
-                  bgcolor: isSupabaseConnected ? "rgba(34,197,94,0.15)" : "rgba(245,158,11,0.15)",
+                  bgcolor: isSupabaseConnected ? alpha("#22c55e", 0.15) : alpha("#f59e0b", 0.15),
                   color: isSupabaseConnected ? "#22c55e" : "#f59e0b",
                   fontWeight: 600,
                 }}
@@ -737,7 +737,7 @@ function Settings() {
                 label={clientIdConfigured ? "Configured" : "Not configured"}
                 size="small"
                 sx={{
-                  bgcolor: clientIdConfigured ? "rgba(34,197,94,0.15)" : "rgba(148,163,184,0.15)",
+                  bgcolor: clientIdConfigured ? alpha("#22c55e", 0.15) : alpha("#94a3b8", 0.15),
                   color: clientIdConfigured ? "#22c55e" : "#94a3b8",
                   fontWeight: 600,
                 }}
@@ -823,7 +823,7 @@ function Settings() {
                         px: 2, py: 1.5, borderRadius: "14px",
                         border: "2px solid",
                         borderColor: isSelected ? "primary.main" : "divider",
-                        bgcolor: isSelected ? "rgba(108,92,231,0.08)" : "transparent",
+                        bgcolor: isSelected ? alpha(tokens.accent.main, 0.08) : "transparent",
                         cursor: "pointer", textAlign: "center",
                         transition: "all 0.2s ease",
                         "&:hover": {
@@ -876,7 +876,7 @@ function Settings() {
                 Save
               </Button>
               {saved && (
-                <Chip label="Saved" size="small" sx={{ bgcolor: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }} />
+                <Chip label="Saved" size="small" sx={{ bgcolor: alpha("#22c55e", 0.15), color: "#22c55e", fontWeight: 600 }} />
               )}
             </Box>
 
@@ -900,8 +900,8 @@ function Settings() {
                         sx={{
                           p: 1.5,
                           borderRadius: "10px",
-                          bgcolor: "rgba(108,92,231,0.04)",
-                          border: "1px solid rgba(108,92,231,0.12)",
+                          bgcolor: alpha(tokens.accent.main, 0.04),
+                          border: `1px solid ${alpha(tokens.accent.main, 0.12)}`,
                         }}
                       >
                         {editingMemory?.id === memory.id ? (
@@ -1032,8 +1032,8 @@ function Settings() {
 
               {!isSupabaseConnected && (
                 <Box sx={{
-                  bgcolor: "rgba(245, 158, 11, 0.1)",
-                  border: "1px solid rgba(245, 158, 11, 0.3)",
+                  bgcolor: alpha("#f59e0b", 0.1),
+                  border: `1px solid ${alpha("#f59e0b", 0.3)}`,
                   borderRadius: "12px",
                   p: 1.5,
                   mb: 2,
@@ -1048,7 +1048,7 @@ function Settings() {
               )}
 
               {photosError && (
-                <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: "rgba(225,112,85,0.08)", border: "1px solid rgba(225,112,85,0.2)" }}>
+                <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: alpha("#E17055", 0.08), border: `1px solid ${alpha("#E17055", 0.2)}` }}>
                   <Typography sx={{ fontSize: "0.8rem", color: "#E17055", lineHeight: 1.5 }}>
                     {photosError}
                   </Typography>
@@ -1140,7 +1140,7 @@ function Settings() {
                   mb: 2,
                   "&:hover": uploading
                     ? {}
-                    : { borderColor: "primary.main", background: "rgba(108,92,231,0.04)" },
+                    : { borderColor: "primary.main", background: alpha(tokens.accent.main, 0.04) },
                   opacity: uploading ? 0.5 : 1,
                 }}
               >

@@ -16,7 +16,7 @@ import GlassCard from "components/GlassCard";
 import SlidePanel from "components/SlidePanel";
 import PageShell from "components/PageShell";
 import { useFamilyController } from "context/FamilyContext";
-import { useTheme } from "@mui/material/styles";
+import { useAppTheme } from "context/ThemeContext";
 
 const GROCERY_CATEGORIES = {
   Produce: ["apple", "banana", "lettuce", "tomato", "onion", "potato", "avocado", "spinach", "carrot", "berry", "fruit", "vegetable", "pepper", "cucumber", "broccoli"],
@@ -44,8 +44,7 @@ function categorizeItem(text) {
 }
 
 export default function Lists() {
-  const theme = useTheme();
-  const dark = theme.palette.mode === "dark";
+  const { tokens, alpha, darkMode: dark } = useAppTheme();
   const [state, dispatch] = useFamilyController();
   const { lists, members, dataLoaded } = state;
 
@@ -235,11 +234,11 @@ export default function Lists() {
                   py: 1,
                   borderRadius: "19px",
                   background: safeActiveListId === list.id
-                    ? dark ? "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)" : "linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)"
-                    : dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+                    ? tokens.gradients.accentPrimary
+                    : tokens.glass.surface,
                   color: safeActiveListId === list.id ? "#fff" : "text.primary",
                   cursor: "pointer",
-                  border: safeActiveListId === list.id ? "none" : dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                  border: safeActiveListId === list.id ? "none" : `1px solid ${tokens.glass.border}`,
                   transition: "all 0.2s ease",
                   touchAction: "manipulation",
                   "&:hover": {
@@ -258,8 +257,8 @@ export default function Lists() {
                     height: 20,
                     borderRadius: "10px",
                     background: activeListId === list.id
-                      ? "rgba(255,255,255,0.2)"
-                      : dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                      ? alpha("#ffffff", 0.2)
+                      : tokens.glass.surface,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -300,10 +299,10 @@ export default function Lists() {
             <IconButton
               onClick={() => setOpenNewListDialog(true)}
               sx={{
-                background: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-                border: dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
+                background: tokens.glass.surface,
+                border: `1px solid ${tokens.glass.border}`,
                 "&:hover": {
-                  background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+                  background: tokens.glass.surfaceHover,
                   transform: "scale(1.05)",
                 },
               }}
@@ -385,11 +384,11 @@ export default function Lists() {
                               gap: 1.5,
                               py: 1,
                               px: 1.5,
-                              borderBottom: dark ? "1px solid rgba(255,255,255,0.05)" : "1px solid rgba(0,0,0,0.05)",
+                              borderBottom: `1px solid ${alpha(dark ? "#ffffff" : "#000000", 0.05)}`,
                               opacity: item.checked ? 0.5 : 1,
                               transition: "all 0.2s ease",
                               "&:hover": {
-                                background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                                background: alpha(dark ? "#ffffff" : "#000000", dark ? 0.03 : 0.02),
                               },
                             }}
                           >
@@ -398,7 +397,7 @@ export default function Lists() {
                               size="small"
                               onClick={() => handleToggleItem(item.id)}
                               sx={{
-                                color: item.checked ? "#7c3aed" : "text.secondary",
+                                color: item.checked ? tokens.accent.dark : "text.secondary",
                                 touchAction: "manipulation",
                               }}
                             >
@@ -424,7 +423,7 @@ export default function Lists() {
                                   width: 20,
                                   height: 20,
                                   fontSize: "0.65rem",
-                                  bgcolor: member.avatar_color || "#7c3aed",
+                                  bgcolor: member.avatar_color || tokens.accent.dark,
                                 }}
                               >
                                 {member.avatar_emoji || member.name?.charAt(0) || "?"}
@@ -479,8 +478,8 @@ export default function Lists() {
                 bottom: 0,
                 mt: 2,
                 pt: 2,
-                borderTop: dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,0,0,0.08)",
-                background: dark ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.8)",
+                borderTop: `1px solid ${tokens.glass.border}`,
+                background: dark ? alpha("#000000", 0.3) : alpha("#ffffff", 0.8),
                 backdropFilter: "blur(10px)",
               }}
             >
@@ -494,17 +493,17 @@ export default function Lists() {
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",
-                      background: dark ? "rgba(255,255,255,0.05)" : "#fff",
+                      background: dark ? tokens.glass.surface : "#fff",
                     },
                   }}
                 />
                 <IconButton
                   type="submit"
                   sx={{
-                    background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                    background: tokens.gradients.accentPrimary,
                     color: "#fff",
                     "&:hover": {
-                      background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+                      background: tokens.gradients.accentSecondary,
                     },
                     "&:disabled": {
                       opacity: 0.5,
@@ -533,7 +532,7 @@ export default function Lists() {
                 startIcon={<Icon>add</Icon>}
                 onClick={() => setOpenNewListDialog(true)}
                 sx={{
-                  background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  background: tokens.gradients.accentPrimary,
                   color: "#fff",
                   textTransform: "none",
                   borderRadius: "12px",
@@ -562,13 +561,13 @@ export default function Lists() {
                 onClick={handleCreateList}
                 disabled={!newListName.trim()}
                 sx={{
-                  background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                  background: tokens.gradients.accentPrimary,
                   color: "#fff",
                   textTransform: "none",
                   borderRadius: "12px",
                   px: 3,
                   "&:hover": {
-                    background: "linear-gradient(135deg, #6d28d9 0%, #9333ea 100%)",
+                    background: tokens.gradients.accentSecondary,
                   },
                 }}
               >
@@ -598,13 +597,13 @@ export default function Lists() {
                     width: 48,
                     height: 48,
                     border: newListIcon === iconOption.value
-                      ? "2px solid #7c3aed"
-                      : dark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.1)",
+                      ? `2px solid ${tokens.accent.dark}`
+                      : `1px solid ${alpha(dark ? "#ffffff" : "#000000", 0.1)}`,
                     background: newListIcon === iconOption.value
-                      ? "rgba(124,58,237,0.1)"
+                      ? alpha(tokens.accent.dark, 0.1)
                       : "transparent",
                     "&:hover": {
-                      background: "rgba(124,58,237,0.15)",
+                      background: alpha(tokens.accent.dark, 0.15),
                     },
                   }}
                 >

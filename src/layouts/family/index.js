@@ -25,6 +25,8 @@ import PageShell from "components/PageShell";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { connectMemberCalendar, disconnectMemberCalendar } from "lib/googleCalendar";
 import { uploadAvatar } from "lib/supabase";
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 const LEVEL_TITLES = [
   "",
@@ -47,6 +49,7 @@ function getLevelTitle(level) {
 function Family() {
   const [state, dispatch] = useFamilyController();
   const { family, members, tasks } = state;
+  const { tokens, gradient, darkMode } = useAppTheme();
   const isSmall = useMediaQuery("(max-width:599px)");
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -497,7 +500,7 @@ function Family() {
                       onClick={() => openEditDialog(member)}
                       sx={{
                         color: "text.secondary",
-                        "&:hover": { color: "#6C5CE7", backgroundColor: "rgba(108,92,231,0.1)" },
+                        "&:hover": { color: tokens.accent.main, backgroundColor: alpha(tokens.accent.main, 0.1) },
                       }}
                     >
                       <Icon sx={{ fontSize: "1.1rem !important" }}>edit</Icon>
@@ -531,12 +534,12 @@ function Family() {
           left: { xs: "50%", md: 28 },
           transform: { xs: "translateX(-50%)", md: "none" },
           right: "auto",
-          background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
+          background: gradient(tokens.accent.main, tokens.accent.light),
           color: "#fff",
           "&:hover": {
-            background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
+            background: gradient(tokens.accent.dark, tokens.accent.light),
           },
-          boxShadow: "0 8px 32px rgba(108,92,231,0.4)",
+          boxShadow: `0 8px 32px ${alpha(tokens.accent.main, 0.4)}`,
           zIndex: 1000,
         }}
       >
@@ -569,13 +572,13 @@ function Family() {
               variant="contained"
               onClick={handleSave}
               sx={{
-                background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
+                background: gradient(tokens.accent.main, tokens.accent.light),
                 color: "#fff",
                 textTransform: "none",
                 borderRadius: "12px",
                 fontWeight: 600,
                 "&:hover": {
-                  background: "linear-gradient(135deg, #5A4BD1 0%, #A29BFE 100%)",
+                  background: gradient(tokens.accent.dark, tokens.accent.light),
                 },
               }}
             >
@@ -656,7 +659,7 @@ function Family() {
                   justifyContent: "center",
                   backgroundColor: formData.avatar_url
                     ? "transparent"
-                    : `${formData.avatar_color}20`,
+                    : alpha(formData.avatar_color, 0.12),
                   border: `2px dashed ${
                     formData.avatar_url
                       ? formData.avatar_color

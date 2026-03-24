@@ -30,7 +30,7 @@ import { motion } from "framer-motion";
 
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle } from "lib/googleCalendar";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
@@ -78,6 +78,7 @@ DayTimeline.propTypes = {
 };
 
 function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMode }) {
+  const { tokens, alpha } = useAppTheme();
   const isSmall = useMediaQuery("(max-width:599px)");
   const scrollRef = useRef(null);
   const dateStr = fmtDate(date);
@@ -169,7 +170,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
           {hours.map((h) => (
             <Box key={h} sx={{ position: "absolute", top: (h - DAY_START) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT, display: "flex" }}>
               <Box sx={{ width: timeColW, flexShrink: 0, pr: 0.75, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", pt: "2px" }}>
-                <Typography sx={{ color: "#8B8680", fontSize: "0.72rem", fontWeight: 500, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
+                <Typography sx={{ color: "text.secondary", fontSize: "0.72rem", fontWeight: 500, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
                   {fmtTimeLabel(h)}
                 </Typography>
               </Box>
@@ -180,14 +181,14 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
                     borderLeft: "1px solid",
                     borderColor: "divider",
                     borderBottom: "1px solid",
-                    borderBottomColor: darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+                    borderBottomColor: tokens.glass.border,
                     cursor: "pointer",
                     position: "relative",
-                    "&:hover": { bgcolor: `${m.avatar_color}08` },
+                    "&:hover": { bgcolor: alpha(m.avatar_color, 0.08) },
                     "&::after": {
                       content: '""', position: "absolute", left: 0, right: 0, top: "50%",
                       borderBottom: "1px dashed",
-                      borderColor: darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)",
+                      borderColor: tokens.glass.border,
                       opacity: 0.7,
                     },
                   }}
@@ -200,8 +201,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
           {isToday && currentHour >= DAY_START && currentHour <= DAY_END && (
             <Box sx={{ position: "absolute", top: (currentHour - DAY_START) * HOUR_HEIGHT, left: timeColW - 6, right: 0, zIndex: 10, pointerEvents: "none" }}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#E17055", flexShrink: 0 }} />
-                <Box sx={{ flex: 1, height: 2, bgcolor: "#E17055" }} />
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "error.main", flexShrink: 0 }} />
+                <Box sx={{ flex: 1, height: 2, bgcolor: "error.main" }} />
               </Box>
             </Box>
           )}
@@ -222,15 +223,15 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
                     position: "absolute", top, height,
                     left: `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`,
                     width: `calc(${colWidth} - 6px)`,
-                    background: `${m.avatar_color}18`,
+                    background: alpha(m.avatar_color, 0.18),
                     color: m.avatar_color,
                     borderLeft: `4px solid ${m.avatar_color}`,
                     borderRadius: "10px",
                     px: "14px", py: "10px",
                     cursor: "pointer", overflow: "hidden", zIndex: 4,
-                    boxShadow: `0 2px 8px ${m.avatar_color}20`,
+                    boxShadow: `0 2px 8px ${alpha(m.avatar_color, 0.2)}`,
                     transition: "transform 0.15s, box-shadow 0.15s",
-                    "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${m.avatar_color}30`, zIndex: 6 },
+                    "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${alpha(m.avatar_color, 0.3)}`, zIndex: 6 },
                   }}
                 >
                   <Typography sx={{ fontWeight: 700, fontSize: height > 40 ? "0.75rem" : "0.65rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
@@ -254,9 +255,9 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
             const height = Math.max(28, ((e.getHours() + e.getMinutes() / 60) - (s.getHours() + s.getMinutes() / 60)) * HOUR_HEIGHT);
             return (
               <Box key={evt.id} onClick={() => onEventClick(evt)}
-                sx={{ position: "absolute", top, height, left: `calc(${timeColW}px + 3px)`, right: 3, background: "rgba(108,92,231,0.05)", border: "1px dashed rgba(108,92,231,0.15)", borderLeft: "4px dashed rgba(108,92,231,0.3)", color: "#6C5CE7", borderRadius: "10px", px: "14px", py: "10px", cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center" }}
+                sx={{ position: "absolute", top, height, left: `calc(${timeColW}px + 3px)`, right: 3, background: alpha(tokens.accent.main, 0.05), border: `1px dashed ${alpha(tokens.accent.main, 0.15)}`, borderLeft: `4px dashed ${alpha(tokens.accent.main, 0.3)}`, color: tokens.accent.main, borderRadius: "10px", px: "14px", py: "10px", cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center" }}
               >
-                <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: "#6C5CE7" }}>{evt.title}</Typography>
+                <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: tokens.accent.main }}>{evt.title}</Typography>
               </Box>
             );
           })}
@@ -281,7 +282,7 @@ function FamilyCalendar() {
   const [state, dispatch] = useFamilyController();
   const { family, members, events, tasks, notes, countdowns, meals } = state;
   const isDashboard = state.isDashboard || false; // Skip Google auth in dashboard mode
-  const { darkMode } = useThemeMode();
+  const { tokens, alpha, gradient, darkMode } = useAppTheme();
   const calendarRef = useRef(null);
   const isSmall = useMediaQuery("(max-width:599px)");
 
@@ -607,7 +608,7 @@ function FamilyCalendar() {
   const tonightDinnerWidget = todayDinner ? (
     <Box sx={{
       p: 1.5,
-      background: darkMode ? "rgba(108,92,231,0.06)" : "linear-gradient(135deg, rgba(108,92,231,0.06), rgba(0,184,148,0.06))",
+      background: darkMode ? alpha(tokens.accent.main, 0.06) : gradient(tokens.accent.main, "#00b894", 135, 0.06),
       borderRadius: "12px", textAlign: "center"
     }}>
       <Typography sx={{ fontSize: "1.05rem", fontWeight: 800 }}>{todayDinner.title}</Typography>
@@ -630,7 +631,7 @@ function FamilyCalendar() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <IconButton size="small" onClick={goPrev} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_left</Icon></IconButton>
             <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_right</Icon></IconButton>
-            {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: "#6C5CE7", color: "#fff", "&:hover": { bgcolor: "#5B4BC7" } }} />}
+            {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: tokens.accent.main, color: "#fff", "&:hover": { bgcolor: tokens.accent.dark } }} />}
             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
               {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap avatars to connect calendars")}
             </Typography>
@@ -638,11 +639,11 @@ function FamilyCalendar() {
 
           {/* Right: view toggle + sync */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Box sx={{ bgcolor: "rgba(108,92,231,0.08)", borderRadius: "12px", p: "3px", display: "inline-flex" }}>
+            <Box sx={{ bgcolor: alpha(tokens.accent.main, 0.08), borderRadius: "12px", p: "3px", display: "inline-flex" }}>
               <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
                 sx={{ minHeight: 34,
-                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", bgcolor: "#fff", boxShadow: "0 2px 8px rgba(108,92,231,0.15)" },
-                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "#8B8680", transition: "color 0.2s", "&.Mui-selected": { color: "#6C5CE7" } },
+                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", bgcolor: "#fff", boxShadow: `0 2px 8px ${alpha(tokens.accent.main, 0.15)}` },
+                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", transition: "color 0.2s", "&.Mui-selected": { color: tokens.accent.main } },
                 }}
               >
                 <Tab label="Day" />
@@ -775,18 +776,18 @@ function FamilyCalendar() {
               display: { xs: "none", lg: "flex" },
               position: "fixed", top: "50%", right: 0, transform: "translateY(-50%)",
               zIndex: 1100, cursor: "pointer",
-              bgcolor: darkMode ? "rgba(139,92,246,0.15)" : "rgba(108,92,231,0.08)",
+              bgcolor: darkMode ? alpha(tokens.accent.light, 0.15) : alpha(tokens.accent.main, 0.08),
               border: "1px solid",
-              borderColor: darkMode ? "rgba(139,92,246,0.25)" : "rgba(108,92,231,0.15)",
+              borderColor: darkMode ? alpha(tokens.accent.light, 0.25) : alpha(tokens.accent.main, 0.15),
               borderRight: "none",
               borderRadius: "12px 0 0 12px",
               px: 0.5, py: 2,
               flexDirection: "column", alignItems: "center", gap: 0.5,
-              "&:hover": { bgcolor: darkMode ? "rgba(139,92,246,0.25)" : "rgba(108,92,231,0.15)" },
+              "&:hover": { bgcolor: darkMode ? alpha(tokens.accent.light, 0.25) : alpha(tokens.accent.main, 0.15) },
               transition: "all 0.2s ease",
             }}
           >
-            <Icon sx={{ fontSize: "1rem", color: darkMode ? "#a78bfa" : "#6C5CE7" }}>chevron_left</Icon>
+            <Icon sx={{ fontSize: "1rem", color: darkMode ? tokens.accent.light : tokens.accent.main }}>chevron_left</Icon>
           </Box>
         )}
       </Box>
@@ -802,7 +803,7 @@ function FamilyCalendar() {
           <>
             {editingEvent && <Button onClick={handleDeleteEvent} color="error" variant="outlined" startIcon={<Icon>delete</Icon>} sx={{ mr: "auto" }}>Delete</Button>}
             <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: "12px" }}>Cancel</Button>
-            <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()} sx={{ borderRadius: "12px", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)" }}>
+            <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()} sx={{ borderRadius: "12px", background: gradient(tokens.accent.main, tokens.accent.light) }}>
               {editingEvent ? "Save" : "Add Event"}
             </Button>
           </>
