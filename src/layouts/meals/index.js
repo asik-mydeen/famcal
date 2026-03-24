@@ -241,11 +241,8 @@ function Meals() {
       cooking_speed: prefsSpeed,
     };
 
-    if (ai_preferences) {
-      dispatch({ type: "UPDATE_AI_PREFERENCES", value: prefs });
-    } else {
-      dispatch({ type: "SET_AI_PREFERENCES", value: prefs });
-    }
+    // Always use UPDATE — persistingDispatch upsert handles both insert and update
+    dispatch({ type: "UPDATE_AI_PREFERENCES", value: prefs });
 
     setPrefsExpanded(false);
   }, [prefsCuisine, prefsDietary, prefsServings, prefsSpeed, ai_preferences, dispatch]);

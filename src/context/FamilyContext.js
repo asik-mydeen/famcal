@@ -548,7 +548,12 @@ function FamilyProvider({ children }) {
     return (action) => {
       dispatch(action);
 
-      if (!state.isSupabaseConnected) return;
+      if (!state.isSupabaseConnected) {
+        if (["ADD_MEAL", "UPDATE_AI_PREFERENCES", "SET_AI_PREFERENCES", "ADD_LIST_ITEM"].includes(action.type)) {
+          console.warn("[persist] SKIPPED", action.type, "— Supabase not connected");
+        }
+        return;
+      }
 
       switch (action.type) {
         case "ADD_MEMBER": {
@@ -643,8 +648,13 @@ function FamilyProvider({ children }) {
         case "ADD_MEAL": {
           import("lib/supabase").then(({ upsertMeal }) => {
             const { id: _localId, ...mealData } = action.value;
-            upsertMeal({ ...mealData, family_id: state.family.id });
-          });
+            const row = { ...mealData, family_id: state.family.id };
+            console.log("[persist] ADD_MEAL:", row);
+            upsertMeal(row).then((result) => {
+              if (result) console.log("[persist] Meal saved:", result.id);
+              else console.warn("[persist] Meal save returned null — check Supabase logs");
+            });
+          }).catch((err) => console.error("[persist] ADD_MEAL import failed:", err));
           break;
         }
         case "UPDATE_MEAL": {
@@ -751,10 +761,16 @@ function FamilyProvider({ children }) {
           }
           break;
         }
+        case "SET_AI_PREFERENCES":
         case "UPDATE_AI_PREFERENCES": {
           import("lib/supabase").then(({ updateAIPreferences }) => {
-            updateAIPreferences(state.family.id, action.value);
-          });
+            const prefs = action.type === "SET_AI_PREFERENCES" ? action.value : action.value;
+            console.log("[persist] Saving AI preferences:", prefs);
+            updateAIPreferences(state.family.id, prefs).then((result) => {
+              if (result) console.log("[persist] AI preferences saved:", result);
+              else console.warn("[persist] AI preferences save returned null — check Supabase");
+            });
+          }).catch((err) => console.error("[persist] Dynamic import failed:", err));
           break;
         }
         case "ADD_MESSAGE": {
