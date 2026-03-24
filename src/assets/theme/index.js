@@ -59,16 +59,22 @@ function getPalette(mode) {
 
 // ── Mode-specific component overrides ──
 
-function getComponents(mode) {
+function getComponents(mode, tokens) {
   const dark = mode === "dark";
   const t = (d, l) => (dark ? d : l);
 
-  // Primary accent for component styling
-  const accent = t("#8b5cf6", "#6C5CE7");
-  const accentLight = t("#a855f7", "#A29BFE");
-  const accentGradient = t("linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)", "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)");
-  const accentShadow = t("rgba(139,92,246,0.35)", "rgba(108,92,231,0.3)");
-  const accentShadowHover = t("rgba(139,92,246,0.5)", "rgba(108,92,231,0.45)");
+  // Primary accent — derived from preset tokens
+  const accent = tokens.accent.main;
+  const accentLight = tokens.accent.light;
+  const accentGradient = tokens.gradients.primary;
+  // Compute accent rgba for shadows (extract RGB from hex)
+  const _hexToRgb = (hex) => {
+    const c = hex.replace("#", "");
+    return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)].join(",");
+  };
+  const accentRgb = _hexToRgb(accent);
+  const accentShadow = `rgba(${accentRgb},0.35)`;
+  const accentShadowHover = `rgba(${accentRgb},0.5)`;
 
   // Card / surface values
   const glassBg = t("#1c1c2e", "#ffffff");
@@ -101,7 +107,7 @@ function getComponents(mode) {
   // FullCalendar CSS for the current mode
   const fcBg = "transparent";
   const fcBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)");
-  const fcTodayBg = t("rgba(139,92,246,0.08)", "rgba(108,92,231,0.06)");
+  const fcTodayBg = `rgba(${accentRgb},0.08)`;
   const fcHeaderCellBg = t("rgba(255,255,255,0.04)", "rgba(0,0,0,0.01)");
   const fcHeaderCellBorder = t("rgba(255,255,255,0.08)", "rgba(0,0,0,0.06)");
   const fcHeaderText = t("rgba(240,240,245,0.55)", "rgba(0,0,0,0.4)");
@@ -137,8 +143,8 @@ function getComponents(mode) {
 
         .fc {
           --fc-bg-color: ${fcBg}; --fc-border-color: ${fcBorder};
-          --fc-today-bg-color: ${fcTodayBg}; --fc-highlight-color: rgba(139,92,246,0.1);
-          --fc-event-bg-color: rgba(139,92,246,0.85); --fc-event-border-color: transparent;
+          --fc-today-bg-color: ${fcTodayBg}; --fc-highlight-color: rgba(${accentRgb},0.1);
+          --fc-event-bg-color: rgba(${accentRgb},0.85); --fc-event-border-color: transparent;
           --fc-neutral-bg-color: ${fcBg}; --fc-page-bg-color: ${fcBg};
           --fc-now-indicator-color: #f43f5e; --fc-event-text-color: #fff;
           font-family: "Inter", sans-serif;
@@ -146,10 +152,10 @@ function getComponents(mode) {
         .fc .fc-col-header-cell { background: ${fcHeaderCellBg}; border-bottom: 1px solid ${fcHeaderCellBorder} !important; }
         .fc .fc-col-header-cell-cushion { color: ${fcHeaderText}; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; padding: 10px 0; }
         .fc .fc-daygrid-day-number { color: ${fcDayNum}; font-weight: 500; font-size: 0.8125rem; padding: 8px; text-decoration: none; }
-        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%); color: #fff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { background: ${accentGradient}; color: #fff; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
         .fc .fc-daygrid-day.fc-day-other .fc-daygrid-day-number { color: ${fcOtherDay}; }
         .fc-event { border-radius: 6px !important; padding: 2px 8px !important; font-size: 0.75rem !important; font-weight: 500 !important; border: none !important; cursor: pointer; }
-        .fc-event.event-primary { background: rgba(139,92,246,0.85) !important; }
+        .fc-event.event-primary { background: rgba(${accentRgb},0.85) !important; }
         .fc-event.event-error { background: rgba(244,63,94,0.85) !important; }
         .fc-event.event-success { background: rgba(34,197,94,0.85) !important; }
         .fc-event.event-warning { background: rgba(245,158,11,0.85) !important; color: #000 !important; }
@@ -162,13 +168,13 @@ function getComponents(mode) {
         .fc .fc-button-primary { background: ${fcBtnBg} !important; border: 1px solid ${fcBtnBorder} !important; border-radius: 10px !important; font-weight: 500 !important; text-transform: capitalize !important; color: ${fcBtnText} !important; font-size: 0.8125rem !important; padding: 6px 14px !important; transition: all 0.2s ease !important; }
         .fc .fc-button-primary:hover { background: ${fcBtnHover} !important; color: ${fcBtnActiveText} !important; }
         .fc .fc-button-primary:focus { box-shadow: none !important; }
-        .fc .fc-button-primary.fc-button-active { background: rgba(108,92,231,0.25) !important; border-color: rgba(108,92,231,0.5) !important; color: ${fcBtnActiveText} !important; }
+        .fc .fc-button-primary.fc-button-active { background: rgba(${accentRgb},0.25) !important; border-color: rgba(${accentRgb},0.5) !important; color: ${fcBtnActiveText} !important; }
         .fc .fc-daygrid-body-unbalanced .fc-daygrid-day-events { min-height: 1.5em; }
         .fc .fc-timegrid-slot { height: 48px; }
         .fc .fc-timegrid-slot-label-cushion { color: ${fcTimeLabel}; font-size: 0.75rem; }
         .fc .fc-timegrid-now-indicator-line { border-color: #f43f5e !important; }
         .fc th, .fc td { border-color: ${fcGridBorder} !important; }
-        .fc .fc-more-link { color: #a855f7; font-weight: 600; }
+        .fc .fc-more-link { color: ${accentLight}; font-weight: 600; }
         @media (max-width: 599px) { .MuiDialog-paper { margin: 0 !important; max-height: 100% !important; height: 100% !important; border-radius: 0 !important; } }
       `,
     },
@@ -215,7 +221,7 @@ function getComponents(mode) {
     MuiDialogActions: { styleOverrides: { root: { padding: "8px 24px 24px", gap: 8 } } },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { borderRadius: 12, background: inputBg, transition: "all 0.2s ease", "& fieldset": { borderColor: inputBorder, transition: "border-color 0.2s ease" }, "&:hover fieldset": { borderColor: `${inputBorderHover} !important` }, "&.Mui-focused fieldset": { borderColor: "#8b5cf6 !important", borderWidth: "1.5px !important" }, "&.Mui-focused": { background: "rgba(139,92,246,0.04)" } },
+        root: { borderRadius: 12, background: inputBg, transition: "all 0.2s ease", "& fieldset": { borderColor: inputBorder, transition: "border-color 0.2s ease" }, "&:hover fieldset": { borderColor: `${inputBorderHover} !important` }, "&.Mui-focused fieldset": { borderColor: `${accent} !important`, borderWidth: "1.5px !important" }, "&.Mui-focused": { background: `rgba(${accentRgb},0.04)` } },
         input: { color: textPrimary, "&::placeholder": { color: textFaint, opacity: 1 } },
       },
     },
@@ -249,7 +255,12 @@ export function createAppTheme(mode = "dark", fontFamily, preset = "default") {
   const tokens = getTokens(mode, preset);
   const basePalette = getPalette(mode);
 
-  // Override MUI primary with the preset's accent so MUI components match
+  // Override MUI primary + action colors with preset accent
+  const _hexToRgb = (hex) => {
+    const c = hex.replace("#", "");
+    return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)].join(",");
+  };
+  const aRgb = _hexToRgb(tokens.accent.main);
   const palette = {
     ...basePalette,
     primary: {
@@ -257,6 +268,11 @@ export function createAppTheme(mode = "dark", fontFamily, preset = "default") {
       light: tokens.accent.light,
       dark: tokens.accent.dark,
       contrastText: "#fff",
+    },
+    action: {
+      ...basePalette.action,
+      selected: `rgba(${aRgb},0.15)`,
+      focus: `rgba(${aRgb},0.2)`,
     },
   };
 
@@ -270,7 +286,7 @@ export function createAppTheme(mode = "dark", fontFamily, preset = "default") {
       overline: { fontSize: "0.6875rem", fontWeight: 700, lineHeight: 1.5, letterSpacing: "0.1em", textTransform: "uppercase", color: mode === "dark" ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)" },
     },
     shape: sharedShape,
-    components: getComponents(mode),
+    components: getComponents(mode, tokens),
   });
 }
 

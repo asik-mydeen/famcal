@@ -1,8 +1,9 @@
 import Box from "@mui/material/Box";
-import { useThemeMode } from "context/ThemeContext";
+import { useAppTheme } from "context/ThemeContext";
+import { alpha } from "theme/helpers";
 
 export default function AnimatedBackground() {
-  const { darkMode } = useThemeMode();
+  const { tokens, darkMode } = useAppTheme();
 
   if (darkMode) {
     return (
@@ -17,7 +18,7 @@ export default function AnimatedBackground() {
             position: "absolute",
             top: "-40%", left: "-40%", width: "180%", height: "180%",
             background: `
-              radial-gradient(ellipse at 20% 80%, rgba(124,58,237,0.12) 0%, transparent 50%),
+              radial-gradient(ellipse at 20% 80%, ${alpha(tokens.accent.main, 0.12)} 0%, transparent 50%),
               radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.10) 0%, transparent 50%)
             `,
             animation: "meshFloat 25s ease-in-out infinite",
@@ -31,14 +32,14 @@ export default function AnimatedBackground() {
     );
   }
 
-  // Light mode: solid warm gradient — no transparency, high contrast
+  // Light mode: tinted background derived from accent
   return (
     <Box
       sx={{
         position: "fixed",
         top: 0, left: 0, right: 0, bottom: 0,
         zIndex: -1,
-        background: "linear-gradient(180deg, #FFF8F0 0%, #FFFFFF 50%, #FFFFFF 100%)",
+        background: `linear-gradient(180deg, ${alpha(tokens.accent.light, 0.06)} 0%, #FFFFFF 50%, #FFFFFF 100%)`,
       }}
     />
   );

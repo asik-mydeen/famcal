@@ -52,6 +52,7 @@ import KioskSetup from "layouts/kiosk-setup";
 
 function LoginScreen() {
   const { signIn } = useAuth();
+  const { tokens, gradient: loginGrad } = useAppTheme();
 
   const features = [
     { icon: "calendar_today", label: "Shared Calendar", desc: "See everyone's schedule at a glance" },
@@ -65,13 +66,13 @@ function LoginScreen() {
   return (
     <Box sx={{
       minHeight: "100vh", display: "flex",
-      background: "linear-gradient(135deg, #FFF8F0 0%, #F5F0FF 50%, #FFF8F0 100%)",
+      background: `linear-gradient(135deg, ${tokens.accent.light}0A 0%, ${tokens.accent.light}12 50%, ${tokens.accent.light}0A 100%)`,
       overflow: "hidden", position: "relative",
     }}>
       {/* Decorative background orbs */}
       <Box sx={{
         position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw",
-        borderRadius: "50%", background: "radial-gradient(circle, rgba(108,92,231,0.06) 0%, transparent 70%)",
+        borderRadius: "50%", background: `radial-gradient(circle, ${tokens.accent.main}0F 0%, transparent 70%)`,
         pointerEvents: "none",
       }} />
       <Box sx={{
@@ -100,7 +101,7 @@ function LoginScreen() {
             <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 4 }}>
               <Box sx={{
                 width: 56, height: 56, borderRadius: "16px",
-                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                background: loginGrad("primary"),
                 display: "flex", alignItems: "center", justifyContent: "center",
                 boxShadow: "0 8px 32px rgba(108,92,231,0.25)",
               }}>
@@ -118,7 +119,7 @@ function LoginScreen() {
             }}>
               Your family,{" "}
               <Box component="span" sx={{
-                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                background: loginGrad("primary"),
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
               }}>
                 beautifully organized
@@ -135,7 +136,7 @@ function LoginScreen() {
               variant="contained"
               size="large"
               sx={{
-                background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                background: loginGrad("primary"),
                 borderRadius: "16px", px: 5, py: 2,
                 textTransform: "none", fontWeight: 700, fontSize: "1.1rem",
                 boxShadow: "0 8px 32px rgba(108,92,231,0.35)",
@@ -454,7 +455,7 @@ function SetupWizard() {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { darkMode, preset } = useAppTheme();
+  const { darkMode, preset, tokens, gradient: getGrad } = useAppTheme();
 
   // Font state must be declared BEFORE useMemo that depends on it
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
@@ -706,8 +707,8 @@ export default function App() {
                   width: 56,
                   height: 56,
                   borderRadius: "16px",
-                  background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-                  boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
+                  background: getGrad("primary"),
+                  boxShadow: `0 6px 24px ${tokens.accent.main}66`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -715,7 +716,7 @@ export default function App() {
                   touchAction: "manipulation",
                   transition: "all 0.2s ease",
                   "&:hover": {
-                    boxShadow: "0 8px 32px rgba(108,92,231,0.6)",
+                    boxShadow: `0 8px 32px ${tokens.accent.main}99`,
                     transform: "scale(1.05)",
                   },
                   "&:active": { transform: "scale(0.95)" },
