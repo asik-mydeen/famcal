@@ -30,6 +30,9 @@ import KioskWrapper from "components/KioskWrapper";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import AIAssistant from "components/AIAssistant";
+import { TimerAlarmProvider } from "context/TimerAlarmContext";
+import AlertOverlay from "components/AlertOverlay";
+import TimerAlarmPanel from "components/TimerAlarmPanel";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
@@ -479,6 +482,7 @@ export default function App() {
 
   // Unified FAB state
   const [aiOpen, setAiOpen] = useState(false);
+  const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
   const setupDone = localStorage.getItem("famcal_setup_done") === "true" || family?.setup_done === true;
   const isLoggedIn = Boolean(user);
@@ -639,7 +643,8 @@ export default function App() {
       ) : showSetup ? (
         <SetupWizard />
       ) : (
-        <>
+        <TimerAlarmProvider familyId={family?.id}>
+          <AlertOverlay />
           {/* Photo Frame overlay when idle */}
           {isIdle && (googlePhotos.length > 0 || photos.length > 0) && (
             <PhotoFrame
@@ -663,6 +668,7 @@ export default function App() {
               onKioskToggle={toggleKiosk}
               fontScale={fontScale}
               onFontScaleChange={handleFontScaleChange}
+              onOpenTimerPanel={() => setTimerPanelOpen(true)}
             />
             <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
               <TabStrip
@@ -726,8 +732,12 @@ export default function App() {
               externalOpen={aiOpen}
               onExternalClose={() => setAiOpen(false)}
             />
+            <TimerAlarmPanel
+              open={timerPanelOpen}
+              onClose={() => setTimerPanelOpen(false)}
+            />
           </KioskWrapper>
-        </>
+        </TimerAlarmProvider>
       )}
     </ThemeProvider>
   );

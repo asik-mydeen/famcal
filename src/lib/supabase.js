@@ -337,3 +337,44 @@ export async function deleteMemory(memoryId) {
     console.warn("deleteMemory error:", error);
   }
 }
+
+// ── Alarms ──
+export async function fetchAlarms(familyId) {
+  const { data, error } = await supabase
+    .from("alarms")
+    .select("*")
+    .eq("family_id", familyId)
+    .eq("enabled", true)
+    .order("alarm_time", { ascending: true });
+  if (error) console.warn("fetchAlarms error:", error);
+  return data || [];
+}
+
+export async function createAlarm(alarm) {
+  const { data, error } = await supabase
+    .from("alarms")
+    .insert(alarm)
+    .select()
+    .single();
+  if (error) console.warn("createAlarm error:", error);
+  return data;
+}
+
+export async function updateAlarm(id, updates) {
+  const { data, error } = await supabase
+    .from("alarms")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) console.warn("updateAlarm error:", error);
+  return data;
+}
+
+export async function deleteAlarm(id) {
+  const { error } = await supabase
+    .from("alarms")
+    .delete()
+    .eq("id", id);
+  if (error) console.warn("deleteAlarm error:", error);
+}

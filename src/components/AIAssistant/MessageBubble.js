@@ -44,6 +44,10 @@ const ACTION_BADGES = {
   remove_countdown: { icon: "delete", color: "#E17055", label: "countdown removed" },
   add_reward: { icon: "emoji_events", color: "#FDCB6E", label: "reward created" },
   claim_reward: { icon: "redeem", color: "#22c55e", label: "reward claimed" },
+  set_timer: { icon: "timer", color: "#F59E0B", label: "timer set" },
+  cancel_timer: { icon: "timer_off", color: "#E17055", label: "timer cancelled" },
+  set_alarm: { icon: "alarm", color: "#0984E3", label: "alarm set" },
+  cancel_alarm: { icon: "alarm_off", color: "#E17055", label: "alarm cancelled" },
 };
 
 // Typing indicator — three animated dots

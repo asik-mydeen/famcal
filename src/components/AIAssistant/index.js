@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { useThemeMode } from "context/ThemeContext";
+import { useTimerAlarm } from "context/TimerAlarmContext";
 import { sendAIMessage, buildAIContext } from "lib/ai";
 import SlidePanel from "components/SlidePanel";
 import { getDynamicSuggestions } from "lib/aiSuggestions";
@@ -42,6 +43,10 @@ const ACTION_SUMMARY_LABELS = {
   remove_countdown: "countdown removal",
   add_reward: "reward",
   claim_reward: "reward claim",
+  set_timer: "timer",
+  cancel_timer: "timer cancellation",
+  set_alarm: "alarm",
+  cancel_alarm: "alarm cancellation",
 };
 
 // Build a human-readable summary of executed actions (e.g. "3 meals added, 2 items added")
@@ -122,6 +127,9 @@ function useVoiceInput({ onResult }) {
 function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onExternalClose }) {
   const { darkMode } = useThemeMode();
   const navigate = useNavigate();
+  const timerAlarm = useTimerAlarm();
+  const timerAlarmRef = useRef(null);
+  timerAlarmRef.current = timerAlarm;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -393,6 +401,38 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             dispatch({ type: "CLAIM_REWARD", value: d });
             executed.push(action.type);
             break;
+          case "set_timer": {
+            timerAlarmRef.current.addTimer(d.label || "Timer", d.minutes || 5, d.icon || "timer");
+            executed.push(action.type);
+            break;
+          }
+          case "cancel_timer":
+            timerAlarmRef.current.removeTimer(d.timer_id);
+            executed.push(action.type);
+            break;
+          case "set_alarm": {
+            const alarmTime = d.date
+              ? new Date(`${d.date}T${d.time}:00`)
+              : (() => {
+                  const t = new Date();
+                  const [h, m] = d.time.split(":");
+                  t.setHours(h, m, 0, 0);
+                  if (t < new Date()) t.setDate(t.getDate() + 1);
+                  return t;
+                })();
+            timerAlarmRef.current.addAlarm(
+              d.title || "Alarm",
+              alarmTime.toISOString(),
+              d.recurring || null,
+              d.icon || "alarm"
+            );
+            executed.push(action.type);
+            break;
+          }
+          case "cancel_alarm":
+            timerAlarmRef.current.removeAlarm(d.alarm_id);
+            executed.push(action.type);
+            break;
           case "info":
             // No action, just informational response
             break;
@@ -425,9 +465,26 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
         servings: aiPreferences?.servings,
         name: aiPreferences?.assistant_name,
       }));
+      // Merge timer/alarm context
+      const { timers: currentTimers, alarms: currentAlarms } = timerAlarmRef.current;
+      const timerContext = {
+        activeTimers: currentTimers.filter((t) => t.running || t.remaining > 0).map((t) => ({
+          id: t.id,
+          label: t.label,
+          remaining_seconds: t.remaining,
+          remaining_formatted: `${Math.floor(t.remaining / 60)}:${String(t.remaining % 60).padStart(2, "0")}`,
+        })),
+        upcomingAlarms: currentAlarms.filter((a) => a.enabled).map((a) => ({
+          id: a.id,
+          title: a.title,
+          alarm_time: a.alarm_time,
+          recurring: a.recurring,
+        })),
+      };
+
       const response = await sendAIMessage(
         [...(activeConversation?.messages || []), userMessage],
-        aiContext,
+        { ...aiContext, ...timerContext },
         aiPreferences,
         memories
       );
