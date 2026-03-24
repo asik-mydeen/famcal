@@ -21,6 +21,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { motion } from "framer-motion";
 import GlassCard from "components/GlassCard";
 import SlidePanel from "components/SlidePanel";
+import PageShell from "components/PageShell";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { connectMemberCalendar, disconnectMemberCalendar } from "lib/googleCalendar";
 import { uploadAvatar } from "lib/supabase";
@@ -203,7 +204,7 @@ function Family() {
   };
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3 } }}>
+    <PageShell>
       {/* Header */}
       <Box sx={{ mb: { xs: 2.5, md: 3.5 } }}>
         <Typography variant="h4" fontWeight="bold" sx={{ color: "text.primary" }}>
@@ -842,7 +843,7 @@ function Family() {
           </Typography>
         </Box>
       </SlidePanel>
-    </Box>
+    </PageShell>
   );
 }
 

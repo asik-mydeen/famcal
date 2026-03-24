@@ -15,8 +15,8 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import { useTheme } from "@mui/material/styles";
 import { motion, AnimatePresence } from "framer-motion";
-import PageTransition from "components/PageTransition";
 import GlassCard from "components/GlassCard";
+import PageShell from "components/PageShell";
 import MealGrid from "components/MealGrid";
 import SlidePanel from "components/SlidePanel";
 import { useFamilyController } from "context/FamilyContext";
@@ -262,9 +262,8 @@ function Meals() {
   }, [ai_preferences]);
 
   return (
-    <PageTransition>
-      <Box p={3} pb={6}>
-        {/* Header */}
+    <PageShell>
+      {/* Header */}
         <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
           <Typography variant="h5" fontWeight={700}>
             Meal Plan
@@ -641,8 +640,7 @@ function Meals() {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
-    </PageTransition>
+    </PageShell>
   );
 }
 

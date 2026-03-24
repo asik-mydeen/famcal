@@ -13,8 +13,8 @@ import Avatar from "@mui/material/Avatar";
 import Divider from "@mui/material/Divider";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
-import PageTransition from "components/PageTransition";
 import SlidePanel from "components/SlidePanel";
+import PageShell from "components/PageShell";
 import { useFamilyController } from "context/FamilyContext";
 import { useTheme } from "@mui/material/styles";
 
@@ -185,9 +185,8 @@ export default function Lists() {
   }, [members]);
 
   return (
-    <PageTransition>
-      <Box sx={{ maxWidth: 800, mx: "auto", p: { xs: 2, sm: 3 }, pb: 10 }}>
-        {/* Header */}
+    <PageShell maxWidth={800}>
+      {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" fontWeight={700} sx={{ mb: 0.5 }}>
             Lists
@@ -557,7 +556,6 @@ export default function Lists() {
             </Box>
           </Box>
         </SlidePanel>
-      </Box>
-    </PageTransition>
+    </PageShell>
   );
 }

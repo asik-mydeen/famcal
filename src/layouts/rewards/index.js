@@ -21,6 +21,7 @@ import Divider from "@mui/material/Divider";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import GlassCard from "components/GlassCard";
 import SlidePanel from "components/SlidePanel";
+import PageShell from "components/PageShell";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 
 const LEVEL_TITLES = [
@@ -139,7 +140,7 @@ function Rewards() {
     claimMember && selectedReward ? claimMember.points - selectedReward.points_cost : 0;
 
   return (
-    <Box sx={{ pb: { xs: 10, xl: 4 } }}>
+    <PageShell>
       {/* ── Stats Banner ── */}
       <GlassCard
         delay={0}
@@ -824,7 +825,7 @@ function Rewards() {
           }}
         />
       </SlidePanel>
-    </Box>
+    </PageShell>
   );
 }
 

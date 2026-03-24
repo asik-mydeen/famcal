@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Icon from "@mui/material/Icon";
 import Chip from "@mui/material/Chip";
 import SlidePanel from "components/SlidePanel";
+import PageShell from "components/PageShell";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Tabs from "@mui/material/Tabs";
@@ -621,7 +622,7 @@ function FamilyCalendar() {
   );
 
   return (
-    <Box sx={{ flex: 1 }}>
+    <PageShell flush>
       {/* Header - simplified (date now in HeaderBar) */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1 }}>
@@ -829,7 +830,7 @@ function FamilyCalendar() {
           {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
         </Box>
       </SlidePanel>
-    </Box>
+    </PageShell>
   );
 }
 

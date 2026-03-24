@@ -23,6 +23,7 @@ import Fab from "@mui/material/Fab";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
+import PageShell from "components/PageShell";
 import { useFamilyController, TASK_CATEGORIES, MEMBER_COLORS } from "context/FamilyContext";
 
 const PRIORITY_COLORS = {
@@ -168,7 +169,7 @@ function Tasks() {
   // --- Render ---
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 2.5, xl: 3 }, py: { xs: 2, sm: 2.5 }, pb: { xs: 14, sm: 14, xl: 4 } }}>
+    <PageShell>
       {/* Page Header */}
       <Box sx={{ mb: 3 }}>
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -887,7 +888,7 @@ function Tasks() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </PageShell>
   );
 }
 

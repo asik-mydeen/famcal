@@ -13,8 +13,8 @@ import Grid from "@mui/material/Grid";
 import Fab from "@mui/material/Fab";
 import Tooltip from "@mui/material/Tooltip";
 import { motion, AnimatePresence } from "framer-motion";
-import PageTransition from "components/PageTransition";
 import GlassCard from "components/GlassCard";
+import PageShell from "components/PageShell";
 import ChoreGrid from "components/ChoreGrid";
 import { useFamilyController, TASK_CATEGORIES } from "context/FamilyContext";
 import { useThemeMode } from "context/ThemeContext";
@@ -228,9 +228,8 @@ function Chores() {
   };
 
   return (
-    <PageTransition>
-      <Box sx={{ p: { xs: 2, sm: 3 }, pb: 10 }}>
-        {/* Stats Cards */}
+    <PageShell>
+      {/* Stats Cards */}
         <Grid container spacing={2} mb={3}>
           <Grid item xs={6} md={3}>
             <GlassCard delay={0} hover={false}>
@@ -969,8 +968,7 @@ function Chores() {
             )}
           </Box>
         </SlidePanel>
-      </Box>
-    </PageTransition>
+    </PageShell>
   );
 }
 

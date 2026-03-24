@@ -15,6 +15,7 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import GlassCard from "components/GlassCard";
+import PageShell from "components/PageShell";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useFamilyController } from "context/FamilyContext";
@@ -348,7 +349,7 @@ function Settings() {
   ];
 
   return (
-    <Box>
+    <PageShell>
       <Typography variant="h4" fontWeight="bold" sx={{ mb: 3 }}>
         Settings
       </Typography>
@@ -1218,7 +1219,7 @@ function Settings() {
           </GlassCard>
         </Grid>
       </Grid>
-    </Box>
+    </PageShell>
   );
 }
 
