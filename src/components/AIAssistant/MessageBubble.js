@@ -6,7 +6,22 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useThemeMode } from "context/ThemeContext";
 
-function MessageBubble({ role, content, actions, timestamp }) {
+// Map action types to navigation targets
+const ACTION_NAV = {
+  create_event: { page: "/calendar", label: "Go to Calendar", icon: "calendar_today" },
+  update_event: { page: "/calendar", label: "Go to Calendar", icon: "calendar_today" },
+  add_meal: { page: "/meals", label: "Go to Meals", icon: "restaurant" },
+  update_meal: { page: "/meals", label: "Go to Meals", icon: "restaurant" },
+  create_task: { page: "/chores", label: "Go to Chores", icon: "task_alt" },
+  update_task: { page: "/chores", label: "Go to Chores", icon: "task_alt" },
+  complete_task: { page: "/chores", label: "Go to Chores", icon: "task_alt" },
+  add_list_items: { page: "/lists", label: "Go to Lists", icon: "checklist" },
+  create_list: { page: "/lists", label: "Go to Lists", icon: "checklist" },
+  add_reward: { page: "/rewards", label: "Go to Rewards", icon: "emoji_events" },
+  claim_reward: { page: "/rewards", label: "Go to Rewards", icon: "emoji_events" },
+};
+
+function MessageBubble({ role, content, actions, timestamp, onNavigate }) {
   const { darkMode } = useThemeMode();
 
   // Format timestamp to relative time
@@ -198,6 +213,50 @@ function MessageBubble({ role, content, actions, timestamp }) {
           </Box>
         )}
 
+        {/* Navigation buttons based on actions */}
+        {actions && actions.length > 0 && onNavigate && (() => {
+          // Deduplicate nav targets
+          const navTargets = new Map();
+          actions.forEach((a) => {
+            const nav = ACTION_NAV[a.type];
+            if (nav && !navTargets.has(nav.page)) navTargets.set(nav.page, nav);
+          });
+          if (navTargets.size === 0) return null;
+          return (
+            <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 0.5 }}>
+              {[...navTargets.values()].map((nav) => (
+                <Box
+                  key={nav.page}
+                  onClick={() => onNavigate(nav.page)}
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.5,
+                    px: 1.5,
+                    py: 0.6,
+                    borderRadius: "10px",
+                    background: darkMode ? "rgba(108,92,231,0.15)" : "rgba(108,92,231,0.08)",
+                    border: "1px solid",
+                    borderColor: darkMode ? "rgba(108,92,231,0.3)" : "rgba(108,92,231,0.15)",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: "#6C5CE7",
+                    transition: "all 0.15s ease",
+                    "&:hover": {
+                      background: darkMode ? "rgba(108,92,231,0.25)" : "rgba(108,92,231,0.15)",
+                      transform: "translateY(-1px)",
+                    },
+                  }}
+                >
+                  <Icon sx={{ fontSize: "0.9rem" }}>{nav.icon}</Icon>
+                  {nav.label}
+                </Box>
+              ))}
+            </Box>
+          );
+        })()}
+
         {/* Timestamp */}
         {timestamp && (
           <Typography
@@ -227,6 +286,7 @@ MessageBubble.propTypes = {
     })
   ),
   timestamp: PropTypes.instanceOf(Date),
+  onNavigate: PropTypes.func,
 };
 
 export default MessageBubble;
