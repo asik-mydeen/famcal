@@ -86,6 +86,10 @@ const initialState = {
   countdowns: [],
   photos: [],
   weather: null,
+  ai_preferences: null,
+  conversations: [],
+  activeConversation: null,
+  memories: [],
 };
 
 function reducer(state, action) {
@@ -261,6 +265,34 @@ function reducer(state, action) {
     // Data loaded state
     case "SET_DATA_LOADED":
       return { ...state, dataLoaded: action.value };
+    // AI Assistant
+    case "SET_AI_PREFERENCES":
+      return { ...state, ai_preferences: action.value };
+    case "UPDATE_AI_PREFERENCES":
+      return { ...state, ai_preferences: { ...state.ai_preferences, ...action.value } };
+    case "SET_CONVERSATIONS":
+      return { ...state, conversations: action.value };
+    case "SET_ACTIVE_CONVERSATION":
+      return { ...state, activeConversation: action.value };
+    case "ADD_MESSAGE":
+      return {
+        ...state,
+        activeConversation: {
+          ...state.activeConversation,
+          messages: [...(state.activeConversation?.messages || []), action.value],
+        },
+      };
+    case "SET_MEMORIES":
+      return { ...state, memories: action.value };
+    case "ADD_MEMORY":
+      return { ...state, memories: [...state.memories, action.value] };
+    case "UPDATE_MEMORY":
+      return {
+        ...state,
+        memories: state.memories.map((m) => (m.id === action.value.id ? { ...m, ...action.value } : m)),
+      };
+    case "REMOVE_MEMORY":
+      return { ...state, memories: state.memories.filter((m) => m.id !== action.value.id) };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -482,6 +514,22 @@ function FamilyProvider({ children }) {
           console.log("[supabase] v3 tables not available yet:", e.message);
         }
 
+        // Load AI Assistant data
+        try {
+          const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
+          const [aiPrefs, memoriesData, conversationsData] = await Promise.all([
+            fetchAIPreferences(family.id),
+            fetchMemories(family.id),
+            fetchConversations(family.id, 10),
+          ]);
+
+          if (aiPrefs) dispatch({ type: "SET_AI_PREFERENCES", value: aiPrefs });
+          dispatch({ type: "SET_MEMORIES", value: memoriesData });
+          dispatch({ type: "SET_CONVERSATIONS", value: conversationsData });
+        } catch (e) {
+          console.log("[supabase] AI tables not available yet:", e.message);
+        }
+
         // Mark data as loaded after all queries complete
         dispatch({ type: "SET_DATA_LOADED", value: true });
       } catch (e) {
@@ -622,6 +670,42 @@ function FamilyProvider({ children }) {
             }
             persist("families", "update", famUpdate);
           }
+          break;
+        }
+        case "UPDATE_AI_PREFERENCES": {
+          import("lib/supabase").then(({ updateAIPreferences }) => {
+            updateAIPreferences(state.family.id, action.value);
+          });
+          break;
+        }
+        case "ADD_MESSAGE": {
+          import("lib/supabase").then(({ createMessage }) => {
+            if (state.activeConversation) {
+              createMessage(
+                state.activeConversation.id,
+                action.value.role,
+                action.value.content,
+                action.value.actions || []
+              );
+            }
+          });
+          break;
+        }
+        case "ADD_MEMORY": {
+          import("lib/supabase").then(({ createMemory }) => {
+            createMemory(
+              state.family.id,
+              action.value.category,
+              action.value.content,
+              action.value.source_conversation_id || null
+            );
+          });
+          break;
+        }
+        case "REMOVE_MEMORY": {
+          import("lib/supabase").then(({ deleteMemory }) => {
+            deleteMemory(action.value.id);
+          });
           break;
         }
         default:

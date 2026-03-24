@@ -170,3 +170,169 @@ export async function deletePhoto(photo) {
   await supabase.storage.from("photos").remove([photo.storage_path]);
   await supabase.from("photos").delete().eq("id", photo.id);
 }
+
+// ── AI Preferences ──
+export async function fetchAIPreferences(familyId) {
+  const { data, error } = await supabase
+    .from("ai_preferences")
+    .select("*")
+    .eq("family_id", familyId)
+    .single();
+  if (error) {
+    console.warn("fetchAIPreferences error:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateAIPreferences(familyId, preferences) {
+  const { data, error } = await supabase
+    .from("ai_preferences")
+    .upsert({ family_id: familyId, ...preferences })
+    .select()
+    .single();
+  if (error) {
+    console.warn("updateAIPreferences error:", error);
+    return null;
+  }
+  return data;
+}
+
+// ── Conversations ──
+export async function fetchConversations(familyId, limit = 10) {
+  const { data, error } = await supabase
+    .from("ai_conversations")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.warn("fetchConversations error:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createConversation(familyId, title = null) {
+  const { data, error } = await supabase
+    .from("ai_conversations")
+    .insert({
+      family_id: familyId,
+      title: title,
+    })
+    .select()
+    .single();
+  if (error) {
+    console.warn("createConversation error:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateConversation(conversationId, updates) {
+  const { data, error } = await supabase
+    .from("ai_conversations")
+    .update(updates)
+    .eq("id", conversationId)
+    .select()
+    .single();
+  if (error) {
+    console.warn("updateConversation error:", error);
+    return null;
+  }
+  return data;
+}
+
+// ── Messages ──
+export async function fetchMessages(conversationId) {
+  const { data, error } = await supabase
+    .from("ai_messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.warn("fetchMessages error:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createMessage(conversationId, role, content, actions = []) {
+  const { data, error } = await supabase
+    .from("ai_messages")
+    .insert({
+      conversation_id: conversationId,
+      role: role,
+      content: content,
+      actions: actions,
+    })
+    .select()
+    .single();
+  if (error) {
+    console.warn("createMessage error:", error);
+    return null;
+  }
+  return data;
+}
+
+// ── Memories ──
+export async function fetchMemories(familyId, activeOnly = true) {
+  let query = supabase
+    .from("ai_memories")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: false });
+
+  if (activeOnly) {
+    query = query.eq("active", true);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn("fetchMemories error:", error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function createMemory(familyId, category, content, sourceConversationId = null) {
+  const { data, error } = await supabase
+    .from("ai_memories")
+    .insert({
+      family_id: familyId,
+      category: category,
+      content: content,
+      source_conversation_id: sourceConversationId,
+    })
+    .select()
+    .single();
+  if (error) {
+    console.warn("createMemory error:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateMemory(memoryId, updates) {
+  const { data, error } = await supabase
+    .from("ai_memories")
+    .update(updates)
+    .eq("id", memoryId)
+    .select()
+    .single();
+  if (error) {
+    console.warn("updateMemory error:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function deleteMemory(memoryId) {
+  const { error } = await supabase
+    .from("ai_memories")
+    .delete()
+    .eq("id", memoryId);
+  if (error) {
+    console.warn("deleteMemory error:", error);
+  }
+}

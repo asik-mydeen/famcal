@@ -20,7 +20,7 @@ import CountdownWidget from "components/CountdownWidget";
 import { fetchWeather } from "lib/weather";
 import SpeedDial from "@mui/material/SpeedDial";
 import SpeedDialAction from "@mui/material/SpeedDialAction";
-import AICommandBar from "components/AICommandBar";
+import AIAssistant from "components/AIAssistant";
 
 import FamilyCalendar from "layouts/family-calendar";
 import Chores from "layouts/chores";
@@ -501,8 +501,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
         />
       </SpeedDial>
 
-      {/* AI Command Bar */}
-      <AICommandBar
+      {/* AI Assistant */}
+      <AIAssistant
         familyId={family?.id}
         dispatch={persistingDispatch}
         state={state}

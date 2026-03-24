@@ -30,7 +30,7 @@ import PhotoFrame from "components/PhotoFrame";
 import KioskWrapper from "components/KioskWrapper";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
-import AICommandBar from "components/AICommandBar";
+import AIAssistant from "components/AIAssistant";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
@@ -715,7 +715,7 @@ export default function App() {
                 sx={{ bgcolor: "background.paper" }}
               />
             </SpeedDial>}
-            <AICommandBar
+            <AIAssistant
               familyId={family?.id}
               dispatch={dispatch}
               state={state}

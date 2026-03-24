@@ -47,12 +47,17 @@ export function buildAIContext(state, currentPage) {
   };
 }
 
-export async function sendAIMessage(messages, context) {
+export async function sendAIMessage(messages, context, aiPreferences = null, memories = null) {
   try {
     const res = await fetch(apiUrl("/api/chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, context }),
+      body: JSON.stringify({
+        messages,
+        context,
+        ai_preferences: aiPreferences,
+        memories: memories?.filter((m) => m.active).slice(0, 50),
+      }),
     });
 
     if (!res.ok) {
