@@ -1,4 +1,10 @@
 import { generateText, gateway } from "ai";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || "https://your-project.supabase.co",
+  process.env.SUPABASE_ANON_KEY || "your-anon-key"
+);
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,7 +14,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { messages, context, message } = req.body || {};
+  const { messages, context, message, ai_preferences, memories, conversation_id } = req.body || {};
 
   // Support both formats: {messages: [...]} (new) or {message: "..."} (legacy)
   const chatMessages = messages || (message ? [{ role: "user", content: message }] : []);
@@ -60,7 +66,8 @@ export default async function handler(req, res) {
     return `- "${n.text}" by ${who}${n.pinned ? " (pinned)" : ""} (id: ${n.id})`;
   }).join("\n") || "None";
 
-  const systemPrompt = `You are FamCal AI, a warm and helpful family assistant for a wall-mounted family calendar app.
+  // ── Layer 1: Base Prompt ──
+  let systemPrompt = `You are FamCal AI, a warm and helpful family assistant for a wall-mounted family calendar app.
 
 TODAY: ${today} (${dayName})
 CURRENT PAGE: ${ctx.currentPage || "unknown"}
@@ -140,6 +147,38 @@ RULES:
 7. Be warm, concise, family-friendly. Address members by name.
 8. For queries ("how many points?", "what's for dinner?"), use reply text + info action with no data changes.`;
 
+  // ── Layer 2: Preferences ──
+  if (ai_preferences) {
+    const prefs = [];
+    if (ai_preferences.personality) prefs.push(`Personality: ${ai_preferences.personality}`);
+    if (ai_preferences.cuisine_preferences?.length) prefs.push(`Cuisine preferences: ${ai_preferences.cuisine_preferences.join(", ")}`);
+    if (ai_preferences.dietary_restrictions?.length) prefs.push(`Dietary restrictions: ${ai_preferences.dietary_restrictions.join(", ")}`);
+    if (ai_preferences.tone) prefs.push(`Communication tone: ${ai_preferences.tone}`);
+    if (ai_preferences.custom_instructions) prefs.push(`Custom instructions: ${ai_preferences.custom_instructions}`);
+
+    if (prefs.length > 0) {
+      systemPrompt += `\n\n── PREFERENCES ──\n${prefs.join("\n")}`;
+    }
+
+    // Meal planning behavior
+    if (ai_preferences.cuisine_preferences?.length) {
+      systemPrompt += `\n\nMEAL PLANNING BEHAVIOR:
+When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"), suggest 3 meals matching the family's cuisine preferences. List any missing ingredients, then ask for confirmation. Once confirmed, use add_meal for the chosen meal and add_list_items to add missing ingredients to the grocery list.`;
+    }
+  }
+
+  // ── Layer 3: Memories ──
+  if (memories && Array.isArray(memories) && memories.length > 0) {
+    const memoryLines = memories
+      .filter(m => m.active)
+      .slice(0, 10) // Limit to most recent 10
+      .map(m => `- ${m.content}`)
+      .join("\n");
+    if (memoryLines) {
+      systemPrompt += `\n\n── YOU REMEMBER ──\n${memoryLines}`;
+    }
+  }
+
   try {
     const result = await generateText({
       model: gateway("anthropic/claude-haiku-4-5"),
@@ -159,9 +198,81 @@ RULES:
       parsed = { reply: text, actions: [] };
     }
 
+    // ── Persist conversation to Supabase ──
+    let finalConversationId = conversation_id;
+
+    if (ctx.familyId) {
+      try {
+        if (conversation_id) {
+          // Append to existing conversation
+          const userMessage = chatMessages[chatMessages.length - 1];
+
+          // Insert user message
+          await supabase.from("conversation_messages").insert({
+            conversation_id,
+            role: "user",
+            content: userMessage.content,
+          });
+
+          // Insert assistant response
+          await supabase.from("conversation_messages").insert({
+            conversation_id,
+            role: "assistant",
+            content: parsed.reply || text,
+            actions: parsed.actions || [],
+          });
+
+          // Update conversation metadata
+          await supabase
+            .from("conversations")
+            .update({
+              last_message_at: new Date().toISOString(),
+              message_count: supabase.raw("message_count + 2"),
+            })
+            .eq("id", conversation_id);
+        } else {
+          // Create new conversation
+          const userMessage = chatMessages[chatMessages.length - 1];
+          const title = userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? "..." : "");
+
+          const { data: conv, error: convError } = await supabase
+            .from("conversations")
+            .insert({
+              family_id: ctx.familyId,
+              title,
+              message_count: 2,
+            })
+            .select()
+            .single();
+
+          if (convError) throw convError;
+          finalConversationId = conv.id;
+
+          // Insert messages
+          await supabase.from("conversation_messages").insert([
+            {
+              conversation_id: conv.id,
+              role: "user",
+              content: userMessage.content,
+            },
+            {
+              conversation_id: conv.id,
+              role: "assistant",
+              content: parsed.reply || text,
+              actions: parsed.actions || [],
+            },
+          ]);
+        }
+      } catch (dbErr) {
+        console.error("[ai] Supabase persistence error:", dbErr.message);
+        // Continue without blocking — conversation persistence is non-critical
+      }
+    }
+
     return res.status(200).json({
       reply: parsed.reply || text,
       actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+      conversation_id: finalConversationId,
     });
   } catch (err) {
     console.error("[ai] Error:", err.message, err.cause || "");
