@@ -18,8 +18,6 @@ import PageTransition from "components/PageTransition";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import { fetchWeather } from "lib/weather";
-import SpeedDial from "@mui/material/SpeedDial";
-import SpeedDialAction from "@mui/material/SpeedDialAction";
 import AIAssistant from "components/AIAssistant";
 
 import FamilyCalendar from "layouts/family-calendar";
@@ -474,32 +472,34 @@ function DashboardShell({ data, slug, onDisconnect }) {
         </>
       )}
 
-      {/* SpeedDial FAB — AI + Add */}
-      <SpeedDial
-        ariaLabel="Quick actions"
+      {/* AI Assistant FAB — single tap opens Amara */}
+      <Box
+        onClick={() => setAiOpen(true)}
         sx={{
-          position: "fixed", bottom: { xs: 70, md: 28 }, right: 20, zIndex: 1200,
-          "& .MuiSpeedDial-fab": {
-            background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-            boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
-            "&:hover": { boxShadow: "0 8px 32px rgba(108,92,231,0.6)" },
+          position: "fixed",
+          bottom: { xs: 70, md: 28 },
+          right: 20,
+          zIndex: 1200,
+          width: 56,
+          height: 56,
+          borderRadius: "16px",
+          background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+          boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          touchAction: "manipulation",
+          transition: "all 0.2s ease",
+          "&:hover": {
+            boxShadow: "0 8px 32px rgba(108,92,231,0.6)",
+            transform: "scale(1.05)",
           },
+          "&:active": { transform: "scale(0.95)" },
         }}
-        icon={<Icon>add</Icon>}
       >
-        <SpeedDialAction
-          icon={<Icon>auto_awesome</Icon>}
-          tooltipTitle="Ask AI"
-          onClick={() => setAiOpen(true)}
-          sx={{ bgcolor: "background.paper", "& .MuiSvgIcon-root, & .MuiIcon-root": { color: "#6C5CE7" } }}
-        />
-        <SpeedDialAction
-          icon={<Icon>edit_calendar</Icon>}
-          tooltipTitle="Add Manually"
-          onClick={() => navigate(`/d/${slug}/${activeTab}`)}
-          sx={{ bgcolor: "background.paper" }}
-        />
-      </SpeedDial>
+        <Icon sx={{ color: "#fff", fontSize: "1.5rem" }}>auto_awesome</Icon>
+      </Box>
 
       {/* AI Assistant */}
       <AIAssistant

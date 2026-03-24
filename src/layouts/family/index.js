@@ -526,8 +526,10 @@ function Family() {
         onClick={openAddDialog}
         sx={{
           position: "fixed",
-          bottom: 160,
-          right: 20,
+          bottom: { xs: 90, md: 28 },
+          left: { xs: "50%", md: 28 },
+          transform: { xs: "translateX(-50%)", md: "none" },
+          right: "auto",
           background: "linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)",
           color: "#fff",
           "&:hover": {
