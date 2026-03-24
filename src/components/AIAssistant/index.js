@@ -8,7 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import CircularProgress from "@mui/material/CircularProgress";
+// CircularProgress replaced by TypingIndicator
 import { AnimatePresence } from "framer-motion";
 import { useThemeMode } from "context/ThemeContext";
 import { sendAIMessage, buildAIContext } from "lib/ai";
@@ -17,7 +17,7 @@ import { getDynamicSuggestions } from "lib/aiSuggestions";
 
 // Import sub-components (will be created by agent)
 import MemoryChip from "./MemoryChip";
-import MessageBubble from "./MessageBubble";
+import MessageBubble, { TypingIndicator } from "./MessageBubble";
 import SuggestionPill from "./SuggestionPill";
 
 
@@ -421,14 +421,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             />
           ))}
         </AnimatePresence>
-        {loading && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2 }}>
-            <CircularProgress size={16} sx={{ color: "primary.main" }} />
-            <Typography sx={{ fontSize: "0.85rem", color: "text.secondary" }}>
-              {aiPreferences.assistant_name || "Amara"} is thinking...
-            </Typography>
-          </Box>
-        )}
+        {loading && <TypingIndicator />}
       </Box>
     );
   };
@@ -444,12 +437,26 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           py: 2,
           display: "flex",
           flexDirection: "column",
-          gap: 1.5,
+          gap: 2,
           alignItems: "flex-start",
         }}
       >
+        {/* Welcome message */}
+        <Box sx={{
+          display: "flex", alignItems: "center", gap: 1.5,
+          p: 2, borderRadius: "14px",
+          background: darkMode ? "rgba(108,92,231,0.08)" : "rgba(108,92,231,0.04)",
+          border: `1px solid ${darkMode ? "rgba(108,92,231,0.15)" : "rgba(108,92,231,0.08)"}`,
+          width: "100%",
+        }}>
+          <Icon sx={{ color: "#6C5CE7", fontSize: "1.4rem" }}>auto_awesome</Icon>
+          <Typography sx={{ fontSize: "0.88rem", color: "text.secondary", lineHeight: 1.5 }}>
+            Hi! I&apos;m <strong>{aiPreferences.assistant_name || "Amara"}</strong>, your family assistant.
+            I can plan meals, manage chores, update your calendar, and more.
+          </Typography>
+        </Box>
         <Typography sx={{ fontSize: "0.8rem", color: "text.secondary", fontWeight: 500 }}>
-          Quick suggestions
+          Try asking
         </Typography>
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
           {suggestions.map((sug, idx) => (

@@ -145,7 +145,16 @@ RULES:
 5. When updating/deleting, find the item by name in the data above and use its ID.
 6. Multiple actions OK (e.g., "add eggs, milk, bread to groceries" = one add_list_items).
 7. Be warm, concise, family-friendly. Address members by name.
-8. For queries ("how many points?", "what's for dinner?"), use reply text + info action with no data changes.`;
+8. For queries ("how many points?", "what's for dinner?"), use reply text + info action with no data changes.
+
+CRITICAL — YOU MUST FOLLOW THESE:
+1. Your ENTIRE response must be valid JSON: {"reply":"...","actions":[...]}
+2. NEVER describe an action in your reply text without ALSO including it in the actions array.
+3. If you say "I've added X" or "I'm planning X", there MUST be corresponding actions.
+4. For meal planning: include an add_meal action for EACH meal you plan. Do not just list them in text.
+5. For bulk operations (many meals, many list items), you may use multiple actions. There is no limit on the number of actions.
+6. Keep your reply text SHORT (2-3 sentences summary). Put the details in the actions.
+7. NEVER respond with plain text. ALWAYS respond with JSON.`;
 
   // ── Layer 2: Preferences ──
   if (ai_preferences) {
@@ -185,7 +194,7 @@ When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"),
       model: gateway("anthropic/claude-haiku-4-5"),
       system: systemPrompt,
       messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
-      maxTokens: 4096,
+      maxTokens: 8192,
     });
 
     const text = (result.text || "").trim();
@@ -233,12 +242,18 @@ When the user mentions ingredients (e.g., "I have chicken, rice, and broccoli"),
             actions: parsed.actions || [],
           });
 
-          // Update conversation metadata
+          // Update conversation metadata — get current count first, then update
+          const { data: convData } = await supabase
+            .from("conversations")
+            .select("message_count")
+            .eq("id", conversation_id)
+            .single();
+          const newCount = (convData?.message_count || 0) + 2;
           await supabase
             .from("conversations")
             .update({
               last_message_at: new Date().toISOString(),
-              message_count: supabase.raw("message_count + 2"),
+              message_count: newCount,
             })
             .eq("id", conversation_id);
         } else {
