@@ -298,11 +298,12 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             });
             executed.push(action.type);
             break;
-          case "add_list_items":
-            // Find list by name (fuzzy match)
+          case "add_list_items": {
+            // Find list by name OR by id (AI may send either)
             const targetList = lists.find(
-              (l) => l.name.toLowerCase() === d.list_name?.toLowerCase()
-            );
+              (l) => (d.list_name && l.name.toLowerCase() === d.list_name.toLowerCase()) ||
+                     (d.list_id && l.id === d.list_id)
+            ) || lists.find((l) => l.name.toLowerCase().includes("grocer"));
             if (targetList) {
               const items = Array.isArray(d.items) ? d.items : [d.items];
               items.forEach((itemText) => {
@@ -321,6 +322,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
               executed.push(action.type);
             }
             break;
+          }
           case "toggle_list_item":
             dispatch({
               type: "TOGGLE_LIST_ITEM",
@@ -850,12 +852,16 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
           </MenuItem>
         ) : (
           conversations.slice(0, 10).map((conv) => (
-            <MenuItem key={conv.id} onClick={() => handleSelectConversation(conv)}>
-              <Box>
-                <Typography sx={{ fontSize: "0.9rem", fontWeight: 500 }}>
+            <MenuItem key={conv.id} onClick={() => handleSelectConversation(conv)} sx={{ py: 1.25 }}>
+              <Box sx={{ overflow: "hidden", width: "100%" }}>
+                <Typography sx={{
+                  fontSize: "0.85rem", fontWeight: 500,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  maxWidth: 240,
+                }}>
                   {conv.title || "Untitled conversation"}
                 </Typography>
-                <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+                <Typography sx={{ fontSize: "0.72rem", color: "text.secondary" }}>
                   {conv.message_count || 0} messages
                 </Typography>
               </Box>
