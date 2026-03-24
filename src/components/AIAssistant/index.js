@@ -211,9 +211,20 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
     handleNewChat();
   };
 
-  const handleSelectConversation = (conversation) => {
-    dispatch({ type: "SET_ACTIVE_CONVERSATION", value: conversation });
+  const handleSelectConversation = async (conversation) => {
     setConversationMenuAnchor(null);
+    // Fetch messages from Supabase for this conversation
+    try {
+      const { fetchMessages } = await import("lib/supabase");
+      const messages = await fetchMessages(conversation.id);
+      dispatch({
+        type: "SET_ACTIVE_CONVERSATION",
+        value: { ...conversation, messages: messages || [] },
+      });
+    } catch (e) {
+      console.warn("[ai] Failed to load conversation messages:", e);
+      dispatch({ type: "SET_ACTIVE_CONVERSATION", value: { ...conversation, messages: [] } });
+    }
   };
 
   // Execute actions (copied from AICommandBar, simplified)
