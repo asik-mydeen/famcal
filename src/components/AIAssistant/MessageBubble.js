@@ -280,11 +280,12 @@ function MessageBubble({ role, content, actions, timestamp, onNavigate }) {
             )}
           </Box>
 
-          {/* Action badges — grouped by type with counts */}
+          {/* Action badges — grouped by type with counts (skip 'info' — not actionable) */}
           {actions && actions.length > 0 && (() => {
-            // Group actions by type and count
+            // Group actions by type and count, excluding info
             const grouped = {};
             actions.forEach((a) => {
+              if (a.type === "info") return;
               grouped[a.type] = (grouped[a.type] || 0) + 1;
             });
             const entries = Object.entries(grouped);
