@@ -55,6 +55,14 @@ export function clearCachedToken(memberId) {
   localStorage.removeItem(`famcal_gtoken_${memberId}`);
 }
 
+/**
+ * Check if a member has a valid (non-expired) Google Calendar token.
+ * UI should use this to show real "connected" vs "needs reconnect" status.
+ */
+export function hasValidToken(memberId) {
+  return getCachedToken(memberId) !== null;
+}
+
 // ── OAuth: connect a member to Google Calendar ──
 
 // Request token for sync — uses login_hint to silently target the right Google account.

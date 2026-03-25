@@ -29,7 +29,7 @@ import PropTypes from "prop-types";
 import { motion } from "framer-motion";
 
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
-import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle } from "lib/googleCalendar";
+import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle, hasValidToken } from "lib/googleCalendar";
 import { useAppTheme } from "context/ThemeContext";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
@@ -493,7 +493,7 @@ function FamilyCalendar() {
     dispatch({ type: "UPDATE_MEMBER", value: { id: member.id, google_calendar_id: "" } });
   }, [dispatch]);
 
-  const connectedCount = members.filter((m) => m.google_calendar_id).length;
+  const connectedCount = members.filter((m) => m.google_calendar_id && hasValidToken(m.id)).length;
   const syncTooltip = lastSyncTime ? `Last: ${lastSyncTime.toLocaleTimeString()}` : "Sync calendars";
 
   // Auto-sync: initial sync on load + background polling every 30s
@@ -679,21 +679,33 @@ function FamilyCalendar() {
           {/* Member strip */}
           <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, mb: 2.5, overflowX: "auto", pb: 0.5, px: 0.5 }}>
             {members.map((m) => {
-              const connected = Boolean(m.google_calendar_id);
+              const hasCalId = Boolean(m.google_calendar_id);
+              const tokenValid = hasCalId && hasValidToken(m.id);
+              const needsReconnect = hasCalId && !tokenValid;
+              const tooltip = isDashboard
+                ? (needsReconnect ? "Reconnect via web portal" : hasCalId ? "Connected" : "Connect via web portal")
+                : needsReconnect ? "Token expired — tap to reconnect"
+                : hasCalId ? "Connected — tap to disconnect"
+                : "Tap to connect Google Calendar";
               return (
-                <Tooltip key={m.id} title={connected ? `Connected — tap to disconnect` : "Tap to connect Google Calendar"} arrow>
-                  <Box onClick={() => !isDashboard && (connected ? handleDisconnectMember(m) : handleConnectMember(m))}
-                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
+                <Tooltip key={m.id} title={tooltip} arrow>
+                  <Box onClick={() => !isDashboard && (hasCalId ? (needsReconnect ? handleConnectMember(m) : handleDisconnectMember(m)) : handleConnectMember(m))}
+                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: isDashboard ? "default" : "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
                   >
                     <Box sx={{ position: "relative", mb: 0.5 }}>
                       <Avatar src={m.avatar_url || undefined}
-                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: connected ? `3px solid ${m.avatar_color}` : "3px solid transparent", transition: "border 0.2s" }}
+                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: tokenValid ? `3px solid ${m.avatar_color}` : needsReconnect ? `3px solid ${tokens.priority.medium}` : "3px solid transparent", transition: "border 0.2s" }}
                       >
                         <Icon sx={{ fontSize: "1.3rem !important", color: "#fff" }}>person</Icon>
                       </Avatar>
-                      {connected && (
+                      {tokenValid && (
                         <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: "success.main", border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>check</Icon>
+                        </Box>
+                      )}
+                      {needsReconnect && (
+                        <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: tokens.priority.medium, border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>sync_problem</Icon>
                         </Box>
                       )}
                     </Box>
