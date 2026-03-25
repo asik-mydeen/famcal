@@ -75,11 +75,15 @@ function Chores() {
   // --- Computed Stats ---
   const stats = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
-    const todayTasks = tasks.filter((t) => t.due_date === today);
-    const completed = todayTasks.filter((t) => t.completed).length;
-    const pending = todayTasks.filter((t) => !t.completed).length;
+    // Today's tasks: due today + all recurring tasks
+    const todayTasks = tasks.filter((t) => t.due_date === today || t.recurring);
+    // Completed: non-recurring completed OR recurring completed today
+    const isCompletedToday = (t) =>
+      t.completed || (t.recurring && t.completed_at === today);
+    const completed = todayTasks.filter(isCompletedToday).length;
+    const pending = todayTasks.filter((t) => !isCompletedToday(t)).length;
     const pointsToday = todayTasks
-      .filter((t) => t.completed)
+      .filter(isCompletedToday)
       .reduce((sum, t) => sum + (t.points_value || 0), 0);
 
     return {
@@ -103,11 +107,15 @@ function Chores() {
     if (viewMode === "list") {
       const today = new Date().toISOString().split("T")[0];
       if (listFilter === "today") {
-        filtered = filtered.filter((t) => t.due_date === today);
+        // Show tasks due today + recurring tasks (they're always "due today")
+        filtered = filtered.filter((t) => t.due_date === today || t.recurring);
       } else if (listFilter === "upcoming") {
         filtered = filtered.filter((t) => t.due_date > today && !t.completed);
       } else if (listFilter === "done") {
-        filtered = filtered.filter((t) => t.completed);
+        // Non-recurring: permanently completed. Recurring: completed today.
+        filtered = filtered.filter((t) =>
+          t.completed || (t.recurring && t.completed_at === today)
+        );
       }
     }
 
@@ -152,10 +160,17 @@ function Chores() {
     })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
   };
 
-  const handleToggleComplete = (taskId, date, memberId) => {
+  const handleToggleComplete = (taskId, date, memberId, dateStr) => {
     dispatch({
       type: "COMPLETE_TASK",
-      value: { taskId, memberId },
+      value: { taskId, memberId, date: dateStr || new Date().toISOString().split("T")[0] },
+    });
+  };
+
+  const handleUncomplete = (taskId) => {
+    dispatch({
+      type: "UNCOMPLETE_TASK",
+      value: { taskId },
     });
   };
 
@@ -508,6 +523,7 @@ function Chores() {
               members={members}
               weekStart={weekStart}
               onToggleComplete={handleToggleComplete}
+              onUncomplete={handleUncomplete}
             />
           </GlassCard>
         )}
@@ -587,8 +603,8 @@ function Chores() {
                             fontWeight={600}
                             color={darkMode ? "#fff" : "#1a1a1a"}
                             sx={{
-                              textDecoration: task.completed ? "line-through" : "none",
-                              opacity: task.completed ? 0.6 : 1,
+                              textDecoration: (task.completed || (task.recurring && task.completed_at === new Date().toISOString().split("T")[0])) ? "line-through" : "none",
+                              opacity: (task.completed || (task.recurring && task.completed_at === new Date().toISOString().split("T")[0])) ? 0.6 : 1,
                             }}
                           >
                             {task.title}
@@ -719,23 +735,40 @@ function Chores() {
 
                         {/* Actions */}
                         <Box display="flex" gap={1}>
-                          {!task.completed ? (
-                            <Tooltip title="Complete">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  handleToggleComplete(task.id, new Date(), task.assigned_to)
-                                }
-                                sx={{
-                                  color: tokens.priority.low,
-                                }}
-                              >
-                                <Icon>check_circle_outline</Icon>
-                              </IconButton>
-                            </Tooltip>
-                          ) : (
-                            <Icon sx={{ fontSize: "1.5rem !important", color: tokens.priority.low, mt: 0.5 }}>check_circle</Icon>
-                          )}
+                          {(() => {
+                            const todayStr = new Date().toISOString().split("T")[0];
+                            const isDoneToday = task.completed_at === todayStr;
+                            // Recurring: completable daily. Non-recurring: one-time toggle.
+                            const showComplete = task.recurring ? !isDoneToday : !task.completed;
+                            const showUndo = task.recurring ? isDoneToday : task.completed;
+                            if (showComplete) {
+                              return (
+                                <Tooltip title="Complete">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleToggleComplete(task.id, new Date(), task.assigned_to)}
+                                    sx={{ color: tokens.priority.low }}
+                                  >
+                                    <Icon>check_circle_outline</Icon>
+                                  </IconButton>
+                                </Tooltip>
+                              );
+                            }
+                            if (showUndo) {
+                              return (
+                                <Tooltip title="Undo completion">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUncomplete(task.id)}
+                                    sx={{ color: tokens.priority.low }}
+                                  >
+                                    <Icon>check_circle</Icon>
+                                  </IconButton>
+                                </Tooltip>
+                              );
+                            }
+                            return null;
+                          })()}
                           <Tooltip title="Edit">
                             <IconButton
                               size="small"

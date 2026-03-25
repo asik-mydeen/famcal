@@ -124,16 +124,54 @@ function reducer(state, action) {
       return { ...state, tasks };
     }
     case "COMPLETE_TASK": {
+      const completionDate = action.value.date || todayStr;
+      const task = state.tasks.find((t) => t.id === action.value.taskId);
+      if (!task) return state;
+      // Recurring tasks: don't set completed=true (they reset daily)
+      // Non-recurring: set completed=true (permanent)
       const tasks = state.tasks.map((t) => {
         if (t.id === action.value.taskId) {
-          return { ...t, completed: true, completed_at: todayStr, completed_by: action.value.memberId };
+          return {
+            ...t,
+            completed: !t.recurring,
+            completed_at: completionDate,
+            completed_by: action.value.memberId,
+          };
         }
         return t;
       });
+      // Award points + update streak
       const members = state.members.map((m) => {
         if (m.id === action.value.memberId) {
-          const task = state.tasks.find((t) => t.id === action.value.taskId);
-          const newPoints = m.points + (task ? task.points_value : 0);
+          const newPoints = m.points + (task.points_value || 10);
+          const newLevel = Math.floor(newPoints / 100) + 1;
+          // Streak: check if member completed anything yesterday
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yStr = yesterday.toISOString().split("T")[0];
+          const hadYesterday = state.tasks.some(
+            (t) => t.completed_by === m.id && t.completed_at === yStr
+          );
+          const newStreak = hadYesterday ? (m.streak_days || 0) + 1 : 1;
+          return { ...m, points: newPoints, level: newLevel, streak_days: newStreak };
+        }
+        return m;
+      });
+      return { ...state, tasks, members };
+    }
+    case "UNCOMPLETE_TASK": {
+      const task = state.tasks.find((t) => t.id === action.value.taskId);
+      if (!task) return state;
+      const tasks = state.tasks.map((t) => {
+        if (t.id === action.value.taskId) {
+          return { ...t, completed: false, completed_at: null, completed_by: null };
+        }
+        return t;
+      });
+      // Deduct points
+      const members = state.members.map((m) => {
+        if (m.id === task.completed_by) {
+          const newPoints = Math.max(0, m.points - (task.points_value || 10));
           const newLevel = Math.floor(newPoints / 100) + 1;
           return { ...m, points: newPoints, level: newLevel };
         }
@@ -607,11 +645,28 @@ function FamilyProvider({ children }) {
         case "COMPLETE_TASK": {
           const task = state.tasks.find((t) => t.id === action.value.taskId);
           if (task) {
-            persist("tasks", "update", { id: task.id, completed: true, completed_at: new Date().toISOString(), completed_by: action.value.memberId });
-            // Also update member points
+            const completedFlag = !task.recurring; // recurring stays false
+            persist("tasks", "update", { id: task.id, completed: completedFlag, completed_at: new Date().toISOString(), completed_by: action.value.memberId });
             const member = state.members.find((m) => m.id === action.value.memberId);
             if (member) {
-              const newPoints = member.points + task.points_value;
+              const newPoints = member.points + (task.points_value || 10);
+              const newLevel = Math.floor(newPoints / 100) + 1;
+              const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+              const yStr = yesterday.toISOString().split("T")[0];
+              const hadYesterday = state.tasks.some((t) => t.completed_by === member.id && t.completed_at === yStr);
+              const newStreak = hadYesterday ? (member.streak_days || 0) + 1 : 1;
+              persist("family_members", "update", { id: member.id, points: newPoints, level: newLevel, streak_days: newStreak });
+            }
+          }
+          break;
+        }
+        case "UNCOMPLETE_TASK": {
+          const task = state.tasks.find((t) => t.id === action.value.taskId);
+          if (task) {
+            persist("tasks", "update", { id: task.id, completed: false, completed_at: null, completed_by: null });
+            const member = state.members.find((m) => m.id === task.completed_by);
+            if (member) {
+              const newPoints = Math.max(0, member.points - (task.points_value || 10));
               persist("family_members", "update", { id: member.id, points: newPoints, level: Math.floor(newPoints / 100) + 1 });
             }
           }

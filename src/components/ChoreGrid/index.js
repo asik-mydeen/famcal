@@ -1,8 +1,10 @@
+import { useState } from "react";
 import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
 import Tooltip from "@mui/material/Tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 
@@ -34,34 +36,37 @@ function isDateInWeek(date, weekStart) {
   return d >= start && d < end;
 }
 
-function ChoreGrid({ tasks, members, weekStart, onToggleComplete }) {
+function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete }) {
   const { tokens, darkMode } = useAppTheme();
   const weekDates = getWeekDates(weekStart);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const [justCompleted, setJustCompleted] = useState(null); // { taskId, dateIdx } for animation
 
-  // Show incomplete tasks + tasks completed THIS week (so user sees green checks)
+  // Show: all recurring + incomplete non-recurring + recently completed non-recurring
   const gridTasks = tasks.filter((t) => {
+    if (t.recurring) return true; // Always show recurring
     if (!t.completed) return true;
-    // Show completed tasks if completed during the displayed week
     if (t.completed_at) return isDateInWeek(t.completed_at, weekStart);
     return false;
   });
 
   // Check if a task applies to a specific date
   const taskAppliesToDate = (task, date) => {
-    if (task.recurring) return true; // Recurring tasks show on all days
+    if (task.recurring) return true;
     if (!task.due_date) return false;
     const dueDate = new Date(task.due_date + "T00:00:00");
     return isSameDay(dueDate, date);
   };
 
   // Check task completion for a specific date
-  const isTaskCompleted = (task, date) => {
-    if (!task.completed) return false;
+  const isTaskCompletedOnDate = (task, date) => {
     if (!task.completed_at) return false;
     const completedDate = new Date(task.completed_at);
-    return isSameDay(completedDate, date);
+    // For recurring: check if completed_at matches this specific date
+    // For non-recurring: completed is permanent
+    if (task.recurring) return isSameDay(completedDate, date);
+    return task.completed;
   };
 
   // Get cell status for a task on a specific date
@@ -73,10 +78,21 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete }) {
     const todayOnly = new Date(today);
     todayOnly.setHours(0, 0, 0, 0);
 
-    if (isTaskCompleted(task, date)) return "done";
-    if (dateOnly < todayOnly) return "missed";
+    if (isTaskCompletedOnDate(task, date)) return "done";
+    if (dateOnly > todayOnly) return "future";
     if (isSameDay(dateOnly, todayOnly)) return "pending";
-    return "future";
+    return "missed"; // past and not completed
+  };
+
+  const handleCellClick = (task, date, dateIdx, status) => {
+    if (status === "done" && onUncomplete) {
+      onUncomplete(task.id);
+    } else if (status === "pending" || status === "missed") {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      onToggleComplete(task.id, date, task.assigned_to, dateStr);
+      setJustCompleted({ taskId: task.id, dateIdx });
+      setTimeout(() => setJustCompleted(null), 1200);
+    }
   };
 
 
@@ -244,16 +260,13 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete }) {
               {weekDates.map((date, idx) => {
                 const status = getCellStatus(task, date);
                 const isToday = isSameDay(date, today);
-                const isPending = status === "pending";
+                const isClickable = status === "pending" || status === "missed" || status === "done";
+                const isAnimating = justCompleted?.taskId === task.id && justCompleted?.dateIdx === idx;
 
                 return (
                   <Box
                     key={idx}
-                    onClick={
-                      isPending
-                        ? () => onToggleComplete(task.id, date, task.assigned_to)
-                        : undefined
-                    }
+                    onClick={isClickable ? () => handleCellClick(task, date, idx, status) : undefined}
                     sx={{
                       p: 2,
                       background: isToday
@@ -262,41 +275,66 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      cursor: isPending ? "pointer" : "default",
-                      touchAction: isPending ? "manipulation" : "none",
+                      position: "relative",
+                      cursor: isClickable ? "pointer" : "default",
+                      touchAction: isClickable ? "manipulation" : "none",
                       transition: "background 0.2s ease, transform 0.15s ease",
-                      ...(isPending && {
+                      ...(isClickable && {
                         "&:hover": {
                           background: alpha(tokens.accent.main, darkMode ? 0.15 : 0.08),
                           transform: "scale(1.05)",
                         },
-                        "&:active": {
-                          transform: "scale(0.98)",
-                        },
+                        "&:active": { transform: "scale(0.98)" },
                       }),
                     }}
                   >
                     {status === "done" && (
                       <Tooltip title={(() => {
                         const cm = members.find((m) => m.id === task.completed_by);
-                        return cm ? `Done by ${cm.name}` : "Completed";
+                        return cm ? `Tap to undo — Done by ${cm.name}` : "Tap to undo";
                       })()} arrow>
-                        <Icon sx={{ fontSize: "24px", color: tokens.priority.low }}>
-                          check_circle
-                        </Icon>
+                        <motion.div
+                          initial={isAnimating ? { scale: 0 } : false}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                        >
+                          <Icon sx={{ fontSize: "24px", color: tokens.priority.low }}>
+                            check_circle
+                          </Icon>
+                        </motion.div>
                       </Tooltip>
                     )}
                     {status === "pending" && (
-                      <Icon sx={{ fontSize: "24px", color: "text.disabled" }}>
-                        radio_button_unchecked
-                      </Icon>
+                      <Tooltip title="Tap to complete" arrow>
+                        <Icon sx={{ fontSize: "24px", color: "text.disabled" }}>
+                          radio_button_unchecked
+                        </Icon>
+                      </Tooltip>
                     )}
                     {status === "missed" && (
-                      <Icon sx={{ fontSize: "24px", color: tokens.priority.high }}>
-                        close
-                      </Icon>
+                      <Tooltip title="Missed — tap to complete late" arrow>
+                        <Icon sx={{ fontSize: "24px", color: tokens.priority.high, opacity: 0.6 }}>
+                          radio_button_unchecked
+                        </Icon>
+                      </Tooltip>
                     )}
                     {(status === "future" || status === "empty") && null}
+                    {/* Points popup animation */}
+                    <AnimatePresence>
+                      {isAnimating && (
+                        <motion.div
+                          initial={{ opacity: 1, y: 0 }}
+                          animate={{ opacity: 0, y: -30 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 1 }}
+                          style={{ position: "absolute", top: 0, pointerEvents: "none" }}
+                        >
+                          <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: tokens.priority.low }}>
+                            +{task.points_value || 10}pt
+                          </Typography>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </Box>
                 );
               })}
@@ -341,6 +379,7 @@ ChoreGrid.propTypes = {
   members: PropTypes.array.isRequired,
   weekStart: PropTypes.instanceOf(Date).isRequired,
   onToggleComplete: PropTypes.func.isRequired,
+  onUncomplete: PropTypes.func,
 };
 
 export default ChoreGrid;
