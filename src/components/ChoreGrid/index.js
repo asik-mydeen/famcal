@@ -56,9 +56,28 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
     return (order[a.priority] ?? 1) - (order[b.priority] ?? 1);
   });
 
-  // Check if a task applies to a specific date
+  // Check if a task applies to a specific date based on recurring pattern
   const taskAppliesToDate = (task, date) => {
-    if (task.recurring) return true;
+    if (task.recurring) {
+      const day = date.getDay(); // 0=Sun, 6=Sat
+      switch (task.recurring_pattern) {
+        case "weekdays": return day >= 1 && day <= 5;
+        case "weekends": return day === 0 || day === 6;
+        case "weekly": {
+          // Show on the same day-of-week as due_date (or every day if no due_date)
+          if (!task.due_date) return true;
+          const dueDay = new Date(task.due_date + "T00:00:00").getDay();
+          return day === dueDay;
+        }
+        case "monthly": {
+          // Show on the same day-of-month as due_date
+          if (!task.due_date) return date.getDate() === 1;
+          const dueDOM = new Date(task.due_date + "T00:00:00").getDate();
+          return date.getDate() === dueDOM;
+        }
+        default: return true; // daily
+      }
+    }
     if (!task.due_date) return false;
     const dueDate = new Date(task.due_date + "T00:00:00");
     return isSameDay(dueDate, date);
