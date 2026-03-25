@@ -187,7 +187,41 @@ export default async function handler(req, res) {
         }
       }
 
-      results.push({ member: member.name, added, updated, removed, total: gEvents.length });
+      // PUSH: Send local manual events TO Google Calendar
+      let pushed = 0;
+      const { data: localEvents } = await supabase
+        .from("events")
+        .select("*")
+        .eq("family_id", memberFamilyId)
+        .eq("member_id", member.id)
+        .eq("source", "manual")
+        .is("google_event_id", null);
+
+      for (const evt of (localEvents || [])) {
+        try {
+          const isAllDay = evt.all_day;
+          const gEvent = isAllDay
+            ? { summary: evt.title, start: { date: evt.start_time.split("T")[0] }, end: { date: (evt.end_time || evt.start_time).split("T")[0] } }
+            : { summary: evt.title, start: { dateTime: evt.start_time }, end: { dateTime: evt.end_time || evt.start_time } };
+
+          const createRes = await fetch(`${CALENDAR_API}/calendars/${encodeURIComponent(member.google_calendar_id)}/events`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify(gEvent),
+          });
+
+          if (createRes.ok) {
+            const created = await createRes.json();
+            // Update Supabase with google_event_id so we don't push it again
+            await supabase.from("events").update({ google_event_id: created.id, source: "synced" }).eq("id", evt.id);
+            pushed++;
+          }
+        } catch (pushErr) {
+          console.warn(`[google-sync] Push failed for event "${evt.title}":`, pushErr.message);
+        }
+      }
+
+      results.push({ member: member.name, added, updated, removed, pushed, total: gEvents.length });
     } catch (err) {
       console.error(`[google-sync] Failed for ${member.name}:`, err.message);
       results.push({ member: member.name, error: err.message });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useReducer } from "react";
+import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from "react";
 import { useParams, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -170,9 +170,14 @@ function DashboardShell({ data, slug, onDisconnect }) {
   }, [members, events, tasks, meals, lists, rewards, notes, countdowns]);
 
   // Persisting dispatch — updates local state AND writes to Supabase via API
+  // Write cooldown: after any local write, skip polls for 10s to prevent
+  // the poll from overwriting optimistic local state with stale API data.
+  const lastWriteRef = useRef(0);
+
   const persistingDispatch = useCallback((action) => {
     // Always update local state first
     dispatch(action);
+    lastWriteRef.current = Date.now();
 
     // Map dispatch actions to API write calls
     const writeToApi = async (apiAction, table, payload) => {
@@ -594,11 +599,16 @@ function Dashboard() {
   }, [slug]);
 
   // Auto-refresh data from Supabase every 5 seconds (seamless real-time feel)
+  // Skip polls for 10s after any local write to prevent overwriting optimistic state
   useEffect(() => {
     if (!authenticated) return;
     const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
     if (!cachedToken) return;
-    const interval = setInterval(() => validateAndLoad(cachedToken), 5000);
+    const interval = setInterval(() => {
+      if (Date.now() - lastWriteRef.current > 10000) {
+        validateAndLoad(cachedToken);
+      }
+    }, 5000);
     return () => clearInterval(interval);
   }, [authenticated, slug, validateAndLoad]);
 
