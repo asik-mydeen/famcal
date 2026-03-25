@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Icon from "@mui/material/Icon";
+import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppTheme } from "context/ThemeContext";
@@ -36,7 +37,7 @@ function isDateInWeek(date, weekStart) {
   return d >= start && d < end;
 }
 
-function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete }) {
+function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, onEdit, onDelete }) {
   const { tokens, darkMode } = useAppTheme();
   const weekDates = getWeekDates(weekStart);
   const today = new Date();
@@ -254,6 +255,19 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete }
                 >
                   {task.points_value || 10}pt
                 </Box>
+                {/* Edit/Delete actions */}
+                <Box sx={{ display: "flex", flexShrink: 0, opacity: 0.4, "&:hover": { opacity: 1 }, transition: "opacity 0.2s" }}>
+                  {onEdit && (
+                    <IconButton size="small" onClick={() => onEdit(task)} sx={{ p: 0.5, color: "text.secondary" }}>
+                      <Icon sx={{ fontSize: "0.9rem !important" }}>edit</Icon>
+                    </IconButton>
+                  )}
+                  {onDelete && (
+                    <IconButton size="small" onClick={() => onDelete(task.id)} sx={{ p: 0.5, color: tokens.priority.high }}>
+                      <Icon sx={{ fontSize: "0.9rem !important" }}>delete</Icon>
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
 
               {/* Day Cells */}
@@ -380,6 +394,8 @@ ChoreGrid.propTypes = {
   weekStart: PropTypes.instanceOf(Date).isRequired,
   onToggleComplete: PropTypes.func.isRequired,
   onUncomplete: PropTypes.func,
+  onEdit: PropTypes.func,
+  onDelete: PropTypes.func,
 };
 
 export default ChoreGrid;

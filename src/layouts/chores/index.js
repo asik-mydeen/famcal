@@ -524,6 +524,8 @@ function Chores() {
               weekStart={weekStart}
               onToggleComplete={handleToggleComplete}
               onUncomplete={handleUncomplete}
+              onEdit={handleOpenEditDialog}
+              onDelete={handleDeleteTask}
             />
           </GlassCard>
         )}
