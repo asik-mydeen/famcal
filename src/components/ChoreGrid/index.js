@@ -130,9 +130,9 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
     >
       <Box
         sx={{
-          minWidth: "800px",
+          minWidth: "900px",
           display: "grid",
-          gridTemplateColumns: "240px repeat(7, 1fr)",
+          gridTemplateColumns: "minmax(260px, 1.5fr) repeat(7, 1fr)",
           gap: "1px",
           background: tokens.glass.overlay,
           border: `1px solid ${tokens.glass.border || "rgba(0,0,0,0.06)"}`,
@@ -242,8 +242,12 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
                       fontWeight={600}
                       color={task.completed ? "text.secondary" : (darkMode ? "#fff" : "#1a1a1a")}
                       sx={{
-                        lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        lineHeight: 1.3,
                         textDecoration: task.completed ? "line-through" : "none",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
                       }}
                     >
                       {task.title}
