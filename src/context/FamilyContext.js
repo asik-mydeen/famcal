@@ -444,6 +444,8 @@ function FamilyProvider({ children }) {
   useEffect(() => {
     const fid = state.family?.id;
     if (!fid || fid === "demo-family" || !state.dataLoaded) return;
+    // Need authenticated user for realtime postgres_changes
+    if (!user) return;
     // Skip if already subscribed to this family
     if (familyIdRef.current === fid) return;
     familyIdRef.current = fid;
@@ -459,7 +461,9 @@ function FamilyProvider({ children }) {
     const MAPPER_MAP = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
     const tables = Object.keys(ACTION_MAP);
 
-    const channel = supabase.channel(`family-realtime-${fid}`);
+    const channel = supabase.channel(`family-realtime-${fid}`, {
+      config: { private: true }, // Requires authenticated user (RLS-compatible)
+    });
 
     tables.forEach((table) => {
       channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${fid}` }, async (payload) => {
@@ -512,7 +516,7 @@ function FamilyProvider({ children }) {
       supabase.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.family?.id, state.dataLoaded]);
+  }, [state.family?.id, state.dataLoaded, user]);
 
   // Load from Supabase on mount (or when user changes)
   useEffect(() => {
