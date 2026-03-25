@@ -234,7 +234,7 @@ export default function Lists() {
                   py: 1,
                   borderRadius: "19px",
                   background: safeActiveListId === list.id
-                    ? tokens.gradients.accentPrimary
+                    ? tokens.gradients.primary
                     : tokens.glass.overlay,
                   color: safeActiveListId === list.id ? "#fff" : "text.primary",
                   cursor: "pointer",
@@ -501,10 +501,10 @@ export default function Lists() {
                 <IconButton
                   type="submit"
                   sx={{
-                    background: tokens.gradients.accentPrimary,
+                    background: tokens.gradients.primary,
                     color: "#fff",
                     "&:hover": {
-                      background: tokens.gradients.accentSecondary,
+                      background: tokens.gradients.primary,
                     },
                     "&:disabled": {
                       opacity: 0.5,
@@ -533,7 +533,7 @@ export default function Lists() {
                 startIcon={<Icon>add</Icon>}
                 onClick={() => setOpenNewListDialog(true)}
                 sx={{
-                  background: tokens.gradients.accentPrimary,
+                  background: tokens.gradients.primary,
                   color: "#fff",
                   textTransform: "none",
                   borderRadius: "12px",
@@ -562,13 +562,13 @@ export default function Lists() {
                 onClick={handleCreateList}
                 disabled={!newListName.trim()}
                 sx={{
-                  background: tokens.gradients.accentPrimary,
+                  background: tokens.gradients.primary,
                   color: "#fff",
                   textTransform: "none",
                   borderRadius: "12px",
                   px: 3,
                   "&:hover": {
-                    background: tokens.gradients.accentSecondary,
+                    background: tokens.gradients.primary,
                   },
                 }}
               >
