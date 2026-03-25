@@ -438,6 +438,42 @@ function FamilyProvider({ children }) {
   const { user } = useAuth();
   const userEmail = user?.email || null;
 
+  // Supabase Realtime: subscribe to all table changes for this family
+  // Dynamically imported to avoid circular dependencies
+  useEffect(() => {
+    if (!state.family?.id || state.family.id === "demo-family" || !state.dataLoaded) return;
+    let channel;
+    import("hooks/useSupabaseRealtime").then(() => {
+      // Use the supabase client directly for realtime
+      channel = supabase.channel(`family-${state.family.id}`);
+      const tables = ["events", "tasks", "family_members", "meals", "lists", "notes", "countdowns", "rewards"];
+      tables.forEach((table) => {
+        channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${state.family.id}` }, async () => {
+          // Refetch the changed table
+          const { data } = await supabase.from(table).select("*").eq("family_id", state.family.id);
+          if (!data) return;
+          const actionMap = { events: "SET_EVENTS", tasks: "SET_TASKS", family_members: "SET_MEMBERS", meals: "SET_MEALS", lists: "SET_LISTS", notes: "SET_NOTES", countdowns: "SET_COUNTDOWNS", rewards: "SET_REWARDS" };
+          const mapperMap = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
+          const mapper = mapperMap[table];
+          const mapped = mapper ? data.map(mapper) : data;
+          // Lists need items merged
+          if (table === "lists") {
+            const ids = data.map((l) => l.id);
+            if (ids.length) {
+              const { data: items } = await supabase.from("list_items").select("*").in("list_id", ids);
+              dispatch({ type: "SET_LISTS", value: data.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
+              return;
+            }
+          }
+          if (actionMap[table]) dispatch({ type: actionMap[table], value: mapped });
+        });
+      });
+      channel.subscribe((status) => console.log("[realtime] FamilyContext:", status));
+    }).catch(() => {}); // Graceful degradation if hook not available
+    return () => { if (channel) supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.family?.id, state.dataLoaded]);
+
   // Load from Supabase on mount (or when user changes)
   useEffect(() => {
     async function loadFromSupabase() {
