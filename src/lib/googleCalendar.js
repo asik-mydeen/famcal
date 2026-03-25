@@ -134,31 +134,77 @@ export function connectMemberCalendar(memberId) {
       return reject(new Error("Google Identity Services not loaded"));
     }
 
+    // Use authorization code flow to get a refresh token for server-side sync.
+    // The auth code is exchanged server-side via /api/google-token for
+    // access_token + refresh_token. Refresh tokens last indefinitely.
+    const codeClient = window.google.accounts.oauth2.initCodeClient({
+      client_id: clientId,
+      scope: SCOPES,
+      ux_mode: "popup",
+      callback: async (resp) => {
+        if (resp.error) return reject(new Error(resp.error));
+
+        try {
+          // Exchange auth code for tokens via server (gets refresh_token)
+          const { apiUrl } = await import("lib/api");
+          const tokenRes = await fetch(apiUrl("/api/google-token"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              code: resp.code,
+              memberId,
+              redirectUri: "postmessage",
+            }),
+          });
+
+          const tokenData = await tokenRes.json();
+
+          if (!tokenRes.ok || tokenData.error) {
+            // Fallback to implicit flow if server exchange fails
+            console.warn("[gcal] Server token exchange failed, falling back to implicit:", tokenData.error);
+            return connectMemberCalendarImplicit(memberId).then(resolve).catch(reject);
+          }
+
+          // Cache access token for immediate client-side use
+          setCachedToken(memberId, tokenData.access_token, tokenData.expires_in || 3600);
+
+          resolve({
+            accessToken: tokenData.access_token,
+            calendarId: tokenData.calendarId || "primary",
+            hasRefreshToken: tokenData.refresh_token, // boolean
+          });
+        } catch (err) {
+          console.warn("[gcal] Code exchange failed, falling back to implicit:", err.message);
+          connectMemberCalendarImplicit(memberId).then(resolve).catch(reject);
+        }
+      },
+    });
+
+    codeClient.requestCode();
+  });
+}
+
+// Fallback: original implicit flow (no refresh token, 1hr access)
+function connectMemberCalendarImplicit(memberId) {
+  return new Promise((resolve, reject) => {
+    const clientId = getGoogleClientId();
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES,
       callback: async (resp) => {
         if (resp.error) return reject(new Error(resp.error));
         setCachedToken(memberId, resp.access_token, resp.expires_in);
-
-        // Fetch the user's primary calendar ID (email)
         try {
           const calRes = await fetch(`${CALENDAR_API}/calendars/primary`, {
             headers: { Authorization: `Bearer ${resp.access_token}` },
           });
           const calData = await calRes.json();
-          resolve({
-            accessToken: resp.access_token,
-            calendarId: calData.id || "primary",
-            calendarName: calData.summary || calData.id,
-          });
-        } catch (err) {
+          resolve({ accessToken: resp.access_token, calendarId: calData.id || "primary" });
+        } catch {
           resolve({ accessToken: resp.access_token, calendarId: "primary" });
         }
       },
     });
-
-    // Force consent prompt for first connection
     tokenClient.requestAccessToken({ prompt: "consent" });
   });
 }

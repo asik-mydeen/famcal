@@ -577,7 +577,7 @@ function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh data from Supabase every 60 seconds
   useEffect(() => {
     if (!authenticated) return;
     const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
@@ -585,6 +585,32 @@ function Dashboard() {
     const interval = setInterval(() => validateAndLoad(cachedToken), 60000);
     return () => clearInterval(interval);
   }, [authenticated, slug, validateAndLoad]);
+
+  // Trigger server-side Google Calendar sync periodically (every 10 min)
+  // This uses stored refresh tokens — no browser Google session needed
+  useEffect(() => {
+    if (!authenticated || !data?.family?.id) return;
+    const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+    if (!cachedToken) return;
+
+    const triggerSync = () => {
+      fetch(apiUrl(`/api/google-sync?familyId=${data.family.id}&token=${cachedToken}`))
+        .then((r) => r.json())
+        .then((result) => {
+          if (result.synced > 0) {
+            console.log("[dashboard] Server-side Google sync:", result.results);
+            // Refresh data to pick up new events
+            validateAndLoad(cachedToken);
+          }
+        })
+        .catch(() => {}); // Silent — best effort
+    };
+
+    // Sync immediately on load, then every 10 minutes
+    triggerSync();
+    const interval = setInterval(triggerSync, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [authenticated, data?.family?.id, slug, validateAndLoad]);
 
   const handleDisconnect = () => {
     localStorage.removeItem(`famcal_dashboard_token_${slug}`);

@@ -4,5 +4,11 @@
   "framework": "create-react-app",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/" }
+  ],
+  "crons": [
+    {
+      "path": "/api/google-sync?familyId=all",
+      "schedule": "*/15 * * * *"
+    }
   ]
 }
