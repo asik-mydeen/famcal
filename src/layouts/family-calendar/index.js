@@ -31,6 +31,7 @@ import { motion } from "framer-motion";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle, hasValidToken } from "lib/googleCalendar";
 import { useAppTheme } from "context/ThemeContext";
+import { apiUrl } from "lib/api";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
@@ -446,10 +447,25 @@ function FamilyCalendar() {
 
   // Sync
   const handleSync = useCallback(async () => {
+    // Dashboard/kiosk: trigger server-side sync instead of client-side
+    if (isDashboard) {
+      setSyncing(true); setSyncMessage("Syncing via server...");
+      try {
+        const cachedToken = localStorage.getItem(`famcal_dashboard_token_${window.location.pathname.split("/d/")[1]}`);
+        if (cachedToken) {
+          const res = await fetch(apiUrl(`/api/google-sync?familyId=${family.id}&token=${cachedToken}`));
+          const result = await res.json();
+          setSyncMessage(result.synced > 0 ? `Synced ${result.synced} calendar(s)` : "All up to date");
+        }
+      } catch { setSyncMessage("Server sync failed"); }
+      setTimeout(() => setSyncMessage(""), 5000);
+      setSyncing(false);
+      return;
+    }
+
     setSyncing(true); setSyncMessage("Syncing...");
     try {
       // silentOnly=true — don't open popups for expired members during sync.
-      // Members needing reconnect will show in the error message.
       const results = await syncAllMembers(members, events, family.id, dispatch, true);
       setLastSyncTime(new Date());
 

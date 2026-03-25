@@ -178,14 +178,17 @@ function DashboardShell({ data, slug, onDisconnect }) {
     const writeToApi = async (apiAction, table, payload) => {
       try {
         const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-        if (!cachedToken) return;
-        await fetch(apiUrl("/api/dashboard-write"), {
+        if (!cachedToken) return null;
+        const res = await fetch(apiUrl("/api/dashboard-write"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug, token: cachedToken, action: apiAction, table, payload }),
         });
+        const result = await res.json();
+        return result?.data || null;
       } catch (err) {
         console.warn("[dashboard-write]", err.message);
+        return null;
       }
     };
 
@@ -200,7 +203,12 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
     switch (action.type) {
       case "ADD_EVENT":
-        writeToApi("insert", "events", eventToDb(action.value));
+        writeToApi("insert", "events", eventToDb(action.value)).then((row) => {
+          if (row?.id && action.value.id) {
+            // Replace temp ID with real UUID so delete/update works
+            dispatch({ type: "UPDATE_EVENT", value: { id: action.value.id, ...row, start: row.start_time, end: row.end_time, allDay: row.all_day, className: row.color } });
+          }
+        });
         break;
       case "UPDATE_EVENT": {
         const { id, ...rest } = action.value;
@@ -218,7 +226,11 @@ function DashboardShell({ data, slug, onDisconnect }) {
         writeToApi("delete", "events", { id: action.value });
         break;
       case "ADD_TASK":
-        writeToApi("insert", "tasks", action.value);
+        writeToApi("insert", "tasks", action.value).then((row) => {
+          if (row?.id && action.value.id) {
+            dispatch({ type: "UPDATE_TASK", value: { id: action.value.id, ...row } });
+          }
+        });
         break;
       case "UPDATE_TASK":
         writeToApi("update", "tasks", action.value);
@@ -241,7 +253,11 @@ function DashboardShell({ data, slug, onDisconnect }) {
         writeToApi("delete", "meals", { id: action.value });
         break;
       case "ADD_LIST":
-        writeToApi("insert", "lists", { name: action.value.name, icon: action.value.icon || "checklist" });
+        writeToApi("insert", "lists", { name: action.value.name, icon: action.value.icon || "checklist" }).then((row) => {
+          if (row?.id && action.value.id) {
+            dispatch({ type: "UPDATE_LIST", value: { id: action.value.id, ...row } });
+          }
+        });
         break;
       case "ADD_LIST_ITEM":
         if (action.value?.item) writeToApi("insert", "list_items", action.value.item);
@@ -577,12 +593,12 @@ function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Auto-refresh data from Supabase every 60 seconds
+  // Auto-refresh data from Supabase every 5 seconds (seamless real-time feel)
   useEffect(() => {
     if (!authenticated) return;
     const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
     if (!cachedToken) return;
-    const interval = setInterval(() => validateAndLoad(cachedToken), 60000);
+    const interval = setInterval(() => validateAndLoad(cachedToken), 5000);
     return () => clearInterval(interval);
   }, [authenticated, slug, validateAndLoad]);
 
