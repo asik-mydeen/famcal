@@ -3,19 +3,38 @@ import { getTokens } from "theme/tokens";
 
 // ── Shared values ──
 
+// Font-specific adjustments for decorative/thin fonts
+// These fonts have limited weight ranges and thinner strokes,
+// so we bump sizes and clamp weights for legibility.
+const FONT_ADJUSTMENTS = {
+  Sacramento: { sizeScale: 1.45, maxWeight: 400, lineHeightBoost: 0.15 },
+  "Dancing Script": { sizeScale: 1.2, maxWeight: 700, lineHeightBoost: 0.1 },
+  Caveat: { sizeScale: 1.25, maxWeight: 700, lineHeightBoost: 0.1 },
+  Quicksand: { sizeScale: 1.05, maxWeight: 700, lineHeightBoost: 0 },
+  "Playfair Display": { sizeScale: 1.0, maxWeight: 900, lineHeightBoost: 0.05 },
+};
+
 function getTypographyBase(fontFamily) {
   const ff = fontFamily || '"Inter", "Helvetica", "Arial", sans-serif';
+
+  // Extract the primary font name from the CSS font-family string
+  const primaryFont = ff.split(",")[0].replace(/['"]/g, "").trim();
+  const adj = FONT_ADJUSTMENTS[primaryFont] || { sizeScale: 1, maxWeight: 900, lineHeightBoost: 0 };
+  const s = adj.sizeScale;
+  const w = (desired) => Math.min(desired, adj.maxWeight);
+  const lh = adj.lineHeightBoost;
+
   return {
   fontFamily: ff,
-  h1: { fontSize: "2.5rem", fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.025em" },
-  h2: { fontSize: "2rem", fontWeight: 700, lineHeight: 1.25, letterSpacing: "-0.02em" },
-  h3: { fontSize: "1.75rem", fontWeight: 700, lineHeight: 1.3, letterSpacing: "-0.015em" },
-  h4: { fontSize: "1.5rem", fontWeight: 600, lineHeight: 1.35 },
-  h5: { fontSize: "1.25rem", fontWeight: 600, lineHeight: 1.4 },
-  h6: { fontSize: "1rem", fontWeight: 600, lineHeight: 1.5 },
-  body1: { fontSize: "0.9375rem", fontWeight: 400, lineHeight: 1.6 },
-  body2: { fontSize: "0.8125rem", fontWeight: 400, lineHeight: 1.6 },
-  button: { fontWeight: 600, textTransform: "none", fontSize: "0.875rem" },
+  h1: { fontSize: `${2.5 * s}rem`, fontWeight: w(800), lineHeight: 1.2 + lh, letterSpacing: "-0.025em" },
+  h2: { fontSize: `${2 * s}rem`, fontWeight: w(700), lineHeight: 1.25 + lh, letterSpacing: "-0.02em" },
+  h3: { fontSize: `${1.75 * s}rem`, fontWeight: w(700), lineHeight: 1.3 + lh, letterSpacing: "-0.015em" },
+  h4: { fontSize: `${1.5 * s}rem`, fontWeight: w(600), lineHeight: 1.35 + lh },
+  h5: { fontSize: `${1.25 * s}rem`, fontWeight: w(600), lineHeight: 1.4 + lh },
+  h6: { fontSize: `${1 * s}rem`, fontWeight: w(600), lineHeight: 1.5 + lh },
+  body1: { fontSize: `${0.9375 * s}rem`, fontWeight: w(400), lineHeight: 1.6 + lh },
+  body2: { fontSize: `${0.8125 * s}rem`, fontWeight: w(400), lineHeight: 1.6 + lh },
+  button: { fontWeight: w(600), textTransform: "none", fontSize: `${0.875 * s}rem` },
   };
 }
 
