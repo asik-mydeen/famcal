@@ -756,7 +756,12 @@ function FamilyProvider({ children }) {
         case "ADD_LIST": {
           import("lib/supabase").then(({ createList }) => {
             const { items: _items, id: _localId, ...listData } = action.value;
-            createList({ ...listData, family_id: state.family.id });
+            createList({ ...listData, family_id: state.family.id }).then((newList) => {
+              if (newList) {
+                // Replace temp ID with real UUID so future item adds use the correct ID
+                dispatch({ type: "UPDATE_LIST", value: { id: action.value.id, ...newList } });
+              }
+            });
           });
           break;
         }
@@ -765,14 +770,20 @@ function FamilyProvider({ children }) {
             const item = action.value.item || action.value;
             const { id: _localId, ...itemData } = item;
             let listId = action.value.listId || item.list_id;
-            // If list has a temp ID, look up the real UUID from Supabase
+            // If list has a temp ID, resolve to real UUID with retry
             if (listId && listId.startsWith("list-")) {
-              const dbLists = await fetchLists(state.family.id);
-              const matchingList = dbLists?.find((l) =>
-                state.lists.some((sl) => sl.id === listId && sl.name.toLowerCase() === l.name.toLowerCase())
-              );
-              if (matchingList) listId = matchingList.id;
-              else return; // List doesn't exist in DB yet
+              let resolved = null;
+              for (let attempt = 0; attempt < 5; attempt++) {
+                const dbLists = await fetchLists(state.family.id);
+                resolved = dbLists?.find((l) =>
+                  state.lists.some((sl) => sl.id === listId && sl.name.toLowerCase() === l.name.toLowerCase())
+                );
+                if (resolved) break;
+                // Wait before retrying — list may still be inserting
+                await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+              }
+              if (resolved) listId = resolved.id;
+              else { console.warn("[persist] ADD_LIST_ITEM: list not found after retries:", listId); return; }
             }
             if (listId) {
               createListItem({ ...itemData, list_id: listId });
