@@ -330,7 +330,7 @@ function Meals() {
                 fullWidth
                 size="small"
               />
-              <Box display="flex" gap={2} alignItems="center">
+              <Box display="flex" gap={2} alignItems="flex-start">
                 <TextField
                   label="Servings"
                   type="number"
@@ -338,23 +338,19 @@ function Meals() {
                   onChange={(e) => setPrefsServings(Math.max(1, parseInt(e.target.value, 10) || 1))}
                   size="small"
                   inputProps={{ min: 1, max: 20 }}
-                  sx={{ width: 100 }}
+                  sx={{ flex: 1 }}
                 />
-                <Box flex={1}>
-                  <Typography variant="caption" color="text.secondary" mb={0.5} display="block">
-                    Cooking time
-                  </Typography>
-                  <Select
-                    value={prefsSpeed}
-                    onChange={(e) => setPrefsSpeed(e.target.value)}
-                    size="small"
-                    fullWidth
-                    sx={{ borderRadius: "8px" }}
-                  >
-                    <MenuItem value="quick">Quick (30 min)</MenuItem>
-                    <MenuItem value="any">Any</MenuItem>
-                  </Select>
-                </Box>
+                <TextField
+                  label="Cooking time"
+                  value={prefsSpeed}
+                  onChange={(e) => setPrefsSpeed(e.target.value)}
+                  size="small"
+                  select
+                  sx={{ flex: 1 }}
+                >
+                  <MenuItem value="quick">Quick (30 min)</MenuItem>
+                  <MenuItem value="any">Any</MenuItem>
+                </TextField>
               </Box>
               {/* Meal planning instructions */}
               <Box>

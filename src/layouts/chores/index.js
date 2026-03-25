@@ -508,7 +508,6 @@ function Chores() {
               members={members}
               weekStart={weekStart}
               onToggleComplete={handleToggleComplete}
-              darkMode={darkMode}
             />
           </GlassCard>
         )}
@@ -686,22 +685,41 @@ function Chores() {
                             </Box>
                             {task.recurring && (
                               <Chip
-                                icon={<Icon sx={{ fontSize: "0.875rem !important" }}>loop</Icon>}
+                                icon={<Icon sx={{ fontSize: "0.875rem !important", color: tokens.accent.light }}>loop</Icon>}
                                 label={task.recurring_pattern || "Daily"}
                                 size="small"
                                 sx={{
                                   height: "24px",
                                   fontSize: "0.7rem",
                                   borderRadius: "12px",
+                                  bgcolor: alpha(tokens.accent.main, 0.08),
+                                  color: tokens.accent.light,
                                 }}
                               />
                             )}
+                            {task.completed && (() => {
+                              const completedMember = members.find((m) => m.id === task.completed_by);
+                              return (
+                                <Chip
+                                  icon={<Icon sx={{ fontSize: "0.875rem !important", color: tokens.priority.low }}>check_circle</Icon>}
+                                  label={completedMember ? `Done by ${completedMember.name?.split(" ")[0]}` : "Completed"}
+                                  size="small"
+                                  sx={{
+                                    height: "24px",
+                                    fontSize: "0.7rem",
+                                    borderRadius: "12px",
+                                    bgcolor: alpha(tokens.priority.low, 0.1),
+                                    color: tokens.priority.low,
+                                  }}
+                                />
+                              );
+                            })()}
                           </Box>
                         </Box>
 
                         {/* Actions */}
                         <Box display="flex" gap={1}>
-                          {!task.completed && (
+                          {!task.completed ? (
                             <Tooltip title="Complete">
                               <IconButton
                                 size="small"
@@ -712,9 +730,11 @@ function Chores() {
                                   color: tokens.priority.low,
                                 }}
                               >
-                                <Icon>check_circle</Icon>
+                                <Icon>check_circle_outline</Icon>
                               </IconButton>
                             </Tooltip>
+                          ) : (
+                            <Icon sx={{ fontSize: "1.5rem !important", color: tokens.priority.low, mt: 0.5 }}>check_circle</Icon>
                           )}
                           <Tooltip title="Edit">
                             <IconButton

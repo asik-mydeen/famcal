@@ -235,7 +235,7 @@ export default function Lists() {
                   borderRadius: "19px",
                   background: safeActiveListId === list.id
                     ? tokens.gradients.accentPrimary
-                    : tokens.glass.surface,
+                    : tokens.glass.overlay,
                   color: safeActiveListId === list.id ? "#fff" : "text.primary",
                   cursor: "pointer",
                   border: safeActiveListId === list.id ? "none" : `1px solid ${tokens.glass.border}`,
@@ -258,7 +258,7 @@ export default function Lists() {
                     borderRadius: "10px",
                     background: activeListId === list.id
                       ? alpha("#ffffff", 0.2)
-                      : tokens.glass.surface,
+                      : tokens.glass.overlay,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -299,10 +299,10 @@ export default function Lists() {
             <IconButton
               onClick={() => setOpenNewListDialog(true)}
               sx={{
-                background: tokens.glass.surface,
+                background: tokens.glass.overlay,
                 border: `1px solid ${tokens.glass.border}`,
                 "&:hover": {
-                  background: tokens.glass.surfaceHover,
+                  background: tokens.glass.overlayHover,
                   transform: "scale(1.05)",
                 },
               }}
@@ -326,7 +326,7 @@ export default function Lists() {
             </Box>
           </GlassCard>
         ) : activeList ? (
-          <GlassCard sx={{ minHeight: 400 }}>
+          <GlassCard sx={{ minHeight: 400, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {/* Clear completed button */}
             {checkedItemsCount > 0 && (
               <Box sx={{ mb: 2, display: "flex", justifyContent: "flex-end" }}>
@@ -469,18 +469,19 @@ export default function Lists() {
               </Box>
             )}
 
-            {/* Add item input (sticky at bottom) */}
+            {/* Add item input (flush with card bottom) */}
             <Box
               component="form"
               onSubmit={handleAddItem}
               sx={{
-                position: "sticky",
-                bottom: 0,
-                mt: 2,
+                mt: "auto",
                 pt: 2,
-                borderTop: `1px solid ${tokens.glass.border}`,
-                background: dark ? alpha("#000000", 0.3) : alpha("#ffffff", 0.8),
-                backdropFilter: "blur(10px)",
+                mx: -2.5,
+                px: 2.5,
+                pb: 2.5,
+                borderTop: `1px solid ${tokens.glass.divider || "divider"}`,
+                background: dark ? tokens.glass.solidBg : "#fafafa",
+                borderRadius: "0 0 20px 20px",
               }}
             >
               <Box sx={{ display: "flex", gap: 1 }}>
@@ -493,7 +494,7 @@ export default function Lists() {
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       borderRadius: "12px",
-                      background: dark ? tokens.glass.surface : "#fff",
+                      background: dark ? tokens.glass.overlay : "#fff",
                     },
                   }}
                 />
