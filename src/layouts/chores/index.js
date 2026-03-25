@@ -119,8 +119,12 @@ function Chores() {
       }
     }
 
-    // Sort by due date
+    // Sort by priority (high first) then due date
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
     return filtered.sort((a, b) => {
+      const pa = priorityOrder[a.priority] ?? 1;
+      const pb = priorityOrder[b.priority] ?? 1;
+      if (pa !== pb) return pa - pb;
       if (!a.due_date) return 1;
       if (!b.due_date) return -1;
       return a.due_date.localeCompare(b.due_date);
@@ -579,6 +583,12 @@ function Chores() {
               {filteredTasks.map((task, idx) => {
                 const member = getMemberById(task.assigned_to);
                 const category = TASK_CATEGORIES.find((c) => c.key === task.category);
+                const todayStr = new Date().toISOString().split("T")[0];
+                const isDone = task.completed || (task.recurring && task.completed_at === todayStr);
+                const isOverdue = !isDone && !task.recurring && task.due_date && task.due_date < todayStr;
+                const daysOverdue = isOverdue ? Math.floor((new Date() - new Date(task.due_date)) / 86400000) : 0;
+                const priorityMultiplier = { high: 2, medium: 1, low: 0.5 }[task.priority] || 1;
+                const earnedPoints = Math.ceil((task.points_value || 10) * priorityMultiplier);
                 return (
                   <motion.div
                     key={task.id}
@@ -590,11 +600,24 @@ function Chores() {
                     <GlassCard
                       sx={{
                         mb: 2,
-                        borderLeft: member
+                        borderLeft: isOverdue
+                          ? daysOverdue >= 3
+                            ? `4px solid ${tokens.priority.high}`
+                            : `4px solid ${tokens.priority.medium}`
+                          : task.priority === "high" && !isDone
+                          ? `4px solid ${tokens.priority.high}`
+                          : member
                           ? `4px solid ${member.avatar_color}`
                           : darkMode
                           ? `4px solid ${alpha("#fff", 0.1)}`
                           : "4px solid #e2e8f0",
+                        ...(isOverdue && daysOverdue >= 3 && {
+                          animation: "pulse-border 2s infinite",
+                          "@keyframes pulse-border": {
+                            "0%, 100%": { borderLeftColor: tokens.priority.high },
+                            "50%": { borderLeftColor: tokens.priority.medium },
+                          },
+                        }),
                       }}
                     >
                       <Box display="flex" alignItems="flex-start" gap={2}>
@@ -680,12 +703,17 @@ function Chores() {
                                 </Typography>
                               </Box>
                             )}
-                            <Box
+                            <Chip
+                              label={task.priority}
+                              size="small"
                               sx={{
-                                width: "8px",
-                                height: "8px",
-                                borderRadius: "50%",
-                                background: getPriorityColor(task.priority),
+                                height: "22px",
+                                fontSize: "0.65rem",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                borderRadius: "8px",
+                                bgcolor: alpha(getPriorityColor(task.priority), 0.12),
+                                color: getPriorityColor(task.priority),
                               }}
                             />
                             <Box
@@ -699,8 +727,27 @@ function Chores() {
                                 color: darkMode ? tokens.accent.light : tokens.accent.main,
                               }}
                             >
-                              {task.points_value}pt
+                              {earnedPoints}pt{priorityMultiplier !== 1 && (
+                                <Typography component="span" sx={{ fontSize: "0.6rem", ml: 0.5, opacity: 0.7 }}>
+                                  ({priorityMultiplier}x)
+                                </Typography>
+                              )}
                             </Box>
+                            {isOverdue && (
+                              <Chip
+                                icon={<Icon sx={{ fontSize: "0.875rem !important", color: daysOverdue >= 3 ? tokens.priority.high : tokens.priority.medium }}>warning</Icon>}
+                                label={daysOverdue === 1 ? "Overdue 1d" : `Overdue ${daysOverdue}d`}
+                                size="small"
+                                sx={{
+                                  height: "24px",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  borderRadius: "12px",
+                                  bgcolor: alpha(daysOverdue >= 3 ? tokens.priority.high : tokens.priority.medium, 0.1),
+                                  color: daysOverdue >= 3 ? tokens.priority.high : tokens.priority.medium,
+                                }}
+                              />
+                            )}
                             {task.recurring && (
                               <Chip
                                 icon={<Icon sx={{ fontSize: "0.875rem !important", color: tokens.accent.light }}>loop</Icon>}

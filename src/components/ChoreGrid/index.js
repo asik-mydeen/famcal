@@ -46,10 +46,14 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
 
   // Show: all recurring + incomplete non-recurring + recently completed non-recurring
   const gridTasks = tasks.filter((t) => {
-    if (t.recurring) return true; // Always show recurring
+    if (t.recurring) return true;
     if (!t.completed) return true;
     if (t.completed_at) return isDateInWeek(t.completed_at, weekStart);
     return false;
+  }).sort((a, b) => {
+    // High priority first
+    const order = { high: 0, medium: 1, low: 2 };
+    return (order[a.priority] ?? 1) - (order[b.priority] ?? 1);
   });
 
   // Check if a task applies to a specific date
@@ -181,6 +185,11 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
+                  borderLeft: task.priority === "high"
+                    ? `3px solid ${tokens.priority.high}`
+                    : task.priority === "low"
+                    ? `3px solid ${alpha(tokens.priority.low, 0.4)}`
+                    : "3px solid transparent",
                 }}
               >
                 {/* Member avatar */}
@@ -253,7 +262,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
                     flexShrink: 0,
                   }}
                 >
-                  {task.points_value || 10}pt
+                  {Math.ceil((task.points_value || 10) * ({ high: 2, medium: 1, low: 0.5 }[task.priority] || 1))}pt
                 </Box>
                 {/* Edit/Delete actions */}
                 <Box sx={{ display: "flex", flexShrink: 0, opacity: 0.4, "&:hover": { opacity: 1 }, transition: "opacity 0.2s" }}>
@@ -344,7 +353,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
                           style={{ position: "absolute", top: 0, pointerEvents: "none" }}
                         >
                           <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: tokens.priority.low }}>
-                            +{task.points_value || 10}pt
+                            +{Math.ceil((task.points_value || 10) * ({ high: 2, medium: 1, low: 0.5 }[task.priority] || 1))}pt
                           </Typography>
                         </motion.div>
                       )}

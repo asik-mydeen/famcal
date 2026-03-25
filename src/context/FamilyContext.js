@@ -140,10 +140,13 @@ function reducer(state, action) {
         }
         return t;
       });
-      // Award points + update streak
+      // Award points with priority multiplier + update streak
+      const PRIORITY_MULTIPLIER = { high: 2, medium: 1, low: 0.5 };
+      const multiplier = PRIORITY_MULTIPLIER[task.priority] || 1;
+      const earnedPoints = Math.ceil((task.points_value || 10) * multiplier);
       const members = state.members.map((m) => {
         if (m.id === action.value.memberId) {
-          const newPoints = m.points + (task.points_value || 10);
+          const newPoints = m.points + earnedPoints;
           const newLevel = Math.floor(newPoints / 100) + 1;
           // Streak: check if member completed anything yesterday
           const yesterday = new Date();
@@ -168,10 +171,12 @@ function reducer(state, action) {
         }
         return t;
       });
-      // Deduct points
+      // Deduct points (with priority multiplier)
+      const PRIORITY_MULTIPLIER_UNDO = { high: 2, medium: 1, low: 0.5 };
+      const deduction = Math.ceil((task.points_value || 10) * (PRIORITY_MULTIPLIER_UNDO[task.priority] || 1));
       const members = state.members.map((m) => {
         if (m.id === task.completed_by) {
-          const newPoints = Math.max(0, m.points - (task.points_value || 10));
+          const newPoints = Math.max(0, m.points - deduction);
           const newLevel = Math.floor(newPoints / 100) + 1;
           return { ...m, points: newPoints, level: newLevel };
         }
@@ -649,7 +654,9 @@ function FamilyProvider({ children }) {
             persist("tasks", "update", { id: task.id, completed: completedFlag, completed_at: new Date().toISOString(), completed_by: action.value.memberId });
             const member = state.members.find((m) => m.id === action.value.memberId);
             if (member) {
-              const newPoints = member.points + (task.points_value || 10);
+              const pmul = { high: 2, medium: 1, low: 0.5 };
+              const earned = Math.ceil((task.points_value || 10) * (pmul[task.priority] || 1));
+              const newPoints = member.points + earned;
               const newLevel = Math.floor(newPoints / 100) + 1;
               const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
               const yStr = yesterday.toISOString().split("T")[0];
@@ -663,10 +670,12 @@ function FamilyProvider({ children }) {
         case "UNCOMPLETE_TASK": {
           const task = state.tasks.find((t) => t.id === action.value.taskId);
           if (task) {
+            const pmul = { high: 2, medium: 1, low: 0.5 };
+            const earned = Math.ceil((task.points_value || 10) * (pmul[task.priority] || 1));
             persist("tasks", "update", { id: task.id, completed: false, completed_at: null, completed_by: null });
             const member = state.members.find((m) => m.id === task.completed_by);
             if (member) {
-              const newPoints = Math.max(0, member.points - (task.points_value || 10));
+              const newPoints = Math.max(0, member.points - earned);
               persist("family_members", "update", { id: member.id, points: newPoints, level: Math.floor(newPoints / 100) + 1 });
             }
           }
