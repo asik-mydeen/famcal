@@ -402,12 +402,15 @@ function FamilyProvider({ children }) {
         const url = supabase.supabaseUrl || "";
         if (!url || url.includes("your-project")) return;
 
+        // Don't load until we have a user email (prevents loading ALL families)
+        const joinedFamilyId = localStorage.getItem("famcal_joined_family_id");
+        if (!userEmail && !joinedFamilyId) return;
+
         // Priority: 1) Joined family (via code), 2) Owner email, 3) Unclaimed family
         let families;
         let famErr;
 
         // Check if user previously joined a family via family code
-        const joinedFamilyId = localStorage.getItem("famcal_joined_family_id");
         if (joinedFamilyId) {
           const result = await supabase.from("families").select("*").eq("id", joinedFamilyId);
           families = result.data;
@@ -437,9 +440,10 @@ function FamilyProvider({ children }) {
               }
             }
           } else {
-            const result = await supabase.from("families").select("*");
-            families = result.data;
-            famErr = result.error;
+            // No email and no joined family — cannot determine which family to load
+            // This guard prevents loading ALL families (data breach risk)
+            console.warn("[family] No user email — skipping family load");
+            return;
           }
         }
 
