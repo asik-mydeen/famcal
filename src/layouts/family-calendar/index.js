@@ -358,8 +358,9 @@ function FamilyCalendar() {
     if (!title.trim()) return;
     const member = members.find((m) => m.id === member_id);
     const gradient = getMemberGradient(member);
-    const start = allDay ? startDate : `${startDate}T${startTime}:00`;
-    const end = allDay ? endDate : `${endDate}T${endTime}:00`;
+    // Convert local time to proper UTC ISO string for Supabase (timestamptz)
+    const start = allDay ? startDate : new Date(`${startDate}T${startTime}:00`).toISOString();
+    const end = allDay ? endDate : new Date(`${endDate}T${endTime}:00`).toISOString();
     if (editingEvent) {
       // Preserve source and google_event_id when editing
       const existingEvent = events.find(e => e.id === editingEvent.id);
@@ -407,7 +408,14 @@ function FamilyCalendar() {
         pushEventToGoogle(member, newEvent).then(googleId => {
           if (googleId) {
             dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
+            setSyncMessage("Synced to Google Calendar");
+          } else {
+            setSyncMessage("Saved locally — Google sync failed (reconnect calendar)");
           }
+          setTimeout(() => setSyncMessage(""), 4000);
+        }).catch(() => {
+          setSyncMessage("Saved locally — Google sync failed (reconnect calendar)");
+          setTimeout(() => setSyncMessage(""), 4000);
         });
       }
     }

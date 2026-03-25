@@ -268,15 +268,25 @@ function localEventToGoogle(event) {
 
 // ── Direct push: create event on Google immediately ──
 export async function pushEventToGoogle(member, event) {
-  if (!member.google_calendar_id || !event.member_id) return null;
+  if (!member.google_calendar_id || !event.member_id) {
+    console.warn("[gcal] Push skipped — no calendar connected for member:", member.name);
+    return null;
+  }
 
   try {
-    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
+    // Try cached token first, then fall back to non-silent refresh
+    let accessToken;
+    try {
+      accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
+    } catch {
+      console.warn("[gcal] Cached token expired for", member.name, "— trying refresh");
+      accessToken = await requestAccessToken(member.id, member.google_calendar_id, false);
+    }
     const gEvent = localEventToGoogle(event);
     const created = await createGoogleEvent(accessToken, member.google_calendar_id, gEvent);
-    return created?.id || null; // Return the google_event_id
+    return created?.id || null;
   } catch (err) {
-    console.warn("[gcal] Direct push failed:", err.message);
+    console.error("[gcal] Push to Google failed for", member.name, ":", err.message);
     return null;
   }
 }
