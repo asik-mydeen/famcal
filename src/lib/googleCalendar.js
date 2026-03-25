@@ -340,19 +340,15 @@ export async function pushEventToGoogle(member, event) {
   }
 
   try {
-    // Try cached token first, then fall back to non-silent refresh
-    let accessToken;
-    try {
-      accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
-    } catch {
-      console.warn("[gcal] Cached token expired for", member.name, "— trying refresh");
-      accessToken = await requestAccessToken(member.id, member.google_calendar_id, false);
-    }
+    // silentOnly=true — NEVER open popups from background operations.
+    // If token expired, silent GIS refresh will try automatically.
+    // If that fails too, return null (event saved locally, will sync via server cron).
+    const accessToken = await requestAccessToken(member.id, member.google_calendar_id, true);
     const gEvent = localEventToGoogle(event);
     const created = await createGoogleEvent(accessToken, member.google_calendar_id, gEvent);
     return created?.id || null;
   } catch (err) {
-    console.error("[gcal] Push to Google failed for", member.name, ":", err.message);
+    console.warn("[gcal] Push skipped for", member.name, "— will sync via server:", err.message);
     return null;
   }
 }

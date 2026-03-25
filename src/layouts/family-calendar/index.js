@@ -443,7 +443,9 @@ function FamilyCalendar() {
   const handleSync = useCallback(async () => {
     setSyncing(true); setSyncMessage("Syncing...");
     try {
-      const results = await syncAllMembers(members, events, family.id, dispatch);
+      // silentOnly=true — don't open popups for expired members during sync.
+      // Members needing reconnect will show in the error message.
+      const results = await syncAllMembers(members, events, family.id, dispatch, true);
       setLastSyncTime(new Date());
 
       const entries = Object.entries(results);
