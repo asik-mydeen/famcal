@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useMemo, useEffect } from "react";
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { supabase } from "lib/supabase";
 import { useAuth } from "context/AuthContext";
@@ -438,39 +438,79 @@ function FamilyProvider({ children }) {
   const { user } = useAuth();
   const userEmail = user?.email || null;
 
-  // Supabase Realtime: subscribe to all table changes for this family
-  // Dynamically imported to avoid circular dependencies
+  // Supabase Realtime: subscribe to all table changes for this family.
+  // Changes from kiosk/other tabs appear instantly (<100ms).
+  const familyIdRef = useRef(null);
   useEffect(() => {
-    if (!state.family?.id || state.family.id === "demo-family" || !state.dataLoaded) return;
-    let channel;
-    import("hooks/useSupabaseRealtime").then(() => {
-      // Use the supabase client directly for realtime
-      channel = supabase.channel(`family-${state.family.id}`);
-      const tables = ["events", "tasks", "family_members", "meals", "lists", "notes", "countdowns", "rewards"];
-      tables.forEach((table) => {
-        channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${state.family.id}` }, async () => {
-          // Refetch the changed table
-          const { data } = await supabase.from(table).select("*").eq("family_id", state.family.id);
+    const fid = state.family?.id;
+    if (!fid || fid === "demo-family" || !state.dataLoaded) return;
+    // Skip if already subscribed to this family
+    if (familyIdRef.current === fid) return;
+    familyIdRef.current = fid;
+
+    const url = supabase?.supabaseUrl || "";
+    if (!url || url.includes("your-project")) return;
+
+    const ACTION_MAP = {
+      events: "SET_EVENTS", tasks: "SET_TASKS", family_members: "SET_MEMBERS",
+      meals: "SET_MEALS", lists: "SET_LISTS", notes: "SET_NOTES",
+      countdowns: "SET_COUNTDOWNS", rewards: "SET_REWARDS",
+    };
+    const MAPPER_MAP = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
+    const tables = Object.keys(ACTION_MAP);
+
+    const channel = supabase.channel(`family-realtime-${fid}`);
+
+    tables.forEach((table) => {
+      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${fid}` }, async (payload) => {
+        console.log(`[realtime] ${payload.eventType} on ${table}`);
+        try {
+          // Refetch the full table (simple, avoids partial state issues)
+          const { data } = await supabase.from(table).select("*").eq("family_id", fid);
           if (!data) return;
-          const actionMap = { events: "SET_EVENTS", tasks: "SET_TASKS", family_members: "SET_MEMBERS", meals: "SET_MEALS", lists: "SET_LISTS", notes: "SET_NOTES", countdowns: "SET_COUNTDOWNS", rewards: "SET_REWARDS" };
-          const mapperMap = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
-          const mapper = mapperMap[table];
-          const mapped = mapper ? data.map(mapper) : data;
-          // Lists need items merged
+
+          // Lists: merge items
           if (table === "lists") {
             const ids = data.map((l) => l.id);
             if (ids.length) {
               const { data: items } = await supabase.from("list_items").select("*").in("list_id", ids);
               dispatch({ type: "SET_LISTS", value: data.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
-              return;
+            } else {
+              dispatch({ type: "SET_LISTS", value: [] });
             }
+            return;
           }
-          if (actionMap[table]) dispatch({ type: actionMap[table], value: mapped });
-        });
+
+          const mapper = MAPPER_MAP[table];
+          dispatch({ type: ACTION_MAP[table], value: mapper ? data.map(mapper) : data });
+        } catch (err) {
+          console.warn(`[realtime] Refresh ${table} failed:`, err.message);
+        }
       });
-      channel.subscribe((status) => console.log("[realtime] FamilyContext:", status));
-    }).catch(() => {}); // Graceful degradation if hook not available
-    return () => { if (channel) supabase.removeChannel(channel); };
+    });
+
+    // Also listen for list_items changes (no family_id on that table)
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "list_items" }, async () => {
+      try {
+        const { data: lists } = await supabase.from("lists").select("*").eq("family_id", fid);
+        if (!lists) return;
+        const ids = lists.map((l) => l.id);
+        const { data: items } = ids.length ? await supabase.from("list_items").select("*").in("list_id", ids) : { data: [] };
+        dispatch({ type: "SET_LISTS", value: lists.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
+      } catch {}
+    });
+
+    channel.subscribe((status) => {
+      console.log("[realtime] FamilyContext:", status);
+      if (status === "CHANNEL_ERROR") {
+        console.warn("[realtime] Subscription failed — check Supabase Realtime is enabled for tables");
+      }
+    });
+
+    return () => {
+      familyIdRef.current = null;
+      supabase.removeChannel(channel);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.family?.id, state.dataLoaded]);
 
