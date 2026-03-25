@@ -438,58 +438,77 @@ function Family() {
                   </Tooltip>
                 </Box>
 
-                {/* Google Calendar Indicator — 3 states: connected, needs reconnect, not connected */}
+                {/* Google Calendar Indicator — 4 states */}
                 <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-                  {member.google_calendar_id && hasValidToken(member.id) ? (
-                    <Chip
-                      icon={<Icon sx={{ fontSize: "0.85rem !important", color: `${tokens.priority.low} !important` }}>check_circle</Icon>}
-                      label="Google Connected"
-                      size="small"
-                      onClick={isDashboard ? undefined : () => handleDisconnect(member)}
-                      sx={{
-                        backgroundColor: alpha(tokens.priority.low, 0.12),
-                        color: tokens.priority.low,
-                        fontWeight: 600,
-                        fontSize: "0.65rem",
-                        border: `1px solid ${alpha(tokens.priority.low, 0.25)}`,
-                        cursor: isDashboard ? "default" : "pointer",
-                        "&:hover": { backgroundColor: alpha(tokens.priority.low, 0.2) },
-                      }}
-                    />
-                  ) : member.google_calendar_id && !hasValidToken(member.id) ? (
-                    <Chip
-                      icon={<Icon sx={{ fontSize: "0.85rem !important", color: `${tokens.priority.medium} !important` }}>sync_problem</Icon>}
-                      label={isDashboard ? "Reconnect via web portal" : "Tap to reconnect"}
-                      size="small"
-                      onClick={isDashboard ? undefined : () => handleConnect(member)}
-                      sx={{
-                        backgroundColor: alpha(tokens.priority.medium, 0.12),
-                        color: tokens.priority.medium,
-                        fontWeight: 600,
-                        fontSize: "0.65rem",
-                        border: `1px solid ${alpha(tokens.priority.medium, 0.25)}`,
-                        cursor: isDashboard ? "default" : "pointer",
-                        "&:hover": isDashboard ? {} : { backgroundColor: alpha(tokens.priority.medium, 0.2) },
-                      }}
-                    />
-                  ) : (
-                    <Chip
-                      icon={<Icon sx={{ fontSize: "0.85rem !important", color: "text.disabled" }}>link_off</Icon>}
-                      label={isDashboard ? "Connect via web portal" : connectingId === member.id ? "Connecting..." : "Not Connected"}
-                      size="small"
-                      onClick={isDashboard ? undefined : () => handleConnect(member)}
-                      disabled={connectingId === member.id || isDashboard}
-                      sx={{
-                        backgroundColor: "background.paper",
-                        color: "text.secondary",
-                        fontWeight: 600,
-                        fontSize: "0.65rem",
-                        border: "1px solid", borderColor: "divider",
-                        cursor: isDashboard ? "default" : "pointer",
-                        "&:hover": isDashboard ? {} : { backgroundColor: "action.hover" },
-                      }}
-                    />
-                  )}
+                  {(() => {
+                    const hasCalId = !!member.google_calendar_id;
+                    const hasLocalToken = hasCalId && hasValidToken(member.id);
+                    const hasServerSync = hasCalId && member.has_server_sync;
+                    const greenChipSx = {
+                      backgroundColor: alpha(tokens.priority.low, 0.12),
+                      color: tokens.priority.low,
+                      fontWeight: 600, fontSize: "0.65rem",
+                      border: `1px solid ${alpha(tokens.priority.low, 0.25)}`,
+                    };
+
+                    // State 1: Connected + local token valid (web portal)
+                    if (hasLocalToken) return (
+                      <Chip
+                        icon={<Icon sx={{ fontSize: "0.85rem !important", color: `${tokens.priority.low} !important` }}>check_circle</Icon>}
+                        label="Google Connected"
+                        size="small"
+                        onClick={isDashboard ? undefined : () => handleDisconnect(member)}
+                        sx={{ ...greenChipSx, cursor: isDashboard ? "default" : "pointer", "&:hover": { backgroundColor: alpha(tokens.priority.low, 0.2) } }}
+                      />
+                    );
+
+                    // State 2: Connected + server sync (kiosk/dashboard — no local token but server handles it)
+                    if (hasServerSync) return (
+                      <Chip
+                        icon={<Icon sx={{ fontSize: "0.85rem !important", color: `${tokens.priority.low} !important` }}>cloud_done</Icon>}
+                        label="Synced via server"
+                        size="small"
+                        sx={{ ...greenChipSx, cursor: "default" }}
+                      />
+                    );
+
+                    // State 3: Has calendar ID but no token and no server sync — needs reconnect
+                    if (hasCalId) return (
+                      <Chip
+                        icon={<Icon sx={{ fontSize: "0.85rem !important", color: `${tokens.priority.medium} !important` }}>sync_problem</Icon>}
+                        label={isDashboard ? "Reconnect via web portal" : "Tap to reconnect"}
+                        size="small"
+                        onClick={isDashboard ? undefined : () => handleConnect(member)}
+                        sx={{
+                          backgroundColor: alpha(tokens.priority.medium, 0.12),
+                          color: tokens.priority.medium,
+                          fontWeight: 600, fontSize: "0.65rem",
+                          border: `1px solid ${alpha(tokens.priority.medium, 0.25)}`,
+                          cursor: isDashboard ? "default" : "pointer",
+                          "&:hover": isDashboard ? {} : { backgroundColor: alpha(tokens.priority.medium, 0.2) },
+                        }}
+                      />
+                    );
+
+                    // State 4: Not connected
+                    return (
+                      <Chip
+                        icon={<Icon sx={{ fontSize: "0.85rem !important", color: "text.disabled" }}>link_off</Icon>}
+                        label={isDashboard ? "Connect via web portal" : connectingId === member.id ? "Connecting..." : "Not Connected"}
+                        size="small"
+                        onClick={isDashboard ? undefined : () => handleConnect(member)}
+                        disabled={connectingId === member.id || isDashboard}
+                        sx={{
+                          backgroundColor: "background.paper",
+                          color: "text.secondary",
+                          fontWeight: 600, fontSize: "0.65rem",
+                          border: "1px solid", borderColor: "divider",
+                          cursor: isDashboard ? "default" : "pointer",
+                          "&:hover": isDashboard ? {} : { backgroundColor: "action.hover" },
+                        }}
+                      />
+                    );
+                  })()}
                 </Box>
 
                 {/* Action Buttons */}

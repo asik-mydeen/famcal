@@ -71,9 +71,15 @@ export default async function handler(req, res) {
       items: allListItems.filter((i) => i.list_id === l.id),
     }));
 
+    // Sanitize members — don't expose refresh tokens to client, add boolean flag
+    const sanitizedMembers = (members.data || []).map(({ google_refresh_token, ...m }) => ({
+      ...m,
+      has_server_sync: !!google_refresh_token,
+    }));
+
     return res.status(200).json({
       family,
-      members: members.data || [],
+      members: sanitizedMembers,
       events: events.data || [],
       tasks: tasks.data || [],
       meals: meals.data || [],

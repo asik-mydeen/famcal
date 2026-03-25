@@ -495,7 +495,7 @@ function FamilyCalendar() {
     dispatch({ type: "UPDATE_MEMBER", value: { id: member.id, google_calendar_id: "" } });
   }, [dispatch]);
 
-  const connectedCount = members.filter((m) => m.google_calendar_id && hasValidToken(m.id)).length;
+  const connectedCount = members.filter((m) => m.google_calendar_id && (hasValidToken(m.id) || m.has_server_sync)).length;
   const syncTooltip = lastSyncTime ? `Last: ${lastSyncTime.toLocaleTimeString()}` : "Sync calendars";
 
   // Auto-sync: initial sync on load + background polling every 30s
@@ -683,9 +683,11 @@ function FamilyCalendar() {
             {members.map((m) => {
               const hasCalId = Boolean(m.google_calendar_id);
               const tokenValid = hasCalId && hasValidToken(m.id);
-              const needsReconnect = hasCalId && !tokenValid;
+              const hasServerSync = hasCalId && m.has_server_sync;
+              const isConnected = tokenValid || hasServerSync;
+              const needsReconnect = hasCalId && !isConnected;
               const tooltip = isDashboard
-                ? (needsReconnect ? "Reconnect via web portal" : hasCalId ? "Connected" : "Connect via web portal")
+                ? (isConnected ? "Synced via server" : hasCalId ? "Reconnect via web portal" : "Connect via web portal")
                 : needsReconnect ? "Token expired — tap to reconnect"
                 : hasCalId ? "Connected — tap to disconnect"
                 : "Tap to connect Google Calendar";
@@ -696,13 +698,13 @@ function FamilyCalendar() {
                   >
                     <Box sx={{ position: "relative", mb: 0.5 }}>
                       <Avatar src={m.avatar_url || undefined}
-                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: tokenValid ? `3px solid ${m.avatar_color}` : needsReconnect ? `3px solid ${tokens.priority.medium}` : "3px solid transparent", transition: "border 0.2s" }}
+                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: isConnected ? `3px solid ${m.avatar_color}` : needsReconnect ? `3px solid ${tokens.priority.medium}` : "3px solid transparent", transition: "border 0.2s" }}
                       >
                         <Icon sx={{ fontSize: "1.3rem !important", color: "#fff" }}>person</Icon>
                       </Avatar>
-                      {tokenValid && (
+                      {isConnected && (
                         <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: "success.main", border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>check</Icon>
+                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>{hasServerSync && !tokenValid ? "cloud_done" : "check"}</Icon>
                         </Box>
                       )}
                       {needsReconnect && (
