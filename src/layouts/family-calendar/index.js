@@ -378,8 +378,8 @@ function FamilyCalendar() {
           google_event_id: existingEvent?.google_event_id || null
         }
       });
-      // Push update to Google directly if event is synced
-      if (existingEvent?.google_event_id) {
+      // Push update to Google directly if event is synced (skip on dashboard/kiosk)
+      if (existingEvent?.google_event_id && !isDashboard) {
         const memberForPush = members.find(m => m.id === (member_id || existingEvent.member_id));
         if (memberForPush?.google_calendar_id) {
           pushEventUpdateToGoogle(memberForPush, { ...existingEvent, title: title.trim(), start, end, allDay }).catch(() => {});
@@ -403,20 +403,23 @@ function FamilyCalendar() {
         type: "ADD_EVENT",
         value: newEvent
       });
-      // Push to Google directly if member has calendar connected
-      if (member?.google_calendar_id) {
+      // Push to Google directly if member has calendar connected (skip on dashboard/kiosk)
+      if (member?.google_calendar_id && !isDashboard) {
         pushEventToGoogle(member, newEvent).then(googleId => {
           if (googleId) {
             dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
             setSyncMessage("Synced to Google Calendar");
           } else {
-            setSyncMessage("Saved locally — Google sync failed (reconnect calendar)");
+            setSyncMessage("Saved — will sync to Google via server");
           }
           setTimeout(() => setSyncMessage(""), 4000);
         }).catch(() => {
-          setSyncMessage("Saved locally — Google sync failed (reconnect calendar)");
+          setSyncMessage("Saved — will sync to Google via server");
           setTimeout(() => setSyncMessage(""), 4000);
         });
+      } else if (member?.google_calendar_id && isDashboard) {
+        setSyncMessage("Saved — will sync to Google via server");
+        setTimeout(() => setSyncMessage(""), 4000);
       }
     }
     setDialogOpen(false); setEditingEvent(null);
@@ -424,12 +427,14 @@ function FamilyCalendar() {
 
   const handleDeleteEvent = useCallback(async () => {
     if (editingEvent) {
-      // If this was a synced event, delete from Google too
-      const evt = events.find(e => e.id === editingEvent.id);
-      if (evt?.google_event_id && evt.member_id) {
-        const member = members.find(m => m.id === evt.member_id);
-        if (member) {
-          await deleteSyncedEvent(member, evt.google_event_id);
+      // If this was a synced event, delete from Google too (skip on dashboard/kiosk)
+      if (!isDashboard) {
+        const evt = events.find(e => e.id === editingEvent.id);
+        if (evt?.google_event_id && evt.member_id) {
+          const member = members.find(m => m.id === evt.member_id);
+          if (member) {
+            await deleteSyncedEvent(member, evt.google_event_id);
+          }
         }
       }
       dispatch({ type: "REMOVE_EVENT", value: editingEvent.id });
