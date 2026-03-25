@@ -65,28 +65,27 @@ export function hasValidToken(memberId) {
 
 // ── OAuth: connect a member to Google Calendar ──
 
-// Request token for sync — uses login_hint to silently target the right Google account.
-// If the member previously consented, GIS will not show a popup.
-// Falls back to showing consent if needed (e.g., first time or revoked access).
-// If silentOnly=true, only uses cached tokens (no popup attempts) — for background sync.
+// Request token for sync — uses GIS silent consent to auto-refresh expired tokens.
+// Google access tokens last 1 hour. When expired, GIS `prompt: ""` silently issues
+// a new token if the user previously consented (no popup, no user interaction).
+// This effectively gives "refresh token" behavior on the client side.
+//
+// silentOnly=true: tries cache → silent GIS refresh → reject (no popup ever)
+// silentOnly=false: tries cache → silent GIS refresh → interactive popup as last resort
 export function requestAccessToken(memberId, loginHint, silentOnly = false) {
   return new Promise((resolve, reject) => {
     const clientId = getGoogleClientId();
-    if (!clientId) return reject(new Error("Google Client ID not configured. Set REACT_APP_GOOGLE_CLIENT_ID environment variable."));
+    if (!clientId) return reject(new Error("Google Client ID not configured."));
 
     if (!window.google?.accounts?.oauth2) {
-      return reject(new Error("Google Identity Services not loaded. Check your internet connection."));
+      return reject(new Error("Google Identity Services not loaded."));
     }
 
     // Check cache first
     const cached = getCachedToken(memberId);
     if (cached) return resolve(cached);
 
-    // If silentOnly mode and no cached token, fail immediately
-    if (silentOnly) {
-      return reject(new Error("Token expired — tap avatar to reconnect"));
-    }
-
+    // Cache expired — try silent GIS refresh (no popup, uses prior consent)
     try {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
@@ -94,18 +93,31 @@ export function requestAccessToken(memberId, loginHint, silentOnly = false) {
         hint: loginHint || undefined,
         callback: (resp) => {
           if (resp.error) {
-            console.warn("[gcal] Token request error:", resp.error, resp.error_description);
-            return reject(new Error(resp.error_description || resp.error));
+            if (silentOnly) {
+              // Silent refresh failed — don't show popup, just reject
+              console.warn("[gcal] Silent refresh failed for", loginHint, ":", resp.error);
+              return reject(new Error("Token expired — reconnect calendar"));
+            }
+            // Non-silent: retry with interactive consent popup
+            console.warn("[gcal] Silent refresh failed, trying interactive for", loginHint);
+            try {
+              tokenClient.requestAccessToken({ prompt: "consent", login_hint: loginHint || "" });
+            } catch (e) {
+              reject(new Error("Google auth failed: " + e.message));
+            }
+            return;
           }
           setCachedToken(memberId, resp.access_token, resp.expires_in);
+          console.log("[gcal] Token refreshed for", loginHint, "— expires in", resp.expires_in, "s");
           resolve(resp.access_token);
         },
         error_callback: (err) => {
           console.warn("[gcal] Token client error:", err);
-          reject(new Error("Failed to get Google Calendar access. Try reconnecting."));
+          reject(new Error("Google Calendar access failed. Try reconnecting."));
         },
       });
 
+      // prompt: "" = silent consent (no popup if user previously granted access)
       tokenClient.requestAccessToken({ prompt: "", login_hint: loginHint || "" });
     } catch (err) {
       reject(new Error("Failed to initialize Google auth: " + err.message));
