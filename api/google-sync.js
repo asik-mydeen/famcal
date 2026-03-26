@@ -144,14 +144,14 @@ export default async function handler(req, res) {
       // Fetch events from Google
       const gEvents = await fetchGoogleEvents(accessToken, member.google_calendar_id);
 
-      // Get existing synced events for this member
+      // Get existing synced events for this member (source: "google" OR "synced")
       const memberFamilyId = member.family_id || familyId;
       const { data: existingEvents } = await supabase
         .from("events")
-        .select("id, google_event_id, updated_at")
+        .select("id, google_event_id, updated_at, source")
         .eq("family_id", memberFamilyId)
         .eq("member_id", member.id)
-        .eq("source", "google");
+        .in("source", ["google", "synced"]);
 
       const existingMap = new Map((existingEvents || []).map((e) => [e.google_event_id, e]));
 
