@@ -198,16 +198,18 @@ function DashboardShell({ data, slug, onDisconnect }) {
     const writeToApi = async (apiAction, table, payload) => {
       try {
         const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-        if (!cachedToken) return null;
+        if (!cachedToken) { console.warn("[dashboard-write] No token"); return null; }
+        console.log("[dashboard-write]", apiAction, table, payload?.title || payload?.id || "");
         const res = await fetch(apiUrl("/api/dashboard-write"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ slug, token: cachedToken, action: apiAction, table, payload }),
         });
         const result = await res.json();
+        if (!res.ok) console.error("[dashboard-write] API error:", result);
         return result?.data || null;
       } catch (err) {
-        console.warn("[dashboard-write]", err.message);
+        console.error("[dashboard-write] Failed:", err.message);
         return null;
       }
     };

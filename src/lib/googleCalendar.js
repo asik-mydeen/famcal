@@ -85,7 +85,13 @@ export function requestAccessToken(memberId, loginHint, silentOnly = false) {
     const cached = getCachedToken(memberId);
     if (cached) return resolve(cached);
 
-    // Cache expired — try silent GIS refresh (no popup, uses prior consent)
+    // silentOnly=true: NEVER open GIS popup. Cache-only.
+    // Used by all background operations (sync, push, auto-refresh).
+    if (silentOnly) {
+      return reject(new Error("Token expired — reconnect calendar"));
+    }
+
+    // silentOnly=false: User initiated — try GIS (may show popup)
     try {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
@@ -93,22 +99,11 @@ export function requestAccessToken(memberId, loginHint, silentOnly = false) {
         hint: loginHint || undefined,
         callback: (resp) => {
           if (resp.error) {
-            if (silentOnly) {
-              // Silent refresh failed — don't show popup, just reject
-              console.warn("[gcal] Silent refresh failed for", loginHint, ":", resp.error);
-              return reject(new Error("Token expired — reconnect calendar"));
-            }
-            // Non-silent: retry with interactive consent popup
-            console.warn("[gcal] Silent refresh failed, trying interactive for", loginHint);
-            try {
-              tokenClient.requestAccessToken({ prompt: "consent", login_hint: loginHint || "" });
-            } catch (e) {
-              reject(new Error("Google auth failed: " + e.message));
-            }
-            return;
+            console.warn("[gcal] Token request failed for", loginHint, ":", resp.error);
+            return reject(new Error(resp.error_description || resp.error));
           }
           setCachedToken(memberId, resp.access_token, resp.expires_in);
-          console.log("[gcal] Token refreshed for", loginHint, "— expires in", resp.expires_in, "s");
+          console.log("[gcal] Token obtained for", loginHint);
           resolve(resp.access_token);
         },
         error_callback: (err) => {
@@ -117,7 +112,7 @@ export function requestAccessToken(memberId, loginHint, silentOnly = false) {
         },
       });
 
-      // prompt: "" = silent consent (no popup if user previously granted access)
+      // prompt: "" tries silent first. If user already consented, no popup.
       tokenClient.requestAccessToken({ prompt: "", login_hint: loginHint || "" });
     } catch (err) {
       reject(new Error("Failed to initialize Google auth: " + err.message));
