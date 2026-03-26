@@ -17,7 +17,7 @@ import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 import { VOICE_STATES } from "hooks/useVoiceMode";
 
-function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable }) {
+function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable, onTapToSpeak, mode }) {
   const { tokens, darkMode } = useAppTheme();
 
   if (!isEnabled || voiceState === VOICE_STATES.IDLE) return null;
@@ -191,7 +191,7 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
         )}
       </AnimatePresence>
 
-      {/* Listening indicator (subtle, always visible when listening) */}
+      {/* Listening indicator / tap-to-speak button */}
       {voiceState === VOICE_STATES.LISTENING && (
         <Box
           sx={{
@@ -202,7 +202,7 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
             display: "flex",
             alignItems: "center",
             gap: 0.75,
-            px: 1.5,
+            px: mode === "whisper" ? 2 : 1.5,
             py: 0.75,
             borderRadius: "20px",
             background: darkMode ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.9)",
@@ -210,26 +210,40 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
             boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
             cursor: "pointer",
             pointerEvents: "auto",
+            touchAction: "manipulation",
             "&:hover": { boxShadow: `0 4px 20px ${alpha(accent, 0.3)}` },
+            "&:active": { transform: "scale(0.95)" },
           }}
-          onClick={onDisable}
+          onClick={mode === "whisper" ? onTapToSpeak : onTapToSpeak}
+          onContextMenu={(e) => { e.preventDefault(); onDisable?.(); }}
         >
-          <Box
-            sx={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              bgcolor: tokens.priority.low,
-              animation: "listening-dot 2s ease-in-out infinite",
-              "@keyframes listening-dot": {
-                "0%, 100%": { opacity: 0.4 },
-                "50%": { opacity: 1 },
-              },
-            }}
-          />
-          <Typography sx={{ fontSize: "0.65rem", fontWeight: 600, color: "text.secondary" }}>
-            Amara
-          </Typography>
+          {mode === "whisper" ? (
+            <>
+              <Icon sx={{ fontSize: "1rem !important", color: accent }}>mic</Icon>
+              <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "text.primary" }}>
+                Tap to ask Amara
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: tokens.priority.low,
+                  animation: "listening-dot 2s ease-in-out infinite",
+                  "@keyframes listening-dot": {
+                    "0%, 100%": { opacity: 0.4 },
+                    "50%": { opacity: 1 },
+                  },
+                }}
+              />
+              <Typography sx={{ fontSize: "0.65rem", fontWeight: 600, color: "text.secondary" }}>
+                Amara
+              </Typography>
+            </>
+          )}
         </Box>
       )}
     </>

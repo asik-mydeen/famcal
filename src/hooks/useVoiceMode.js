@@ -1,17 +1,18 @@
 /**
  * useVoiceMode — "Hey Amara" voice-activated AI assistant.
  *
- * State machine: idle → listening → activated → processing → speaking → listening
+ * Two modes:
+ * 1. NATIVE: Web Speech API (Chrome/Edge/Safari) — always listening, wake word
+ * 2. WHISPER: MediaRecorder + OpenAI Whisper API (Firefox/any browser) — tap to speak
  *
- * Uses Web Speech API (SpeechRecognition + SpeechSynthesis) — no external APIs.
- * Wake word: "amara" (also matches "hey amara", "ok amara", fuzzy: "amira", "amora")
+ * State machine: idle → listening → activated → processing → speaking → listening
  */
 import { useState, useCallback, useRef, useEffect } from "react";
 import { buildAIContext, voiceSendMessage } from "lib/ai";
+import { apiUrl } from "lib/api";
 
 const WAKE_WORDS = ["amara", "amira", "amora", "hey amara", "ok amara"];
-const SILENCE_TIMEOUT = 4000; // 4s silence after activation → send query
-const MAX_LISTEN_TIME = 15000; // 15s max listening after wake word
+const MAX_LISTEN_TIME = 15000;
 
 const SpeechRecognition = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
@@ -36,36 +37,52 @@ export default function useVoiceMode(familyState, dispatch) {
   const queryBufferRef = useRef("");
   const restartTimerRef = useRef(null);
   const isActivatedRef = useRef(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
-  const isSupported = !!SpeechRecognition;
+  const hasNativeSpeech = !!SpeechRecognition;
+  // Whisper fallback: works on ANY browser with mic support
+  const hasWhisperFallback = typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+  const isSupported = hasNativeSpeech || hasWhisperFallback;
+  const mode = hasNativeSpeech ? "native" : "whisper";
 
-  // Clear all timers
   const clearTimers = useCallback(() => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     if (maxTimerRef.current) { clearTimeout(maxTimerRef.current); maxTimerRef.current = null; }
     if (restartTimerRef.current) { clearTimeout(restartTimerRef.current); restartTimerRef.current = null; }
   }, []);
 
+  // Play activation beep
+  const playBeep = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 800;
+      gain.gain.value = 0.15;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch {}
+  }, []);
+
   // Text-to-speech
   const speak = useCallback((text) => {
     if (!window.speechSynthesis) return Promise.resolve();
     return new Promise((resolve) => {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
-
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.05;
       utterance.volume = 1.0;
 
-      // Prefer a female English voice for "Amara" persona
       const voices = window.speechSynthesis.getVoices();
       const preferred = voices.find((v) =>
         v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
       ) || voices.find((v) =>
         v.lang.startsWith("en") && (v.name.includes("Samantha") || v.name.includes("Google") || v.name.includes("Microsoft"))
       ) || voices.find((v) => v.lang.startsWith("en"));
-
       if (preferred) utterance.voice = preferred;
 
       utterance.onend = resolve;
@@ -88,35 +105,131 @@ export default function useVoiceMode(familyState, dispatch) {
       setAiResponse(response.text || "");
       setVoiceState(VOICE_STATES.SPEAKING);
 
-      // Execute any AI actions
       if (response.actions && response.actions.length > 0 && dispatch) {
         for (const action of response.actions) {
-          try {
-            dispatch(action);
-          } catch (e) {
-            console.warn("[voice] Action execution failed:", e);
-          }
+          try { dispatch(action); } catch (e) { console.warn("[voice] Action failed:", e); }
         }
       }
 
-      // Speak the response
       await speak(response.text || "Done.");
-
-      // Return to listening
       setVoiceState(VOICE_STATES.LISTENING);
       setAiResponse("");
       setTranscript("");
     } catch (err) {
       console.error("[voice] AI call failed:", err);
-      setAiResponse("Sorry, I couldn't process that. Try again.");
+      setAiResponse("Sorry, I couldn't process that.");
       setVoiceState(VOICE_STATES.SPEAKING);
-      await speak("Sorry, I couldn't process that. Try again.");
+      await speak("Sorry, I couldn't process that.");
       setVoiceState(VOICE_STATES.LISTENING);
       setAiResponse("");
     }
   }, [familyState, dispatch, speak]);
 
-  // Handle wake word detection + query capture
+  // ──────────────────────────────────────────────────
+  // WHISPER FALLBACK: MediaRecorder + OpenAI Whisper API
+  // ──────────────────────────────────────────────────
+
+  const transcribeAudio = useCallback(async (audioBlob) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "voice.webm");
+
+      const res = await fetch(apiUrl("/api/voice-transcribe"), {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Transcription failed");
+      }
+
+      const { text } = await res.json();
+      return text || "";
+    } catch (err) {
+      console.error("[voice-whisper] Transcription failed:", err);
+      return "";
+    }
+  }, []);
+
+  // Tap-to-speak: start recording
+  const startWhisperRecording = useCallback(async () => {
+    if (voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.PROCESSING) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+
+        if (audioBlob.size < 1000) {
+          setVoiceState(VOICE_STATES.LISTENING);
+          return;
+        }
+
+        setVoiceState(VOICE_STATES.PROCESSING);
+        setTranscript("Transcribing...");
+
+        const text = await transcribeAudio(audioBlob);
+        if (text) {
+          // Check if it contains wake word + query, or just query
+          const lower = text.toLowerCase();
+          let query = text;
+          for (const w of WAKE_WORDS) {
+            const idx = lower.indexOf(w);
+            if (idx !== -1) {
+              query = text.slice(idx + w.length).trim() || text;
+              break;
+            }
+          }
+          await sendToAI(query);
+        } else {
+          setTranscript("Couldn't hear that. Try again.");
+          setTimeout(() => {
+            setTranscript("");
+            setVoiceState(VOICE_STATES.LISTENING);
+          }, 2000);
+        }
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      playBeep();
+      setVoiceState(VOICE_STATES.ACTIVATED);
+      setTranscript("Listening...");
+      console.log("[voice-whisper] Recording started");
+
+      // Auto-stop after max listen time
+      maxTimerRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current?.state === "recording") {
+          mediaRecorderRef.current.stop();
+        }
+      }, MAX_LISTEN_TIME);
+    } catch (err) {
+      console.error("[voice-whisper] Mic access failed:", err);
+      setVoiceState(VOICE_STATES.ERROR);
+    }
+  }, [voiceState, transcribeAudio, sendToAI, playBeep]);
+
+  // Stop whisper recording
+  const stopWhisperRecording = useCallback(() => {
+    clearTimers();
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  }, [clearTimers]);
+
+  // ──────────────────────────────────────────────────
+  // NATIVE: Web Speech API (Chrome/Edge/Safari)
+  // ──────────────────────────────────────────────────
+
   const handleResult = useCallback((event) => {
     const results = Array.from(event.results);
     const latest = results[results.length - 1];
@@ -125,15 +238,12 @@ export default function useVoiceMode(familyState, dispatch) {
     const text = latest[0].transcript.toLowerCase().trim();
 
     if (isActivatedRef.current) {
-      // Already activated — capture query
       queryBufferRef.current = latest[0].transcript.trim();
       setTranscript(queryBufferRef.current);
 
-      // Reset silence timer on each word
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
       if (latest.isFinal) {
-        // Final result — send after short pause (user might continue)
         silenceTimerRef.current = setTimeout(() => {
           const query = queryBufferRef.current;
           if (query) {
@@ -144,10 +254,8 @@ export default function useVoiceMode(familyState, dispatch) {
         }, 2000);
       }
     } else {
-      // Check for wake word
       const hasWakeWord = WAKE_WORDS.some((w) => text.includes(w));
       if (hasWakeWord && latest.isFinal) {
-        // Extract query after wake word (if any)
         let query = "";
         for (const w of WAKE_WORDS) {
           const idx = text.indexOf(w);
@@ -158,46 +266,25 @@ export default function useVoiceMode(familyState, dispatch) {
         }
 
         if (query.length > 3) {
-          // Wake word + query in same utterance — send directly
           sendToAI(query);
         } else {
-          // Wake word only — enter activated state, wait for query
           isActivatedRef.current = true;
           queryBufferRef.current = "";
           setVoiceState(VOICE_STATES.ACTIVATED);
           setTranscript("");
+          playBeep();
 
-          // Play activation sound
-          try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 800;
-            gain.gain.value = 0.15;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-          } catch {}
-
-          // Max listen timeout
           maxTimerRef.current = setTimeout(() => {
-            const query = queryBufferRef.current;
+            const q = queryBufferRef.current;
             isActivatedRef.current = false;
             clearTimers();
-            if (query) {
-              sendToAI(query);
-            } else {
-              setVoiceState(VOICE_STATES.LISTENING);
-              setTranscript("");
-            }
+            if (q) { sendToAI(q); } else { setVoiceState(VOICE_STATES.LISTENING); setTranscript(""); }
           }, MAX_LISTEN_TIME);
         }
       }
     }
-  }, [sendToAI, clearTimers]);
+  }, [sendToAI, clearTimers, playBeep]);
 
-  // Start speech recognition
   const startRecognition = useCallback(() => {
     if (!SpeechRecognition || recognitionRef.current) return;
 
@@ -206,16 +293,12 @@ export default function useVoiceMode(familyState, dispatch) {
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.maxAlternatives = 1;
-
     recognition.onresult = handleResult;
 
     recognition.onend = () => {
-      // Auto-restart if still in listening/activated mode
-      if (voiceState === VOICE_STATES.LISTENING || voiceState === VOICE_STATES.ACTIVATED || isActivatedRef.current) {
+      if (isActivatedRef.current || [VOICE_STATES.LISTENING, VOICE_STATES.ACTIVATED].includes(voiceState)) {
         restartTimerRef.current = setTimeout(() => {
-          if (recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch {}
-          }
+          if (recognitionRef.current) { try { recognitionRef.current.start(); } catch {} }
         }, 200);
       }
     };
@@ -226,12 +309,9 @@ export default function useVoiceMode(familyState, dispatch) {
         setVoiceState(VOICE_STATES.ERROR);
         return;
       }
-      // For other errors, just restart
       if (event.error !== "aborted") {
         restartTimerRef.current = setTimeout(() => {
-          if (recognitionRef.current) {
-            try { recognitionRef.current.start(); } catch {}
-          }
+          if (recognitionRef.current) { try { recognitionRef.current.start(); } catch {} }
         }, 500);
       }
     };
@@ -240,14 +320,17 @@ export default function useVoiceMode(familyState, dispatch) {
     try {
       recognition.start();
       setVoiceState(VOICE_STATES.LISTENING);
-      console.log("[voice] Recognition started — say 'Hey Amara'");
+      console.log("[voice] Native recognition started — say 'Hey Amara'");
     } catch (err) {
       console.error("[voice] Failed to start:", err);
     }
   }, [handleResult, voiceState]);
 
-  // Stop recognition
-  const stopRecognition = useCallback(() => {
+  // ──────────────────────────────────────────────────
+  // LIFECYCLE
+  // ──────────────────────────────────────────────────
+
+  const stopAll = useCallback(() => {
     clearTimers();
     isActivatedRef.current = false;
     if (recognitionRef.current) {
@@ -256,29 +339,64 @@ export default function useVoiceMode(familyState, dispatch) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
     }
+    if (mediaRecorderRef.current?.state === "recording") {
+      try { mediaRecorderRef.current.stop(); } catch {}
+    }
     window.speechSynthesis?.cancel();
     setVoiceState(VOICE_STATES.IDLE);
     setTranscript("");
     setAiResponse("");
   }, [clearTimers]);
 
-  // Enable/disable voice mode
   const enable = useCallback(() => {
     setIsEnabled(true);
     localStorage.setItem("famcal_voice_mode", "true");
-    startRecognition();
-  }, [startRecognition]);
+    if (hasNativeSpeech) {
+      startRecognition();
+    } else {
+      setVoiceState(VOICE_STATES.LISTENING);
+      console.log("[voice] Whisper mode enabled — tap mic to speak");
+    }
+  }, [startRecognition, hasNativeSpeech]);
 
   const disable = useCallback(() => {
     setIsEnabled(false);
     localStorage.setItem("famcal_voice_mode", "false");
-    stopRecognition();
-  }, [stopRecognition]);
+    stopAll();
+  }, [stopAll]);
+
+  // Tap-to-speak trigger (for Whisper mode, also works as manual trigger in native mode)
+  const tapToSpeak = useCallback(() => {
+    if (voiceState === VOICE_STATES.ACTIVATED) {
+      // Already recording — stop and process
+      stopWhisperRecording();
+    } else if (mode === "whisper") {
+      startWhisperRecording();
+    } else {
+      // Native mode — manual activation (bypass wake word)
+      isActivatedRef.current = true;
+      queryBufferRef.current = "";
+      setVoiceState(VOICE_STATES.ACTIVATED);
+      setTranscript("");
+      playBeep();
+      maxTimerRef.current = setTimeout(() => {
+        const q = queryBufferRef.current;
+        isActivatedRef.current = false;
+        clearTimers();
+        if (q) { sendToAI(q); } else { setVoiceState(VOICE_STATES.LISTENING); setTranscript(""); }
+      }, MAX_LISTEN_TIME);
+    }
+  }, [voiceState, mode, startWhisperRecording, stopWhisperRecording, sendToAI, clearTimers, playBeep]);
 
   // Auto-start on mount if enabled
   useEffect(() => {
-    if (isEnabled && isSupported && voiceState === VOICE_STATES.IDLE) {
-      startRecognition();
+    if (isEnabled && voiceState === VOICE_STATES.IDLE) {
+      if (hasNativeSpeech) {
+        startRecognition();
+      } else if (hasWhisperFallback) {
+        setVoiceState(VOICE_STATES.LISTENING);
+        console.log("[voice] Whisper fallback active — tap mic to speak");
+      }
     }
     return () => {
       clearTimers();
@@ -291,7 +409,7 @@ export default function useVoiceMode(familyState, dispatch) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnabled]);
 
-  // Load voices (needed for some browsers)
+  // Load TTS voices
   useEffect(() => {
     if (window.speechSynthesis) {
       window.speechSynthesis.getVoices();
@@ -305,7 +423,9 @@ export default function useVoiceMode(familyState, dispatch) {
     aiResponse,
     isEnabled,
     isSupported,
+    mode, // "native" or "whisper"
     enable,
     disable,
+    tapToSpeak, // Manual activation (Whisper mode) or bypass wake word (native)
   };
 }
