@@ -167,6 +167,7 @@ export function connectMemberCalendar(memberId) {
             accessToken: tokenData.access_token,
             calendarId: tokenData.calendarId || "primary",
             hasRefreshToken: tokenData.refresh_token, // boolean
+            refreshTokenStored: tokenData.refresh_token_stored, // server DB write succeeded
           });
         } catch (err) {
           console.warn("[gcal] Code exchange failed, falling back to implicit:", err.message);

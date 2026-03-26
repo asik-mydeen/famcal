@@ -9,10 +9,9 @@
  */
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -58,17 +57,21 @@ export default async function handler(req, res) {
     const { access_token, refresh_token, expires_in } = tokenData;
 
     // Store refresh_token in Supabase for server-side sync
+    let refreshTokenStored = false;
     if (refresh_token) {
+      if (!process.env.SUPABASE_SERVICE_KEY) {
+        console.warn("[google-token] SUPABASE_SERVICE_KEY not set — using anon key. Refresh token write may fail due to RLS.");
+      }
       const { error: dbErr } = await supabase
         .from("family_members")
         .update({ google_refresh_token: refresh_token })
         .eq("id", memberId);
 
       if (dbErr) {
-        console.warn("[google-token] Failed to store refresh token:", dbErr.message);
-        // Don't fail — access_token still works for immediate use
+        console.error("[google-token] Failed to store refresh token for", memberId, ":", dbErr.message, "| Key type:", process.env.SUPABASE_SERVICE_KEY ? "service" : "anon");
       } else {
         console.log("[google-token] Refresh token stored for member:", memberId);
+        refreshTokenStored = true;
       }
     }
 
@@ -88,6 +91,7 @@ export default async function handler(req, res) {
       access_token,
       expires_in,
       refresh_token: !!refresh_token, // Boolean only — don't expose actual token to client
+      refresh_token_stored: refreshTokenStored, // Whether DB write succeeded
       calendarId,
     });
   } catch (err) {

@@ -536,7 +536,7 @@ function FamilyCalendar() {
     setConnectingId(member.id);
     try {
       const result = await connectMemberCalendar(member.id);
-      dispatch({ type: "UPDATE_MEMBER", value: { id: member.id, google_calendar_id: result.calendarId } });
+      dispatch({ type: "UPDATE_MEMBER", value: { id: member.id, google_calendar_id: result.calendarId, has_server_sync: !!result.refreshTokenStored } });
     } catch (err) {
       console.warn("Connect failed:", err.message);
     }
