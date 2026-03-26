@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import PropTypes from "prop-types";
 
 import { FamilyContext, familyReducer } from "context/FamilyContext";
+import { supabase } from "lib/supabase";
 import { apiUrl } from "lib/api";
 import AnimatedBackground from "components/AnimatedBackground";
 import HeaderBar from "components/HeaderBar";
@@ -622,57 +623,49 @@ function Dashboard() {
     if (!authenticated || !data?.family?.id) return;
 
     let channel;
-    let sb;
     let fallbackInterval;
-    try {
-      const { createClient } = require("@supabase/supabase-js");
-      const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-      const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-      if (!supabaseUrl || supabaseUrl.includes("your-project")) throw new Error("Not configured");
 
-      sb = createClient(supabaseUrl, supabaseKey);
-      channel = sb.channel(`family:${data.family.id}`, {
-        config: { broadcast: { self: false } },
-      });
-
-      const handleChange = () => {
-        if (Date.now() - lastWriteRef.current > 3000) {
-          const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-          if (cachedToken) validateAndLoad(cachedToken);
-        }
-      };
-
-      channel.on("broadcast", { event: "change" }, handleChange);
-      channel.on("broadcast", { event: "INSERT" }, handleChange);
-      channel.on("broadcast", { event: "UPDATE" }, handleChange);
-      channel.on("broadcast", { event: "DELETE" }, handleChange);
-
-      channel.subscribe((status) => {
-        console.log("[realtime] Dashboard:", status);
-        if (status === "SUBSCRIBED") dashChannelRef.current = channel;
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.log("[realtime] Failed — falling back to 30s polling");
-          const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-          if (cachedToken) {
-            fallbackInterval = setInterval(() => {
-              if (Date.now() - lastWriteRef.current > 10000) validateAndLoad(cachedToken);
-            }, 30000);
-          }
-        }
-      });
-    } catch {
-      console.log("[realtime] Unavailable, falling back to 30s polling");
+    const url = supabase?.supabaseUrl || "";
+    if (!url || url.includes("your-project")) {
+      // No Supabase configured — use polling fallback
       const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
       if (cachedToken) {
-        fallbackInterval = setInterval(() => {
-          if (Date.now() - lastWriteRef.current > 10000) validateAndLoad(cachedToken);
-        }, 30000);
+        fallbackInterval = setInterval(() => validateAndLoad(cachedToken), 30000);
       }
+      return () => { if (fallbackInterval) clearInterval(fallbackInterval); };
     }
+
+    channel = supabase.channel(`family:${data.family.id}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    const handleChange = () => {
+      if (Date.now() - lastWriteRef.current > 3000) {
+        const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+        if (cachedToken) validateAndLoad(cachedToken);
+      }
+    };
+
+    channel.on("broadcast", { event: "change" }, handleChange);
+    channel.on("broadcast", { event: "INSERT" }, handleChange);
+    channel.on("broadcast", { event: "UPDATE" }, handleChange);
+    channel.on("broadcast", { event: "DELETE" }, handleChange);
+
+    channel.subscribe((status) => {
+      console.log("[realtime] Dashboard:", status);
+      if (status === "SUBSCRIBED") dashChannelRef.current = channel;
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.log("[realtime] Failed — falling back to 30s polling");
+        const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+        if (cachedToken) {
+          fallbackInterval = setInterval(() => validateAndLoad(cachedToken), 30000);
+        }
+      }
+    });
 
     return () => {
       if (fallbackInterval) clearInterval(fallbackInterval);
-      if (channel && sb) sb.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, data?.family?.id, slug]);
