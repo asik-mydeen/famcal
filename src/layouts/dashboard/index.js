@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useReducer } from "react";
 import { useParams, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -128,6 +128,10 @@ TokenEntry.propTypes = {
 
 // ── Full Dashboard App Shell ──
 
+// Module-level variables for realtime (avoids React ref closure issues in production builds)
+let _dashboardChannel = null;
+let _lastWriteTime = 0;
+
 function DashboardShell({ data, slug, onDisconnect }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -173,13 +177,10 @@ function DashboardShell({ data, slug, onDisconnect }) {
   // Persisting dispatch — updates local state AND writes to Supabase via API
   // Write cooldown: after any local write, skip polls for 10s to prevent
   // the poll from overwriting optimistic local state with stale API data.
-  const lastWriteRef = useRef(0);
-  const realtimeChannelRef = useRef(null);
-
   const persistingDispatch = useCallback((action) => {
     // Always update local state first
     dispatch(action);
-    lastWriteRef.current = Date.now();
+    _lastWriteTime = Date.now();
 
     // Broadcast change to other clients via realtime channel
     const TABLE_MAP = {
@@ -191,8 +192,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
       ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
     };
     const table = TABLE_MAP[action.type];
-    if (table && realtimeChannelRef.current) {
-      realtimeChannelRef.current.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
+    if (table && _dashboardChannel) {
+      _dashboardChannel.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
     }
 
     // Map dispatch actions to API write calls
@@ -640,7 +641,7 @@ function Dashboard() {
     });
 
     const handleChange = () => {
-      if (Date.now() - lastWriteRef.current > 3000) {
+      if (Date.now() - _lastWriteTime > 3000) {
         const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
         if (cachedToken) validateAndLoad(cachedToken);
       }
@@ -652,7 +653,7 @@ function Dashboard() {
     channel.on("broadcast", { event: "DELETE" }, handleChange);
 
     // Store channel ref immediately for broadcast sending
-    realtimeChannelRef.current = channel;
+    _dashboardChannel = channel;
 
     channel.subscribe((status) => {
       console.log("[realtime] Dashboard:", status);
@@ -668,6 +669,7 @@ function Dashboard() {
     return () => {
       if (fallbackInterval) clearInterval(fallbackInterval);
       if (channel) supabase.removeChannel(channel);
+      _dashboardChannel = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, data?.family?.id, slug]);
