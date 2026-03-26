@@ -651,9 +651,11 @@ function Dashboard() {
     channel.on("broadcast", { event: "UPDATE" }, handleChange);
     channel.on("broadcast", { event: "DELETE" }, handleChange);
 
+    // Store channel ref immediately (don't wait for subscribe callback)
+    dashChannelRef.current = channel;
+
     channel.subscribe((status) => {
       console.log("[realtime] Dashboard:", status);
-      if (status === "SUBSCRIBED") dashChannelRef.current = channel;
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         console.log("[realtime] Failed — falling back to 30s polling");
         const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
