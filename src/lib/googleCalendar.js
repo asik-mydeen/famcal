@@ -455,7 +455,7 @@ export async function syncMemberCalendar(member, localEvents, familyId, dispatch
         dispatch({
           type: "ADD_EVENT",
           value: {
-            id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            id: crypto.randomUUID(),
             ...converted,
             updated_at: gEvt.updated || new Date().toISOString(),
           },

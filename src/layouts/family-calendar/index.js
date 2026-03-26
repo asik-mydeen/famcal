@@ -421,7 +421,7 @@ function FamilyCalendar() {
       }
       return; // Skip the setDialogOpen below
     } else {
-      const newEventId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const newEventId = crypto.randomUUID();
       const newEvent = {
         id: newEventId,
         family_id: family.id,
@@ -443,7 +443,7 @@ function FamilyCalendar() {
         value: newEvent
       });
 
-      // Google sync happens in background AFTER UI is updated
+      // Google push: wait 500ms for Supabase INSERT to complete, then push
       if (member?.google_calendar_id && !isDashboard) {
         setTimeout(() => {
           pushEventToGoogle(member, newEvent).then(googleId => {
@@ -451,7 +451,7 @@ function FamilyCalendar() {
               dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
             }
           }).catch(() => {});
-        }, 100);
+        }, 500);
       }
       return; // Skip the setDialogOpen below (already done above)
     }
@@ -578,13 +578,21 @@ function FamilyCalendar() {
     syncingRef.current = false;
   }, [members, events, family.id, dispatch, connectedCount]);
 
+  // Skip client-side auto-sync if ALL connected members have server sync (cron handles it)
+  const allServerSynced = members.every((m) => !m.google_calendar_id || m.has_server_sync);
+
   useEffect(() => {
     if (isDashboard || connectedCount === 0 || members.length === 0) return;
+    // If all members have server-side sync, skip client polling entirely
+    // Server cron runs every 15min — client sync is redundant and causes race conditions
+    if (allServerSynced) {
+      console.log("[calendar] All members have server sync — skipping client auto-sync");
+      return;
+    }
 
-    // Initial sync after 1.5s
+    // Fallback: client-side polling for members without server sync (no refresh token)
     const initTimer = setTimeout(silentSync, 1500);
 
-    // Poll every 30 seconds while page is visible
     const startPolling = () => {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(silentSync, 30000);
@@ -596,7 +604,7 @@ function FamilyCalendar() {
       if (document.hidden) {
         stopPolling();
       } else {
-        silentSync(); // Sync immediately when tab becomes visible
+        silentSync();
         startPolling();
       }
     };
@@ -609,7 +617,7 @@ function FamilyCalendar() {
       stopPolling();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [connectedCount, members.length, silentSync]);
+  }, [connectedCount, members.length, silentSync, allServerSynced]);
 
   // ── Widget Definitions ──
 

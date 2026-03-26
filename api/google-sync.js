@@ -144,16 +144,22 @@ export default async function handler(req, res) {
       // Fetch events from Google
       const gEvents = await fetchGoogleEvents(accessToken, member.google_calendar_id);
 
-      // Get existing synced events for this member (source: "google" OR "synced")
+      // Get ALL existing events for this member (any source) to prevent duplicates
       const memberFamilyId = member.family_id || familyId;
       const { data: existingEvents } = await supabase
         .from("events")
-        .select("id, google_event_id, updated_at, source")
+        .select("id, google_event_id, updated_at, source, title, start_time")
         .eq("family_id", memberFamilyId)
-        .eq("member_id", member.id)
-        .in("source", ["google", "synced"]);
+        .eq("member_id", member.id);
 
-      const existingMap = new Map((existingEvents || []).map((e) => [e.google_event_id, e]));
+      // Build lookup maps: by google_event_id + by title+start (fallback dedup)
+      const byGoogleId = new Map();
+      const byTitleStart = new Map();
+      for (const e of (existingEvents || [])) {
+        if (e.google_event_id) byGoogleId.set(e.google_event_id, e);
+        const key = `${e.title}||${e.start_time}`;
+        if (!byTitleStart.has(key)) byTitleStart.set(key, e);
+      }
 
       let added = 0, updated = 0, removed = 0;
 
@@ -164,24 +170,40 @@ export default async function handler(req, res) {
         googleEventIds.add(gEvent.id);
 
         const dbEvent = googleEventToDb(gEvent, member.id, memberFamilyId);
-        const existing = existingMap.get(gEvent.id);
+        // Check by google_event_id first, then fallback to title+start match
+        let existing = byGoogleId.get(gEvent.id);
+        if (!existing) {
+          const fallbackKey = `${dbEvent.title}||${dbEvent.start_time}`;
+          const titleMatch = byTitleStart.get(fallbackKey);
+          if (titleMatch && !titleMatch.google_event_id) {
+            // Manual event with same title+time — link it instead of duplicating
+            existing = titleMatch;
+          }
+        }
 
         if (existing) {
-          // Update if Google event is newer
-          if (gEvent.updated && existing.updated_at && new Date(gEvent.updated) > new Date(existing.updated_at)) {
-            await supabase.from("events").update(dbEvent).eq("id", existing.id);
+          // Update: set google_event_id + source if missing, or update if Google is newer
+          const needsLink = !existing.google_event_id || existing.source === "manual";
+          const isNewer = gEvent.updated && existing.updated_at && new Date(gEvent.updated) > new Date(existing.updated_at);
+          if (needsLink || isNewer) {
+            await supabase.from("events").update({ ...dbEvent, source: existing.source === "manual" ? "synced" : dbEvent.source }).eq("id", existing.id);
             updated++;
           }
         } else {
-          // Insert new event
-          await supabase.from("events").insert(dbEvent);
-          added++;
+          // Insert new event from Google
+          const { error: insertErr } = await supabase.from("events").insert(dbEvent);
+          if (insertErr && insertErr.code === "23505") {
+            // Unique constraint violation — event already exists, skip
+            console.log(`[google-sync] Skipped duplicate for google_event_id=${gEvent.id}`);
+          } else {
+            added++;
+          }
         }
       }
 
-      // Remove events deleted from Google
-      for (const [googleId, existing] of existingMap) {
-        if (!googleEventIds.has(googleId)) {
+      // Remove events deleted from Google (only google/synced source, not manual)
+      for (const [googleId, existing] of byGoogleId) {
+        if (googleId && !googleEventIds.has(googleId) && (existing.source === "google" || existing.source === "synced")) {
           await supabase.from("events").delete().eq("id", existing.id);
           removed++;
         }

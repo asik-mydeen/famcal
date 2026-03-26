@@ -99,7 +99,7 @@ function AICommandBar({ familyId, dispatch, state, currentPage, externalOpen, on
             dispatch({
               type: "ADD_EVENT",
               value: {
-                id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                id: crypto.randomUUID(),
                 family_id: familyId,
                 member_id: d.member_id || null,
                 title: d.title,

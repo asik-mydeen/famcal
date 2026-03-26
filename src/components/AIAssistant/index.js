@@ -248,7 +248,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             dispatch({
               type: "ADD_EVENT",
               value: {
-                id: `event-${Date.now()}`,
+                id: crypto.randomUUID(),
                 family_id: familyId,
                 ...d,
               },
@@ -438,7 +438,7 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
               dispatch({
                 type: "ADD_EVENT",
                 value: {
-                  id: `event-alarm-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   family_id: familyId,
                   title: `⏰ ${d.title || "Alarm"}`,
                   start: alarmTime.toISOString(),
