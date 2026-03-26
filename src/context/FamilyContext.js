@@ -749,14 +749,19 @@ function FamilyProvider({ children }) {
     return (action) => {
       dispatch(action);
 
-      // Broadcast change to other clients via realtime channel
+      // Broadcast change to other clients via realtime channel.
+      // Delay 1.5s so Supabase INSERT completes before other clients refetch.
       const table = ACTION_TABLE_MAP[action.type];
       if (table && channelRef.current) {
-        channelRef.current.send({
-          type: "broadcast",
-          event: "change",
-          payload: { table },
-        }).catch(() => {}); // Best effort
+        setTimeout(() => {
+          if (channelRef.current) {
+            channelRef.current.send({
+              type: "broadcast",
+              event: "change",
+              payload: { table },
+            }).catch(() => {});
+          }
+        }, 1500);
       }
 
       if (!state.isSupabaseConnected) {

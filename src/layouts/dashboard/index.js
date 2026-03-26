@@ -162,10 +162,10 @@ function DashboardShell({ data, slug, onDisconnect }) {
   // Real reducer so components can dispatch locally (ADD_LIST, COMPLETE_TASK, etc.)
   const [state, dispatch] = useReducer(familyReducer, initialState);
 
-  // Update state when API data refreshes — but skip if we just wrote locally
-  // (prevents overwriting optimistic local state with stale API data)
+  // Update state when API data refreshes.
+  // This replaces local state with authoritative API data.
+  // Temp-ID events from local writes get replaced by their real UUID versions.
   useEffect(() => {
-    if (Date.now() - _lastWriteTime < 5000) return; // Skip if wrote in last 5s
     dispatch({ type: "SET_MEMBERS", value: members.map(memberFromDb) });
     dispatch({ type: "SET_EVENTS", value: events.map(eventFromDb) });
     dispatch({ type: "SET_TASKS", value: tasks.map(taskFromDb) });
@@ -195,7 +195,12 @@ function DashboardShell({ data, slug, onDisconnect }) {
     };
     const table = TABLE_MAP[action.type];
     if (table && _dashboardChannel) {
-      _dashboardChannel.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
+      // Delay broadcast so Supabase INSERT completes before other clients refetch
+      setTimeout(() => {
+        if (_dashboardChannel) {
+          _dashboardChannel.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
+        }
+      }, 1500);
     }
 
     // Map dispatch actions to API write calls
@@ -314,7 +319,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
     }
   }, [slug]);
 
-  const contextValue = useMemo(() => [state, persistingDispatch], [state, persistingDispatch]);
+  // Don't memoize — ensure context consumers always re-render on state change
+  const contextValue = [state, persistingDispatch];
 
   // Kiosk/fullscreen for dashboard — tries Tauri API first, falls back to browser API
   const [kioskEnabled, setKioskEnabled] = useState(false);
