@@ -174,14 +174,14 @@ function DashboardShell({ data, slug, onDisconnect }) {
   // Write cooldown: after any local write, skip polls for 10s to prevent
   // the poll from overwriting optimistic local state with stale API data.
   const lastWriteRef = useRef(0);
-  const dashChannelRef = useRef(null);
+  const realtimeChannelRef = useRef(null);
 
   const persistingDispatch = useCallback((action) => {
     // Always update local state first
     dispatch(action);
     lastWriteRef.current = Date.now();
 
-    // Broadcast change to other clients
+    // Broadcast change to other clients via realtime channel
     const TABLE_MAP = {
       ADD_EVENT: "events", UPDATE_EVENT: "events", REMOVE_EVENT: "events",
       ADD_TASK: "tasks", UPDATE_TASK: "tasks", COMPLETE_TASK: "tasks", REMOVE_TASK: "tasks",
@@ -191,8 +191,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
       ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
     };
     const table = TABLE_MAP[action.type];
-    if (table && dashChannelRef.current) {
-      dashChannelRef.current.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
+    if (table && realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
     }
 
     // Map dispatch actions to API write calls
@@ -651,8 +651,8 @@ function Dashboard() {
     channel.on("broadcast", { event: "UPDATE" }, handleChange);
     channel.on("broadcast", { event: "DELETE" }, handleChange);
 
-    // Store channel ref immediately (don't wait for subscribe callback)
-    dashChannelRef.current = channel;
+    // Store channel ref immediately for broadcast sending
+    realtimeChannelRef.current = channel;
 
     channel.subscribe((status) => {
       console.log("[realtime] Dashboard:", status);
