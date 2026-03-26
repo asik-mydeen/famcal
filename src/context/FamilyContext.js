@@ -845,11 +845,14 @@ function FamilyProvider({ children }) {
         }
         case "UPDATE_EVENT": {
           const ev = action.value;
+          // Skip Supabase update for temp IDs (not yet in DB)
+          if (ev.id && ev.id.startsWith("evt-")) break;
           const evUpdate = { id: ev.id };
           if (ev.title !== undefined) evUpdate.title = ev.title;
           if (ev.start !== undefined) evUpdate.start_time = ev.start;
           if (ev.end !== undefined) evUpdate.end_time = ev.end;
           if (ev.allDay !== undefined) evUpdate.all_day = ev.allDay;
+          if (ev.member_id !== undefined) evUpdate.member_id = ev.member_id;
           if (ev.google_event_id !== undefined) evUpdate.google_event_id = ev.google_event_id;
           if (ev.source !== undefined) evUpdate.source = ev.source;
           if (ev.className !== undefined) evUpdate.color = ev.className;
@@ -857,9 +860,11 @@ function FamilyProvider({ children }) {
           persist("events", "update", evUpdate);
           break;
         }
-        case "REMOVE_EVENT":
-          persist("events", "delete", action.value);
+        case "REMOVE_EVENT": {
+          const evId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (evId && !evId.startsWith("evt-")) persist("events", "delete", evId);
           break;
+        }
         case "ADD_REWARD": {
           if (action.value === "__replace__") break;
           const row = { family_id: state.family.id, title: action.value.title, description: action.value.description, points_cost: action.value.points_cost, icon: action.value.icon };
@@ -987,6 +992,7 @@ function FamilyProvider({ children }) {
           break;
         }
         case "UPDATE_TASK": {
+          if (action.value.id && action.value.id.startsWith("task-")) break;
           const taskRow = taskToDb(action.value);
           persist("tasks", "update", taskRow);
           break;
