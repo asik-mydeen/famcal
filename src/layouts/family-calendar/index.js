@@ -208,39 +208,68 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
             </Box>
           )}
 
-          {/* Member events */}
+          {/* Member events — with overlap detection (Google Calendar style) */}
           {members.map((m, mIdx) => {
             const colWidth = `calc((100% - ${timeColW}px) / ${members.length})`;
-            return (memberEvents[m.id] || []).filter((e) => !e.allDay).map((evt) => {
+            const evts = (memberEvents[m.id] || []).filter((e) => !e.allDay).map((evt) => {
               const s = new Date(evt.start);
               const e = evt.end ? new Date(evt.end) : new Date(s.getTime() + 3600000);
-              const sH = s.getHours() + s.getMinutes() / 60;
-              const eH = e.getHours() + e.getMinutes() / 60;
-              const top = Math.max(0, (sH - DAY_START)) * HOUR_HEIGHT;
-              const height = Math.max(28, (eH - sH) * HOUR_HEIGHT);
+              return { ...evt, _s: s, _e: e, _sH: s.getHours() + s.getMinutes() / 60, _eH: e.getHours() + e.getMinutes() / 60 };
+            }).sort((a, b) => a._sH - b._sH || a._eH - b._eH);
+
+            // Assign overlap columns (Google Calendar algorithm)
+            const columns = [];
+            evts.forEach((evt) => {
+              let placed = false;
+              for (let col = 0; col < columns.length; col++) {
+                const lastInCol = columns[col][columns[col].length - 1];
+                if (evt._sH >= lastInCol._eH) { // No overlap
+                  columns[col].push(evt);
+                  evt._col = col;
+                  placed = true;
+                  break;
+                }
+              }
+              if (!placed) {
+                evt._col = columns.length;
+                columns.push([evt]);
+              }
+            });
+            const totalCols = columns.length || 1;
+
+            return evts.map((evt) => {
+              const top = Math.max(0, (evt._sH - DAY_START)) * HOUR_HEIGHT;
+              const height = Math.max(28, (evt._eH - evt._sH) * HOUR_HEIGHT);
+              const col = evt._col || 0;
+              // Within the member column, split width for overlapping events
+              const subWidth = totalCols > 1 ? `calc((${colWidth} - 6px) / ${totalCols})` : `calc(${colWidth} - 6px)`;
+              const subLeft = totalCols > 1
+                ? `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px + (${colWidth} - 6px) * ${col} / ${totalCols})`
+                : `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`;
+
               return (
                 <Box key={evt.id} onClick={() => onEventClick(evt)}
                   sx={{
                     position: "absolute", top, height,
-                    left: `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`,
-                    width: `calc(${colWidth} - 6px)`,
+                    left: subLeft,
+                    width: subWidth,
                     background: alpha(m.avatar_color, 0.18),
                     color: m.avatar_color,
                     borderLeft: `4px solid ${m.avatar_color}`,
                     borderRadius: "10px",
-                    px: "14px", py: "10px",
+                    px: totalCols > 1 ? "8px" : "14px", py: totalCols > 1 ? "6px" : "10px",
                     cursor: "pointer", overflow: "hidden", zIndex: 4,
                     boxShadow: `0 2px 8px ${alpha(m.avatar_color, 0.2)}`,
                     transition: "transform 0.15s, box-shadow 0.15s",
                     "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${alpha(m.avatar_color, 0.3)}`, zIndex: 6 },
                   }}
                 >
-                  <Typography sx={{ fontWeight: 700, fontSize: height > 40 ? "0.75rem" : "0.65rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: height > 40 && totalCols < 3 ? "0.75rem" : "0.6rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
                     {evt.title}
                   </Typography>
-                  {height > 36 && (
-                    <Typography sx={{ fontSize: "0.6rem", opacity: 0.7, mt: 0.25 }}>
-                      {fmtTime(s)} - {fmtTime(e)}
+                  {height > 36 && totalCols < 3 && (
+                    <Typography sx={{ fontSize: "0.55rem", opacity: 0.7, mt: 0.25 }}>
+                      {fmtTime(evt._s)} - {fmtTime(evt._e)}
                     </Typography>
                   )}
                 </Box>

@@ -444,19 +444,33 @@ function FamilyProvider({ children }) {
   const familyIdRef = useRef(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
 
-  // Wait for auth session to be fully established before subscribing
+  // Wait for auth session to be fully established before subscribing.
+  // Listen for the Supabase auth state change to ensure the client
+  // has an active session token before opening the WebSocket.
   useEffect(() => {
     if (!user || !state.dataLoaded) return;
-    // Give Supabase client time to set the auth token internally
-    const timer = setTimeout(async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) setRealtimeReady(true);
-      } catch {
-        setRealtimeReady(true); // Try anyway
+    let cancelled = false;
+
+    const checkSession = async () => {
+      // Wait for auth to fully initialize
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && !cancelled) {
+        setRealtimeReady(true);
+        return;
       }
-    }, 1000);
-    return () => clearTimeout(timer);
+      // If no session yet, listen for auth state change
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session && !cancelled) {
+          setRealtimeReady(true);
+          subscription.unsubscribe();
+        }
+      });
+      // Fallback: try after 3 seconds regardless
+      setTimeout(() => { if (!cancelled) setRealtimeReady(true); }, 3000);
+    };
+
+    checkSession().catch(() => { if (!cancelled) setRealtimeReady(true); });
+    return () => { cancelled = true; };
   }, [user, state.dataLoaded]);
 
   useEffect(() => {
@@ -525,20 +539,23 @@ function FamilyProvider({ children }) {
       if (table === "list_items") refreshTable("lists");
     });
 
+    let fallbackStarted = false;
     channel.subscribe(async (status) => {
-      console.log("[realtime] FamilyContext:", status);
       if (status === "SUBSCRIBED") {
-        console.log("[realtime] Connected — instant sync active for family", fid);
-      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        console.warn("[realtime] Failed — falling back to 30s polling");
-        // Fallback: poll every 30s if realtime unavailable
-        const poll = setInterval(async () => {
+        console.log("[realtime] Connected — instant sync active");
+        // Cancel any fallback polling if realtime recovers
+        if (channel._fallbackPoll) {
+          clearInterval(channel._fallbackPoll);
+          channel._fallbackPoll = null;
+        }
+      } else if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !fallbackStarted) {
+        fallbackStarted = true;
+        console.log("[realtime] WebSocket unavailable — using 30s polling");
+        channel._fallbackPoll = setInterval(async () => {
           for (const table of Object.keys(ACTION_MAP)) {
             await refreshTable(table);
           }
         }, 30000);
-        // Store cleanup ref
-        channel._fallbackPoll = poll;
       }
     });
 
