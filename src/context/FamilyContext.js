@@ -1070,6 +1070,12 @@ function FamilyProvider({ children }) {
             if (action.value.dashboard_token !== undefined) {
               famUpdate.dashboard_token = action.value.dashboard_token;
             }
+            if (action.value.theme_preset !== undefined) {
+              famUpdate.theme_preset = action.value.theme_preset;
+            }
+            if (action.value.dark_mode !== undefined) {
+              famUpdate.dark_mode = action.value.dark_mode;
+            }
             persist("families", "update", famUpdate);
           }
           break;

@@ -130,7 +130,7 @@ TokenEntry.propTypes = {
 
 // Module-level variables for realtime (avoids React ref closure issues in production builds)
 let _dashboardChannel = null;
-let _lastWriteTime = 0;
+// Module-level channel reference for realtime broadcast
 
 function DashboardShell({ data, slug, onDisconnect }) {
   const location = useLocation();
@@ -163,12 +163,14 @@ function DashboardShell({ data, slug, onDisconnect }) {
   const [state, dispatch] = useReducer(familyReducer, initialState);
 
   // Update state when API data refreshes.
-  // This replaces local state with authoritative API data.
-  // Temp-ID events from local writes get replaced by their real UUID versions.
+  // Always accept API data as authoritative source of truth.
   useEffect(() => {
-    dispatch({ type: "SET_MEMBERS", value: members.map(memberFromDb) });
-    dispatch({ type: "SET_EVENTS", value: events.map(eventFromDb) });
-    dispatch({ type: "SET_TASKS", value: tasks.map(taskFromDb) });
+    const mappedMembers = members.map(memberFromDb);
+    const mappedEvents = events.map(eventFromDb);
+    const mappedTasks = tasks.map(taskFromDb);
+    dispatch({ type: "SET_MEMBERS", value: mappedMembers });
+    dispatch({ type: "SET_EVENTS", value: mappedEvents });
+    dispatch({ type: "SET_TASKS", value: mappedTasks });
     dispatch({ type: "SET_MEALS", value: meals });
     dispatch({ type: "SET_LISTS", value: lists });
     dispatch({ type: "SET_REWARDS", value: rewards });
@@ -176,13 +178,25 @@ function DashboardShell({ data, slug, onDisconnect }) {
     dispatch({ type: "SET_COUNTDOWNS", value: countdowns || [] });
   }, [members, events, tasks, meals, lists, rewards, notes, countdowns]);
 
+  // Sync theme from family settings (webapp stores in DB, kiosk reads from API)
+  useEffect(() => {
+    if (family?.theme_preset) {
+      localStorage.setItem("famcal_theme_preset", family.theme_preset);
+      // Trigger ThemeContext update via custom event
+      window.dispatchEvent(new CustomEvent("famcal-theme-change", { detail: { preset: family.theme_preset } }));
+    }
+    if (family?.dark_mode !== undefined) {
+      localStorage.setItem("famcal_dark_mode", String(family.dark_mode));
+      window.dispatchEvent(new CustomEvent("famcal-theme-change", { detail: { darkMode: family.dark_mode } }));
+    }
+  }, [family?.theme_preset, family?.dark_mode]);
+
   // Persisting dispatch — updates local state AND writes to Supabase via API
   // Write cooldown: after any local write, skip polls for 10s to prevent
   // the poll from overwriting optimistic local state with stale API data.
   const persistingDispatch = useCallback((action) => {
     // Always update local state first
     dispatch(action);
-    _lastWriteTime = Date.now();
 
     // Broadcast change to other clients via realtime channel
     const TABLE_MAP = {
@@ -649,10 +663,8 @@ function Dashboard() {
     });
 
     const handleChange = () => {
-      if (Date.now() - _lastWriteTime > 3000) {
-        const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-        if (cachedToken) validateAndLoad(cachedToken);
-      }
+      const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+      if (cachedToken) validateAndLoad(cachedToken);
     };
 
     channel.on("broadcast", { event: "change" }, handleChange);

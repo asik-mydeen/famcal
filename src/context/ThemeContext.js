@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, useCallback } from "react";
+import { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { getTokens, getPresetNames } from "theme/tokens";
 import { alpha as alphaHelper, gradient as gradientHelper } from "theme/helpers";
@@ -32,6 +32,16 @@ export function ThemeModeProvider({ children }) {
     setPresetState(name);
     localStorage.setItem("famcal_theme_preset", name);
   }, []);
+
+  // Listen for theme changes from dashboard/kiosk sync
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.preset) setPreset(e.detail.preset);
+      if (e.detail?.darkMode !== undefined) setMode(e.detail.darkMode);
+    };
+    window.addEventListener("famcal-theme-change", handler);
+    return () => window.removeEventListener("famcal-theme-change", handler);
+  }, [setPreset, setMode]);
 
   const value = useMemo(
     () => ({ darkMode, toggleDarkMode, setMode, preset, setPreset }),

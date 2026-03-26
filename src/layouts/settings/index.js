@@ -366,7 +366,10 @@ function Settings() {
 
             {/* Dark Mode */}
             <FormControlLabel
-              control={<Switch checked={darkMode} onChange={(e) => setDarkModeValue(e.target.checked)} />}
+              control={<Switch checked={darkMode} onChange={(e) => {
+                setDarkModeValue(e.target.checked);
+                dispatch({ type: "SET_FAMILY", value: { ...family, dark_mode: e.target.checked } });
+              }} />}
               label="Dark Mode"
               sx={{ display: "flex", mb: 2 }}
             />
@@ -383,7 +386,11 @@ function Settings() {
                   return (
                     <Box
                       key={name}
-                      onClick={() => setPreset(name)}
+                      onClick={() => {
+                        setPreset(name);
+                        // Persist to family record so kiosk picks it up
+                        dispatch({ type: "SET_FAMILY", value: { ...family, theme_preset: name } });
+                      }}
                       sx={{
                         p: 2,
                         borderRadius: "14px",
