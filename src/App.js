@@ -21,6 +21,8 @@ import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { getGoogleClientId } from "lib/googleCalendar";
 import { fetchPhotosFromAlbums } from "lib/googlePhotos";
 import AnimatedBackground from "components/AnimatedBackground";
+import VoiceOverlay from "components/VoiceOverlay";
+import useVoiceMode from "hooks/useVoiceMode";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
 import FloatingNav from "components/FloatingNav";
@@ -481,6 +483,9 @@ export default function App() {
   const [state, dispatch] = useFamilyController();
   const { members, photos, countdowns, family, dataLoaded } = state;
 
+  // Voice mode — "Hey Amara" wake word
+  const voice = useVoiceMode(state, dispatch);
+
   // Unified FAB state
   const [aiOpen, setAiOpen] = useState(false);
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
@@ -736,6 +741,14 @@ export default function App() {
             <TimerAlarmPanel
               open={timerPanelOpen}
               onClose={() => setTimerPanelOpen(false)}
+            />
+            {/* Voice Mode — "Hey Amara" */}
+            <VoiceOverlay
+              voiceState={voice.voiceState}
+              transcript={voice.transcript}
+              aiResponse={voice.aiResponse}
+              isEnabled={voice.isEnabled}
+              onDisable={voice.disable}
             />
           </KioskWrapper>
         </TimerAlarmProvider>

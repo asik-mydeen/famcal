@@ -99,3 +99,37 @@ export async function sendAIMessage(messages, context, aiPreferences = null, mem
     };
   }
 }
+
+/**
+ * Voice-specific AI call — sends a single user message with full context.
+ * Returns { text, actions } for the voice overlay to display and execute.
+ */
+export async function voiceSendMessage(query, context, aiPreferences = null) {
+  try {
+    const messages = [{ role: "user", content: query }];
+    const res = await fetch(apiUrl("/api/chat"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages,
+        context,
+        ai_preferences: aiPreferences || {},
+        voice_mode: true, // Tell backend to keep response concise
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.reply || err.error || "Voice AI request failed");
+    }
+
+    const data = await res.json();
+    return {
+      text: data.reply || "Done.",
+      actions: data.actions || [],
+    };
+  } catch (err) {
+    console.error("[voice-ai]", err);
+    return { text: err.message || "Sorry, something went wrong.", actions: [] };
+  }
+}

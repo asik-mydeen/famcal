@@ -374,6 +374,33 @@ function Settings() {
               sx={{ display: "flex", mb: 2 }}
             />
 
+            {/* Voice Mode */}
+            <FormControlLabel
+              control={<Switch
+                checked={localStorage.getItem("famcal_voice_mode") === "true"}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    localStorage.setItem("famcal_voice_mode", "true");
+                    window.dispatchEvent(new CustomEvent("famcal-voice-toggle", { detail: { enabled: true } }));
+                  } else {
+                    localStorage.setItem("famcal_voice_mode", "false");
+                    window.dispatchEvent(new CustomEvent("famcal-voice-toggle", { detail: { enabled: false } }));
+                  }
+                  // Force re-render
+                  window.location.reload();
+                }}
+              />}
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography>Voice Mode</Typography>
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.65rem" }}>
+                    Say &ldquo;Hey Amara&rdquo; to activate
+                  </Typography>
+                </Box>
+              }
+              sx={{ display: "flex", mb: 2 }}
+            />
+
             <Divider sx={{ my: 2 }} />
 
             {/* Theme Preset */}
