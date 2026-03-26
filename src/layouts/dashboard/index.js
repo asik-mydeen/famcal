@@ -173,11 +173,26 @@ function DashboardShell({ data, slug, onDisconnect }) {
   // Write cooldown: after any local write, skip polls for 10s to prevent
   // the poll from overwriting optimistic local state with stale API data.
   const lastWriteRef = useRef(0);
+  const dashChannelRef = useRef(null);
 
   const persistingDispatch = useCallback((action) => {
     // Always update local state first
     dispatch(action);
     lastWriteRef.current = Date.now();
+
+    // Broadcast change to other clients
+    const TABLE_MAP = {
+      ADD_EVENT: "events", UPDATE_EVENT: "events", REMOVE_EVENT: "events",
+      ADD_TASK: "tasks", UPDATE_TASK: "tasks", COMPLETE_TASK: "tasks", REMOVE_TASK: "tasks",
+      ADD_MEAL: "meals", UPDATE_MEAL: "meals", REMOVE_MEAL: "meals",
+      ADD_LIST: "lists", ADD_LIST_ITEM: "list_items", TOGGLE_LIST_ITEM: "list_items",
+      REMOVE_LIST_ITEM: "list_items", ADD_NOTE: "notes", REMOVE_NOTE: "notes",
+      ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
+    };
+    const table = TABLE_MAP[action.type];
+    if (table && dashChannelRef.current) {
+      dashChannelRef.current.send({ type: "broadcast", event: "change", payload: { table } }).catch(() => {});
+    }
 
     // Map dispatch actions to API write calls
     const writeToApi = async (apiAction, table, payload) => {
@@ -625,12 +640,14 @@ function Dashboard() {
         }
       };
 
+      channel.on("broadcast", { event: "change" }, handleChange);
       channel.on("broadcast", { event: "INSERT" }, handleChange);
       channel.on("broadcast", { event: "UPDATE" }, handleChange);
       channel.on("broadcast", { event: "DELETE" }, handleChange);
 
       channel.subscribe((status) => {
         console.log("[realtime] Dashboard:", status);
+        if (status === "SUBSCRIBED") dashChannelRef.current = channel;
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.log("[realtime] Failed — falling back to 30s polling");
           const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);

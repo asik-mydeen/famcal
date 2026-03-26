@@ -442,6 +442,7 @@ function FamilyProvider({ children }) {
   // Uses broadcast+triggers approach. Database triggers broadcast
   // INSERT/UPDATE/DELETE to topic "family:<id>".
   const familyIdRef = useRef(null);
+  const channelRef = useRef(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
 
   // Wait for auth session to be fully established before subscribing.
@@ -515,34 +516,33 @@ function FamilyProvider({ children }) {
     };
 
     const channel = supabase.channel(`family:${fid}`, {
-      config: { broadcast: { self: false } },
+      config: { broadcast: { self: false, ack: true } },
     });
 
-    // Listen for broadcast events from database triggers
-    // Triggers send: { event: "INSERT"|"UPDATE"|"DELETE", table: "events", ... }
-    channel.on("broadcast", { event: "INSERT" }, (payload) => {
-      const table = payload.payload?.table || payload.table;
-      console.log("[realtime] INSERT on", table);
+    // Listen for "change" broadcasts from OTHER clients.
+    // When any client writes data, it broadcasts { event: "change", table: "events" }
+    // and all other clients refetch that table.
+    channel.on("broadcast", { event: "change" }, (payload) => {
+      const table = payload.payload?.table;
+      console.log("[realtime] Change on", table, "from another client");
       if (table && ACTION_MAP[table]) refreshTable(table);
       if (table === "list_items") refreshTable("lists");
     });
-    channel.on("broadcast", { event: "UPDATE" }, (payload) => {
-      const table = payload.payload?.table || payload.table;
-      console.log("[realtime] UPDATE on", table);
-      if (table && ACTION_MAP[table]) refreshTable(table);
-      if (table === "list_items") refreshTable("lists");
-    });
-    channel.on("broadcast", { event: "DELETE" }, (payload) => {
-      const table = payload.payload?.table || payload.table;
-      console.log("[realtime] DELETE on", table);
-      if (table && ACTION_MAP[table]) refreshTable(table);
-      if (table === "list_items") refreshTable("lists");
+
+    // Also listen for trigger-based broadcasts (if triggers are set up)
+    ["INSERT", "UPDATE", "DELETE"].forEach((evt) => {
+      channel.on("broadcast", { event: evt }, (payload) => {
+        const table = payload.payload?.table || payload.table;
+        if (table && ACTION_MAP[table]) refreshTable(table);
+        if (table === "list_items") refreshTable("lists");
+      });
     });
 
     let fallbackStarted = false;
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
         console.log("[realtime] Connected — instant sync active");
+        channelRef.current = channel;
         // Cancel any fallback polling if realtime recovers
         if (channel._fallbackPoll) {
           clearInterval(channel._fallbackPoll);
@@ -731,10 +731,33 @@ function FamilyProvider({ children }) {
     loadFromSupabase();
   }, [userEmail]);
 
-  // Wrap dispatch to persist mutations to Supabase
+  // Wrap dispatch to persist mutations to Supabase + broadcast changes
   const persistingDispatch = useMemo(() => {
+    // Map action types to table names for broadcast
+    const ACTION_TABLE_MAP = {
+      ADD_MEMBER: "family_members", UPDATE_MEMBER: "family_members", REMOVE_MEMBER: "family_members",
+      ADD_TASK: "tasks", UPDATE_TASK: "tasks", COMPLETE_TASK: "tasks", UNCOMPLETE_TASK: "tasks", REMOVE_TASK: "tasks",
+      ADD_EVENT: "events", UPDATE_EVENT: "events", REMOVE_EVENT: "events",
+      ADD_REWARD: "rewards", CLAIM_REWARD: "rewards",
+      ADD_MEAL: "meals", UPDATE_MEAL: "meals", REMOVE_MEAL: "meals",
+      ADD_LIST: "lists", UPDATE_LIST: "lists", REMOVE_LIST: "lists",
+      ADD_LIST_ITEM: "list_items", TOGGLE_LIST_ITEM: "list_items", REMOVE_LIST_ITEM: "list_items",
+      ADD_NOTE: "notes", REMOVE_NOTE: "notes",
+      ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
+    };
+
     return (action) => {
       dispatch(action);
+
+      // Broadcast change to other clients via realtime channel
+      const table = ACTION_TABLE_MAP[action.type];
+      if (table && channelRef.current) {
+        channelRef.current.send({
+          type: "broadcast",
+          event: "change",
+          payload: { table },
+        }).catch(() => {}); // Best effort
+      }
 
       if (!state.isSupabaseConnected) {
         if (["ADD_MEAL", "UPDATE_AI_PREFERENCES", "SET_AI_PREFERENCES", "ADD_LIST_ITEM"].includes(action.type)) {
