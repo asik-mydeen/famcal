@@ -598,50 +598,62 @@ function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Supabase Realtime: instant sync via WebSocket (replaces 5s polling)
-  // When any table changes for this family, refetch data immediately
+  // Supabase Realtime: instant sync via broadcast+triggers (replaces polling)
+  // Database triggers broadcast changes to topic "family:<id>".
+  // Dashboard subscribes and refetches on each change.
   useEffect(() => {
     if (!authenticated || !data?.family?.id) return;
 
     let channel;
+    let sb;
+    let fallbackInterval;
     try {
       const { createClient } = require("@supabase/supabase-js");
       const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
       const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
       if (!supabaseUrl || supabaseUrl.includes("your-project")) throw new Error("Not configured");
 
-      const sb = createClient(supabaseUrl, supabaseKey);
-      channel = sb.channel(`dashboard-${data.family.id}`);
-
-      const tables = ["events", "tasks", "family_members", "meals", "lists", "notes", "countdowns", "rewards"];
-      tables.forEach((table) => {
-        channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${data.family.id}` }, () => {
-          // Skip refetch if we just wrote locally (avoid overwriting optimistic state)
-          if (Date.now() - lastWriteRef.current > 3000) {
-            const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-            if (cachedToken) validateAndLoad(cachedToken);
-          }
-        });
+      sb = createClient(supabaseUrl, supabaseKey);
+      channel = sb.channel(`family:${data.family.id}`, {
+        config: { broadcast: { self: false } },
       });
 
-      channel.subscribe((status) => console.log("[realtime] Dashboard:", status));
+      const handleChange = () => {
+        if (Date.now() - lastWriteRef.current > 3000) {
+          const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+          if (cachedToken) validateAndLoad(cachedToken);
+        }
+      };
+
+      channel.on("broadcast", { event: "INSERT" }, handleChange);
+      channel.on("broadcast", { event: "UPDATE" }, handleChange);
+      channel.on("broadcast", { event: "DELETE" }, handleChange);
+
+      channel.subscribe((status) => {
+        console.log("[realtime] Dashboard:", status);
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.log("[realtime] Failed — falling back to 30s polling");
+          const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+          if (cachedToken) {
+            fallbackInterval = setInterval(() => {
+              if (Date.now() - lastWriteRef.current > 10000) validateAndLoad(cachedToken);
+            }, 30000);
+          }
+        }
+      });
     } catch {
-      // Fallback: poll every 30s if Supabase Realtime unavailable
       console.log("[realtime] Unavailable, falling back to 30s polling");
       const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
-      if (!cachedToken) return;
-      const interval = setInterval(() => {
-        if (Date.now() - lastWriteRef.current > 10000) {
-          validateAndLoad(cachedToken);
-        }
-      }, 30000);
-      return () => clearInterval(interval);
+      if (cachedToken) {
+        fallbackInterval = setInterval(() => {
+          if (Date.now() - lastWriteRef.current > 10000) validateAndLoad(cachedToken);
+        }, 30000);
+      }
     }
 
     return () => {
-      if (channel) {
-        try { const { createClient } = require("@supabase/supabase-js"); createClient(process.env.REACT_APP_SUPABASE_URL, process.env.REACT_APP_SUPABASE_ANON_KEY).removeChannel(channel); } catch {}
-      }
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      if (channel && sb) sb.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, data?.family?.id, slug]);

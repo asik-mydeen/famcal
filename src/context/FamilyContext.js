@@ -438,15 +438,15 @@ function FamilyProvider({ children }) {
   const { user } = useAuth();
   const userEmail = user?.email || null;
 
-  // Supabase Realtime: subscribe to all table changes for this family.
+  // Supabase Realtime: subscribe to broadcast changes for this family.
+  // Uses the recommended broadcast+triggers approach (NOT postgres_changes).
+  // Database triggers broadcast INSERT/UPDATE/DELETE to topic "family:<id>".
   // Changes from kiosk/other tabs appear instantly (<100ms).
   const familyIdRef = useRef(null);
   useEffect(() => {
     const fid = state.family?.id;
     if (!fid || fid === "demo-family" || !state.dataLoaded) return;
-    // Need authenticated user for realtime postgres_changes
     if (!user) return;
-    // Skip if already subscribed to this family
     if (familyIdRef.current === fid) return;
     familyIdRef.current = fid;
 
@@ -459,60 +459,80 @@ function FamilyProvider({ children }) {
       countdowns: "SET_COUNTDOWNS", rewards: "SET_REWARDS",
     };
     const MAPPER_MAP = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
-    const tables = Object.keys(ACTION_MAP);
 
-    const channel = supabase.channel(`family-realtime-${fid}`, {
-      config: { private: true }, // Requires authenticated user (RLS-compatible)
-    });
+    // Debounce: avoid refetching the same table multiple times in quick succession
+    const pendingRefresh = {};
+    const refreshTable = async (table) => {
+      if (pendingRefresh[table]) return;
+      pendingRefresh[table] = true;
+      setTimeout(() => { pendingRefresh[table] = false; }, 500);
 
-    tables.forEach((table) => {
-      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `family_id=eq.${fid}` }, async (payload) => {
-        console.log(`[realtime] ${payload.eventType} on ${table}`);
-        try {
-          // Refetch the full table (simple, avoids partial state issues)
-          const { data } = await supabase.from(table).select("*").eq("family_id", fid);
-          if (!data) return;
-
-          // Lists: merge items
-          if (table === "lists") {
-            const ids = data.map((l) => l.id);
-            if (ids.length) {
-              const { data: items } = await supabase.from("list_items").select("*").in("list_id", ids);
-              dispatch({ type: "SET_LISTS", value: data.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
-            } else {
-              dispatch({ type: "SET_LISTS", value: [] });
-            }
-            return;
-          }
-
-          const mapper = MAPPER_MAP[table];
-          dispatch({ type: ACTION_MAP[table], value: mapper ? data.map(mapper) : data });
-        } catch (err) {
-          console.warn(`[realtime] Refresh ${table} failed:`, err.message);
-        }
-      });
-    });
-
-    // Also listen for list_items changes (no family_id on that table)
-    channel.on("postgres_changes", { event: "*", schema: "public", table: "list_items" }, async () => {
       try {
-        const { data: lists } = await supabase.from("lists").select("*").eq("family_id", fid);
-        if (!lists) return;
-        const ids = lists.map((l) => l.id);
-        const { data: items } = ids.length ? await supabase.from("list_items").select("*").in("list_id", ids) : { data: [] };
-        dispatch({ type: "SET_LISTS", value: lists.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
-      } catch {}
+        const { data } = await supabase.from(table).select("*").eq("family_id", fid);
+        if (!data) return;
+        if (table === "lists") {
+          const ids = data.map((l) => l.id);
+          const { data: items } = ids.length
+            ? await supabase.from("list_items").select("*").in("list_id", ids)
+            : { data: [] };
+          dispatch({ type: "SET_LISTS", value: data.map((l) => ({ ...l, items: (items || []).filter((i) => i.list_id === l.id) })) });
+          return;
+        }
+        const mapper = MAPPER_MAP[table];
+        dispatch({ type: ACTION_MAP[table], value: mapper ? data.map(mapper) : data });
+      } catch (err) {
+        console.warn(`[realtime] Refresh ${table} failed:`, err.message);
+      }
+    };
+
+    // Set auth token for private channels
+    supabase.realtime.setAuth().catch(() => {});
+
+    const channel = supabase.channel(`family:${fid}`, {
+      config: { broadcast: { self: false }, private: true },
     });
 
-    channel.subscribe((status) => {
+    // Listen for broadcast events from database triggers
+    // Triggers send: { event: "INSERT"|"UPDATE"|"DELETE", table: "events", ... }
+    channel.on("broadcast", { event: "INSERT" }, (payload) => {
+      const table = payload.payload?.table || payload.table;
+      console.log("[realtime] INSERT on", table);
+      if (table && ACTION_MAP[table]) refreshTable(table);
+      if (table === "list_items") refreshTable("lists");
+    });
+    channel.on("broadcast", { event: "UPDATE" }, (payload) => {
+      const table = payload.payload?.table || payload.table;
+      console.log("[realtime] UPDATE on", table);
+      if (table && ACTION_MAP[table]) refreshTable(table);
+      if (table === "list_items") refreshTable("lists");
+    });
+    channel.on("broadcast", { event: "DELETE" }, (payload) => {
+      const table = payload.payload?.table || payload.table;
+      console.log("[realtime] DELETE on", table);
+      if (table && ACTION_MAP[table]) refreshTable(table);
+      if (table === "list_items") refreshTable("lists");
+    });
+
+    channel.subscribe(async (status) => {
       console.log("[realtime] FamilyContext:", status);
-      if (status === "CHANNEL_ERROR") {
-        console.warn("[realtime] Subscription failed — check Supabase Realtime is enabled for tables");
+      if (status === "SUBSCRIBED") {
+        console.log("[realtime] Connected — instant sync active for family", fid);
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.warn("[realtime] Failed — falling back to 30s polling");
+        // Fallback: poll every 30s if realtime unavailable
+        const poll = setInterval(async () => {
+          for (const table of Object.keys(ACTION_MAP)) {
+            await refreshTable(table);
+          }
+        }, 30000);
+        // Store cleanup ref
+        channel._fallbackPoll = poll;
       }
     });
 
     return () => {
       familyIdRef.current = null;
+      if (channel._fallbackPoll) clearInterval(channel._fallbackPoll);
       supabase.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
