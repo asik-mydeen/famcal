@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useMemo, useEffect, useRef } from "react";
+import { createContext, useContext, useReducer, useMemo, useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { supabase } from "lib/supabase";
 import { useAuth } from "context/AuthContext";
@@ -439,14 +439,29 @@ function FamilyProvider({ children }) {
   const userEmail = user?.email || null;
 
   // Supabase Realtime: subscribe to broadcast changes for this family.
-  // Uses the recommended broadcast+triggers approach (NOT postgres_changes).
-  // Database triggers broadcast INSERT/UPDATE/DELETE to topic "family:<id>".
-  // Changes from kiosk/other tabs appear instantly (<100ms).
+  // Uses broadcast+triggers approach. Database triggers broadcast
+  // INSERT/UPDATE/DELETE to topic "family:<id>".
   const familyIdRef = useRef(null);
+  const [realtimeReady, setRealtimeReady] = useState(false);
+
+  // Wait for auth session to be fully established before subscribing
+  useEffect(() => {
+    if (!user || !state.dataLoaded) return;
+    // Give Supabase client time to set the auth token internally
+    const timer = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) setRealtimeReady(true);
+      } catch {
+        setRealtimeReady(true); // Try anyway
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [user, state.dataLoaded]);
+
   useEffect(() => {
     const fid = state.family?.id;
-    if (!fid || fid === "demo-family" || !state.dataLoaded) return;
-    if (!user) return;
+    if (!fid || fid === "demo-family" || !realtimeReady) return;
     if (familyIdRef.current === fid) return;
     familyIdRef.current = fid;
 
@@ -485,11 +500,8 @@ function FamilyProvider({ children }) {
       }
     };
 
-    // Set auth token for private channels
-    supabase.realtime.setAuth().catch(() => {});
-
     const channel = supabase.channel(`family:${fid}`, {
-      config: { broadcast: { self: false }, private: true },
+      config: { broadcast: { self: false } },
     });
 
     // Listen for broadcast events from database triggers
@@ -536,7 +548,7 @@ function FamilyProvider({ children }) {
       supabase.removeChannel(channel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.family?.id, state.dataLoaded, user]);
+  }, [state.family?.id, realtimeReady]);
 
   // Load from Supabase on mount (or when user changes)
   useEffect(() => {
