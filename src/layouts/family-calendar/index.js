@@ -392,8 +392,12 @@ function FamilyCalendar() {
     const start = allDay ? startDate : new Date(`${startDate}T${startTime}:00`).toISOString();
     const end = allDay ? endDate : new Date(`${endDate}T${endTime}:00`).toISOString();
     if (editingEvent) {
-      // Preserve source and google_event_id when editing
       const existingEvent = events.find(e => e.id === editingEvent.id);
+
+      // Close dialog FIRST so UI feels instant
+      setDialogOpen(false); setEditingEvent(null);
+
+      // Update local state immediately
       dispatch({
         type: "UPDATE_EVENT",
         value: {
@@ -408,13 +412,14 @@ function FamilyCalendar() {
           google_event_id: existingEvent?.google_event_id || null
         }
       });
-      // Push update to Google directly if event is synced (skip on dashboard/kiosk)
+      // Google push in background after UI updates
       if (existingEvent?.google_event_id && !isDashboard) {
         const memberForPush = members.find(m => m.id === (member_id || existingEvent.member_id));
         if (memberForPush?.google_calendar_id) {
-          pushEventUpdateToGoogle(memberForPush, { ...existingEvent, title: title.trim(), start, end, allDay }).catch(() => {});
+          setTimeout(() => pushEventUpdateToGoogle(memberForPush, { ...existingEvent, title: title.trim(), start, end, allDay }).catch(() => {}), 100);
         }
       }
+      return; // Skip the setDialogOpen below
     } else {
       const newEventId = `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const newEvent = {
@@ -429,28 +434,26 @@ function FamilyCalendar() {
         source: "manual",
         google_event_id: null
       };
+      // Close dialog FIRST so UI feels instant
+      setDialogOpen(false); setEditingEvent(null);
+
+      // Add to local state immediately — UI updates now
       dispatch({
         type: "ADD_EVENT",
         value: newEvent
       });
-      // Push to Google directly if member has calendar connected (skip on dashboard/kiosk)
+
+      // Google sync happens in background AFTER UI is updated
       if (member?.google_calendar_id && !isDashboard) {
-        pushEventToGoogle(member, newEvent).then(googleId => {
-          if (googleId) {
-            dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
-            setSyncMessage("Synced to Google Calendar");
-          } else {
-            setSyncMessage("Saved — will sync to Google via server");
-          }
-          setTimeout(() => setSyncMessage(""), 4000);
-        }).catch(() => {
-          setSyncMessage("Saved — will sync to Google via server");
-          setTimeout(() => setSyncMessage(""), 4000);
-        });
-      } else if (member?.google_calendar_id && isDashboard) {
-        setSyncMessage("Saved — will sync to Google via server");
-        setTimeout(() => setSyncMessage(""), 4000);
+        setTimeout(() => {
+          pushEventToGoogle(member, newEvent).then(googleId => {
+            if (googleId) {
+              dispatch({ type: "UPDATE_EVENT", value: { id: newEventId, google_event_id: googleId, source: "synced" } });
+            }
+          }).catch(() => {});
+        }, 100);
       }
+      return; // Skip the setDialogOpen below (already done above)
     }
     setDialogOpen(false); setEditingEvent(null);
   }, [eventForm, editingEvent, members, family.id, events, dispatch]);

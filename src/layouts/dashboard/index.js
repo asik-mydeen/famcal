@@ -639,9 +639,16 @@ function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Supabase Realtime: instant sync via broadcast+triggers (replaces polling)
-  // Database triggers broadcast changes to topic "family:<id>".
-  // Dashboard subscribes and refetches on each change.
+  // Backup periodic refresh every 15s (ensures kiosk always has fresh data)
+  useEffect(() => {
+    if (!authenticated) return;
+    const cachedToken = localStorage.getItem(`famcal_dashboard_token_${slug}`);
+    if (!cachedToken) return;
+    const interval = setInterval(() => validateAndLoad(cachedToken), 15000);
+    return () => clearInterval(interval);
+  }, [authenticated, slug, validateAndLoad]);
+
+  // Supabase Realtime: instant sync via broadcast (supplements polling)
   useEffect(() => {
     if (!authenticated || !data?.family?.id) return;
 
