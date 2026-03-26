@@ -170,14 +170,42 @@ palette.level (3), palette.gradients (12+), palette.glass (bg/border/shadow)
 | `REACT_APP_WEATHER_API_KEY` | No | OpenWeather API |
 | `REACT_APP_SITE_URL` | No | OAuth redirect URL |
 
+## Google Calendar Server-Side Sync
+- `/api/google-token.js` — exchanges auth code for access + refresh tokens
+- `/api/google-sync.js` — server-side two-way sync using refresh tokens (cron every 15 min)
+- `family_members.google_refresh_token` — stored per member in Supabase
+- `connectMemberCalendar` uses authorization code flow (`initCodeClient`) for refresh tokens
+- Background operations use `silentOnly=true` — NEVER open Google popups
+- Env vars needed: `GOOGLE_CLIENT_SECRET`, `SUPABASE_SERVICE_KEY`
+
+## Realtime Sync (NOT FULLY WORKING — needs rethink)
+- Uses Supabase Realtime broadcast channels on `family:<id>` topic
+- Client-side broadcast: persistingDispatch sends "change" event after writes
+- `supabase/realtime-triggers.sql` installed but `realtime.broadcast_changes()` may not exist
+- Kiosk falls back to 15-second polling via /api/dashboard
+- **Issues**: Race conditions between optimistic updates and API refetch, CRA minification breaks React ref closures, temp IDs cause Supabase 400 errors
+- **TODO**: Needs holistic redesign — possibly use Supabase Realtime v2 postgres_changes with proper auth, or pure polling with smart merge
+
+## Vercel API Functions
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/chat.js` | AI chat (Vercel AI SDK + OpenAI) |
+| `/api/dashboard.js` | Load all family data for kiosk |
+| `/api/dashboard-write.js` | CRUD operations from kiosk |
+| `/api/google-token.js` | Exchange auth code for refresh token |
+| `/api/google-sync.js` | Server-side Google Calendar sync |
+| `/api/photos.js` | Google Photos proxy |
+
 ## Known Gotchas
 1. **`--openssl-legacy-provider`** required for CRA 5.0.1 with newer Node.js
 2. **`--legacy-peer-deps`** required for npm install
-3. **200+ hardcoded hex colors** bypass theme system — theme engine must centralize these
-4. **Priority colors inconsistent** between tasks and chores pages
-5. **Opacity pattern:** hex suffix (`${color}18`), NOT `rgba()` — theme engine must support this
-6. **No DashboardLayout/Sidenav** — removed from template. Use PageShell + PageTransition
-7. **Temp IDs** (`task-${Date.now()}`) replaced with UUIDs after Supabase insert
-8. **Gold text contrast:** `#FDCB6E` needs dark text (`#1a1a1a`) for accessibility
-9. **Absolute imports only** — CRA configured with `src/` base path
-10. **Icon fontSize:** Always use `!important` (MUI override issue)
+3. **Theme engine complete** — all 200+ colors centralized via tokens, 4 presets
+4. **Theme syncs to DB** — `families.theme_preset` + `families.dark_mode` columns
+5. **No DashboardLayout/Sidenav** — removed from template. Use PageShell + PageTransition
+6. **Temp IDs** (`task-${Date.now()}`) — skip Supabase persist for temp IDs (causes 400 UUID errors)
+7. **Gold text contrast:** `#FDCB6E` needs dark text (`#1a1a1a`) for accessibility
+8. **Absolute imports only** — CRA configured with `src/` base path
+9. **Icon fontSize:** Always use `!important` (MUI override issue)
+10. **CRA + useRef:** React refs inside useCallback break in production builds — use module-level vars
+11. **Google popups:** `requestAccessToken(silentOnly=true)` must NEVER call GIS — cache-only
+12. **Dashboard contextValue:** Don't use useMemo — prevents re-renders on state change
