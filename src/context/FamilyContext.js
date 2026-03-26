@@ -404,12 +404,14 @@ function taskToDb(t) {
 }
 
 function memberFromDb(row) {
-  return { ...row, visible: true };
+  const { google_refresh_token, ...rest } = row;
+  return { ...rest, visible: true, has_server_sync: !!google_refresh_token };
 }
 
 function memberToDb(m) {
   const row = { ...m };
   delete row.visible;
+  delete row.has_server_sync;
   if (row.id && row.id.startsWith("member-")) delete row.id;
   return row;
 }
