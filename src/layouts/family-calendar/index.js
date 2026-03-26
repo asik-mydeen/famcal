@@ -533,15 +533,20 @@ function FamilyCalendar() {
   }, [members, events, family.id, dispatch]);
 
   const handleConnectMember = useCallback(async (member) => {
-    setConnectingId(member.id);
+    let memberId = member.id;
+    if (memberId.startsWith("member-")) {
+      const fresh = members.find((m) => m.name === member.name && !m.id.startsWith("member-"));
+      if (fresh) memberId = fresh.id;
+    }
+    setConnectingId(memberId);
     try {
-      const result = await connectMemberCalendar(member.id);
-      dispatch({ type: "UPDATE_MEMBER", value: { id: member.id, google_calendar_id: result.calendarId, has_server_sync: !!result.refreshTokenStored } });
+      const result = await connectMemberCalendar(memberId);
+      dispatch({ type: "UPDATE_MEMBER", value: { id: memberId, google_calendar_id: result.calendarId, has_server_sync: !!result.refreshTokenStored } });
     } catch (err) {
       console.warn("Connect failed:", err.message);
     }
     setConnectingId(null);
-  }, [dispatch]);
+  }, [dispatch, members]);
 
   const handleDisconnectMember = useCallback((member) => {
     disconnectMemberCalendar(member.id);

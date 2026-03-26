@@ -186,13 +186,27 @@ function Family() {
   };
 
   const handleConnect = async (member) => {
-    setConnectingId(member.id);
+    // Guard: if member still has temp ID, wait for real UUID from Supabase
+    let memberId = member.id;
+    if (memberId.startsWith("member-")) {
+      const fresh = members.find((m) => m.name === member.name && !m.id.startsWith("member-"));
+      if (fresh) {
+        memberId = fresh.id;
+      } else {
+        console.warn("[family] Member still has temp ID — waiting for Supabase INSERT");
+        await new Promise((r) => setTimeout(r, 2000));
+        const retryMembers = state.members;
+        const retried = retryMembers.find((m) => m.name === member.name && !m.id.startsWith("member-"));
+        if (retried) memberId = retried.id;
+      }
+    }
+    setConnectingId(memberId);
     try {
-      const result = await connectMemberCalendar(member.id);
+      const result = await connectMemberCalendar(memberId);
       dispatch({
         type: "UPDATE_MEMBER",
         value: {
-          id: member.id,
+          id: memberId,
           google_calendar_id: result.calendarId,
           has_server_sync: !!result.refreshTokenStored,
         },
