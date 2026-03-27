@@ -131,9 +131,36 @@ export default function useVoiceMode(familyState, { onWakeWord, onVoiceCommand }
     } catch {}
   }, []);
 
-  // Text-to-speech
-  const speak = useCallback((text) => {
-    if (!window.speechSynthesis) return Promise.resolve();
+  // Text-to-speech — OpenAI TTS (natural voice) with browser fallback
+  const speak = useCallback(async (text) => {
+    if (!text) return;
+
+    // Try OpenAI TTS first (natural "Nova" voice)
+    try {
+      const res = await fetch(apiUrl("/api/voice-tts"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voice: "nova", speed: 1.0 }),
+      });
+
+      if (res.ok) {
+        const audioBlob = await res.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.volume = 1.0;
+
+        return new Promise((resolve) => {
+          audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+          audio.onerror = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+          audio.play().catch(() => resolve());
+        });
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") console.warn("[voice] OpenAI TTS failed, using browser fallback:", err.message);
+    }
+
+    // Fallback: browser native speechSynthesis (robotic but works offline)
+    if (!window.speechSynthesis) return;
     return new Promise((resolve) => {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);

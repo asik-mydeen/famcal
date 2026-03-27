@@ -40,6 +40,7 @@ import ErrorBoundary from "components/ErrorBoundary";
 import DailyBriefing from "components/DailyBriefing";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
+import { apiUrl } from "lib/api";
 
 import FamilyCalendar from "layouts/family-calendar";
 import Chores from "layouts/chores";
@@ -523,13 +524,21 @@ export default function App() {
           const message = `${evt.title} ${timeLabel}!`;
           setReminderToast(message);
 
-          // TTS announcement if voice mode / speechSynthesis is available
-          if (window.speechSynthesis) {
-            const utterance = new SpeechSynthesisUtterance(message);
-            utterance.rate = 0.95;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
-          }
+          // TTS announcement — OpenAI natural voice with browser fallback
+          fetch(apiUrl("/api/voice-tts"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: message, voice: "nova" }),
+          }).then((r) => r.ok ? r.blob() : null).then((blob) => {
+            if (blob) { const a = new Audio(URL.createObjectURL(blob)); a.play().catch(() => {}); }
+            else if (window.speechSynthesis) {
+              const u = new SpeechSynthesisUtterance(message); u.rate = 0.95; window.speechSynthesis.speak(u);
+            }
+          }).catch(() => {
+            if (window.speechSynthesis) {
+              const u = new SpeechSynthesisUtterance(message); u.rate = 0.95; window.speechSynthesis.speak(u);
+            }
+          });
         }
       });
     };
