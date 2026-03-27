@@ -21,7 +21,7 @@ const NOVA_STATES = {
 
 const SESSION_MAX_MS = 8 * 60 * 1000; // 8 minutes
 const SAMPLE_RATE = 24000;
-const CHUNK_SIZE = 2400; // 100ms of audio at 24kHz
+const CHUNK_SIZE = 4096; // ~170ms at 24kHz (must be power of 2 for ScriptProcessorNode)
 
 // Module-level to avoid CRA closure bugs
 let moduleWs = null;
