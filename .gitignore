@@ -32,3 +32,4 @@ commit.sh
 .env*.local
 src-tauri/target/
 .fleet/
+.claude/worktrees/
