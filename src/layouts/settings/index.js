@@ -15,6 +15,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
+import { useNavigate } from "react-router-dom";
 import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import Avatar from "@mui/material/Avatar";
@@ -33,6 +34,7 @@ function Settings() {
   const { family, isSupabaseConnected, photos, ai_preferences, memories } = state;
   const { tokens, alpha, darkMode, setMode: setDarkModeValue, autoTheme, setAutoTheme, preset, setPreset, presetNames } = useAppTheme();
   const { user, signOut } = useAuth();
+  const settingsNavigate = useNavigate();
 
   const [familyName, setFamilyName] = useState(family.name);
   const [uploading, setUploading] = useState(false);
@@ -1397,6 +1399,29 @@ function Settings() {
               sx={{ borderRadius: "12px", textTransform: "none", touchAction: "manipulation" }}
             >
               Export Family Data
+            </Button>
+          </GlassCard>
+        </Grid>
+      </Grid>
+
+      {/* Emergency Info & Safety */}
+      <Grid container spacing={2} mt={1}>
+        <Grid item xs={12} md={6}>
+          <GlassCard delay={0.35}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "#ef4444", fontSize: "1.2rem !important" }}>medical_services</Icon>
+              <Typography variant="h6" fontWeight="bold">Emergency Info</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Manage emergency contacts, medical info, and household details. Enable babysitter mode for safe access.
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<Icon sx={{ fontSize: "1.2rem !important" }}>open_in_new</Icon>}
+              onClick={() => settingsNavigate("/emergency")}
+              sx={{ borderRadius: "12px", textTransform: "none", touchAction: "manipulation", borderColor: "#ef444444", color: "#ef4444", "&:hover": { borderColor: "#ef4444", bgcolor: "#ef444408" } }}
+            >
+              Manage Emergency Info
             </Button>
           </GlassCard>
         </Grid>

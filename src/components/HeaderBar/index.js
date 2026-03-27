@@ -6,6 +6,7 @@ import Icon from "@mui/material/Icon";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import { useNavigate } from "react-router-dom";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 import TimerAlarmChips from "components/TimerAlarmChips";
@@ -13,6 +14,7 @@ import BirthdayWidget from "components/BirthdayWidget";
 
 function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel, urgentMessageCount }) {
   const { tokens, darkMode } = useAppTheme();
+  const navigate = useNavigate();
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width:767px)");
 
@@ -226,6 +228,25 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
                 {urgentMessageCount}
               </Box>
             </Box>
+          </Tooltip>
+        )}
+
+        {/* Emergency Info (hidden on mobile) */}
+        {!isMobile && (
+          <Tooltip title="Emergency Info" arrow>
+            <IconButton
+              size="small"
+              onClick={() => navigate("/emergency")}
+              sx={{
+                width: 36, height: 36,
+                bgcolor: alpha("#ef4444", darkMode ? 0.15 : 0.08),
+                color: "#ef4444",
+                "&:hover": { bgcolor: alpha("#ef4444", 0.2) },
+                touchAction: "manipulation",
+              }}
+            >
+              <Icon sx={{ fontSize: "1.2rem !important" }}>medical_services</Icon>
+            </IconButton>
           </Tooltip>
         )}
 

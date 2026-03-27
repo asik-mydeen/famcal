@@ -27,6 +27,7 @@ import { connectMemberCalendar, disconnectMemberCalendar, hasValidToken } from "
 import { uploadAvatar } from "lib/supabase";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
+import PetCare from "components/PetCare";
 
 const LEVEL_TITLES = [
   "",
@@ -561,6 +562,9 @@ function Family() {
           );
         })}
       </Grid>
+
+      {/* Pet Care Section */}
+      <PetCare />
 
       {/* Add Member FAB */}
       <Fab

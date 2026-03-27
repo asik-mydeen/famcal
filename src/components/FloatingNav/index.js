@@ -18,6 +18,7 @@ const navItems = [
 ];
 
 const moreMenuItems = [
+  { path: "/routines", label: "Routines", icon: "playlist_add_check" },
   { path: "/rewards", label: "Rewards", icon: "emoji_events" },
   { path: "/family", label: "Family", icon: "group" },
   { path: "/settings", label: "Settings", icon: "settings" },

@@ -36,6 +36,7 @@ import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
 import MessageBoard from "components/MessageBoard";
+import MoodBoard from "components/MoodBoard";
 
 // ── Helpers ──
 
@@ -847,6 +848,9 @@ function FamilyCalendar() {
     </Typography>
   );
 
+  // Mood widget for sidebar
+  const moodWidget = <MoodBoard variant="widget" />;
+
   return (
     <PageShell flush>
       {/* Header - simplified (date now in HeaderBar) */}
@@ -1003,6 +1007,7 @@ function FamilyCalendar() {
           todayChoresWidget={todayChoresWidget}
           tonightDinnerWidget={tonightDinnerWidget}
           messagesWidget={messagesWidget}
+          moodWidget={moodWidget}
         />
 
         {/* Sidebar reopen button — visible when collapsed */}

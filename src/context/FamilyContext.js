@@ -84,6 +84,8 @@ const initialState = {
   activeConversation: null,
   memories: [],
   messages: [],
+  routines: [],
+  moodCheckins: [],
 };
 
 function reducer(state, action) {
@@ -366,6 +368,122 @@ function reducer(state, action) {
     }
     case "REMOVE_MESSAGE_BOARD":
       return { ...state, messages: state.messages.filter((m) => m.id !== action.value) };
+    // ── Routines ──
+    case "SET_ROUTINES":
+      return { ...state, routines: action.value };
+    case "ADD_ROUTINE":
+      return { ...state, routines: [...state.routines, action.value] };
+    case "UPDATE_ROUTINE":
+      return { ...state, routines: state.routines.map((r) => (r.id === action.value.id ? { ...r, ...action.value } : r)) };
+    case "REMOVE_ROUTINE":
+      return { ...state, routines: state.routines.filter((r) => r.id !== action.value) };
+    case "ADD_ROUTINE_STEP": {
+      return {
+        ...state,
+        routines: state.routines.map((r) =>
+          r.id === action.value.routine_id
+            ? { ...r, steps: [...(r.steps || []), action.value] }
+            : r
+        ),
+      };
+    }
+    case "UPDATE_ROUTINE_STEP": {
+      return {
+        ...state,
+        routines: state.routines.map((r) => ({
+          ...r,
+          steps: (r.steps || []).map((s) => (s.id === action.value.id ? { ...s, ...action.value } : s)),
+        })),
+      };
+    }
+    case "REMOVE_ROUTINE_STEP": {
+      return {
+        ...state,
+        routines: state.routines.map((r) => ({
+          ...r,
+          steps: (r.steps || []).filter((s) => s.id !== action.value),
+        })),
+      };
+    }
+    case "COMPLETE_ROUTINE_STEP": {
+      const { routine_step_id, member_id: cMemberId } = action.value;
+      const completion = {
+        id: crypto.randomUUID(),
+        routine_step_id,
+        member_id: cMemberId,
+        completed_date: todayStr,
+        completed_at: new Date().toISOString(),
+      };
+      // Find the step to award points
+      let stepPoints = 0;
+      const updatedRoutines = state.routines.map((r) => ({
+        ...r,
+        steps: (r.steps || []).map((s) => {
+          if (s.id === routine_step_id) {
+            stepPoints = s.points_value || 5;
+            return { ...s, completions: [...(s.completions || []), completion] };
+          }
+          return s;
+        }),
+      }));
+      // Award points to member
+      const updatedMembers = state.members.map((m) => {
+        if (m.id === cMemberId && stepPoints > 0) {
+          const newPts = m.points + stepPoints;
+          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1 };
+        }
+        return m;
+      });
+      return { ...state, routines: updatedRoutines, members: updatedMembers };
+    }
+    case "UNCOMPLETE_ROUTINE_STEP": {
+      const { routine_step_id: uncStepId, member_id: uncMemberId } = action.value;
+      let uncPoints = 0;
+      const uncRoutines = state.routines.map((r) => ({
+        ...r,
+        steps: (r.steps || []).map((s) => {
+          if (s.id === uncStepId) {
+            uncPoints = s.points_value || 5;
+            const completions = (s.completions || []).filter(
+              (c) => !(c.member_id === uncMemberId && c.completed_date === todayStr)
+            );
+            return { ...s, completions };
+          }
+          return s;
+        }),
+      }));
+      const uncMembers = state.members.map((m) => {
+        if (m.id === uncMemberId && uncPoints > 0) {
+          const newPts = Math.max(0, m.points - uncPoints);
+          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1 };
+        }
+        return m;
+      });
+      return { ...state, routines: uncRoutines, members: uncMembers };
+    }
+    // ── Mood Check-ins ──
+    case "SET_MOOD_CHECKINS":
+      return { ...state, moodCheckins: action.value };
+    case "ADD_MOOD_CHECKIN": {
+      // Upsert: replace existing check-in for same member+date
+      const existing = state.moodCheckins.find(
+        (m) => m.member_id === action.value.member_id && m.checkin_date === action.value.checkin_date
+      );
+      if (existing) {
+        return {
+          ...state,
+          moodCheckins: state.moodCheckins.map((m) =>
+            m.id === existing.id ? { ...m, ...action.value } : m
+          ),
+        };
+      }
+      return { ...state, moodCheckins: [...state.moodCheckins, action.value] };
+    }
+    case "UPDATE_MOOD_CHECKIN":
+      return {
+        ...state,
+        moodCheckins: state.moodCheckins.map((m) => (m.id === action.value.id ? { ...m, ...action.value } : m)),
+      };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -737,6 +855,55 @@ function FamilyProvider({ children }) {
           console.log("[supabase] family_messages table not available yet:", e.message);
         }
 
+        // Load routines with steps and today's completions
+        try {
+          const { data: dbRoutines } = await supabase
+            .from("routines")
+            .select("*")
+            .eq("family_id", family.id)
+            .order("sort_order", { ascending: true });
+          if (dbRoutines && dbRoutines.length > 0) {
+            const routineIds = dbRoutines.map((r) => r.id);
+            const { data: dbSteps } = await supabase
+              .from("routine_steps")
+              .select("*")
+              .in("routine_id", routineIds)
+              .order("sort_order", { ascending: true });
+            const todayDate = new Date().toISOString().split("T")[0];
+            const { data: dbCompletions } = await supabase
+              .from("routine_completions")
+              .select("*")
+              .eq("completed_date", todayDate);
+            const routinesWithSteps = dbRoutines.map((r) => ({
+              ...r,
+              steps: (dbSteps || [])
+                .filter((s) => s.routine_id === r.id)
+                .map((s) => ({
+                  ...s,
+                  completions: (dbCompletions || []).filter((c) => c.routine_step_id === s.id),
+                })),
+            }));
+            dispatch({ type: "SET_ROUTINES", value: routinesWithSteps });
+          }
+        } catch (e) {
+          console.log("[supabase] routines tables not available yet:", e.message);
+        }
+
+        // Load mood check-ins (last 30 days)
+        try {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const { data: dbMoods } = await supabase
+            .from("mood_checkins")
+            .select("*")
+            .eq("family_id", family.id)
+            .gte("checkin_date", thirtyDaysAgo.toISOString().split("T")[0])
+            .order("checkin_date", { ascending: false });
+          if (dbMoods) dispatch({ type: "SET_MOOD_CHECKINS", value: dbMoods });
+        } catch (e) {
+          console.log("[supabase] mood_checkins table not available yet:", e.message);
+        }
+
         // Load AI Assistant data
         try {
           const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
@@ -781,6 +948,10 @@ function FamilyProvider({ children }) {
       ADD_NOTE: "notes", REMOVE_NOTE: "notes",
       ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
       ADD_MESSAGE_BOARD: "family_messages", UPDATE_MESSAGE_BOARD: "family_messages", REMOVE_MESSAGE_BOARD: "family_messages",
+      ADD_ROUTINE: "routines", UPDATE_ROUTINE: "routines", REMOVE_ROUTINE: "routines",
+      ADD_ROUTINE_STEP: "routine_steps", REMOVE_ROUTINE_STEP: "routine_steps",
+      COMPLETE_ROUTINE_STEP: "routine_completions", UNCOMPLETE_ROUTINE_STEP: "routine_completions",
+      ADD_MOOD_CHECKIN: "mood_checkins", UPDATE_MOOD_CHECKIN: "mood_checkins",
     };
 
     return (action) => {
@@ -1193,6 +1364,163 @@ function FamilyProvider({ children }) {
             supabase.from("family_messages").delete().eq("id", msgId).then(({ error }) => {
               if (error) console.warn("[supabase] family_messages delete failed:", error.message);
             });
+          }
+          break;
+        }
+        // ── Routines ──
+        case "ADD_ROUTINE": {
+          const { steps: rSteps, id: _rId, ...routineData } = action.value;
+          const rRow = { ...routineData, family_id: state.family.id };
+          supabase.from("routines").insert(rRow).select().then(({ data }) => {
+            if (data && data[0]) {
+              const realId = data[0].id;
+              dispatch({ type: "UPDATE_ROUTINE", value: { id: action.value.id, ...data[0], steps: rSteps || [] } });
+              // Insert steps
+              if (rSteps && rSteps.length > 0) {
+                const stepRows = rSteps.map((s, idx) => ({
+                  routine_id: realId,
+                  title: s.title,
+                  icon: s.icon || "check_circle",
+                  duration_minutes: s.duration_minutes || 5,
+                  points_value: s.points_value || 5,
+                  sort_order: idx,
+                }));
+                supabase.from("routine_steps").insert(stepRows).select().then(({ data: stepData }) => {
+                  if (stepData) {
+                    dispatch({ type: "UPDATE_ROUTINE", value: { id: realId, steps: stepData.map((s) => ({ ...s, completions: [] })) } });
+                  }
+                });
+              }
+            }
+          });
+          break;
+        }
+        case "UPDATE_ROUTINE": {
+          const { id: rId, steps: _rSteps, ...rUpdates } = action.value;
+          if (rId && !rId.startsWith("routine-")) {
+            const cleanUpdates = {};
+            if (rUpdates.name !== undefined) cleanUpdates.name = rUpdates.name;
+            if (rUpdates.type !== undefined) cleanUpdates.type = rUpdates.type;
+            if (rUpdates.icon !== undefined) cleanUpdates.icon = rUpdates.icon;
+            if (rUpdates.sort_order !== undefined) cleanUpdates.sort_order = rUpdates.sort_order;
+            if (rUpdates.active !== undefined) cleanUpdates.active = rUpdates.active;
+            if (rUpdates.member_id !== undefined) cleanUpdates.member_id = rUpdates.member_id;
+            if (Object.keys(cleanUpdates).length > 0) {
+              supabase.from("routines").update(cleanUpdates).eq("id", rId).then(({ error }) => {
+                if (error) console.warn("[supabase] routines update failed:", error.message);
+              });
+            }
+          }
+          break;
+        }
+        case "REMOVE_ROUTINE": {
+          const rDelId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (rDelId && !rDelId.startsWith("routine-")) {
+            persist("routines", "delete", rDelId);
+          }
+          break;
+        }
+        case "ADD_ROUTINE_STEP": {
+          const { id: _sId, completions: _sComps, ...stepData } = action.value;
+          if (stepData.routine_id && !stepData.routine_id.startsWith("routine-")) {
+            supabase.from("routine_steps").insert(stepData).select().then(({ data }) => {
+              if (data && data[0]) {
+                dispatch({ type: "UPDATE_ROUTINE_STEP", value: { id: action.value.id, ...data[0], completions: [] } });
+              }
+            });
+          }
+          break;
+        }
+        case "UPDATE_ROUTINE_STEP": {
+          const { id: sId, completions: _sComps2, ...sUpdates } = action.value;
+          if (sId && !sId.startsWith("step-")) {
+            const cleanSUpdates = {};
+            if (sUpdates.title !== undefined) cleanSUpdates.title = sUpdates.title;
+            if (sUpdates.icon !== undefined) cleanSUpdates.icon = sUpdates.icon;
+            if (sUpdates.duration_minutes !== undefined) cleanSUpdates.duration_minutes = sUpdates.duration_minutes;
+            if (sUpdates.points_value !== undefined) cleanSUpdates.points_value = sUpdates.points_value;
+            if (sUpdates.sort_order !== undefined) cleanSUpdates.sort_order = sUpdates.sort_order;
+            if (Object.keys(cleanSUpdates).length > 0) {
+              supabase.from("routine_steps").update(cleanSUpdates).eq("id", sId).then(({ error }) => {
+                if (error) console.warn("[supabase] routine_steps update failed:", error.message);
+              });
+            }
+          }
+          break;
+        }
+        case "REMOVE_ROUTINE_STEP": {
+          const sDelId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (sDelId && !sDelId.startsWith("step-")) {
+            persist("routine_steps", "delete", sDelId);
+          }
+          break;
+        }
+        case "COMPLETE_ROUTINE_STEP": {
+          const { routine_step_id: csId, member_id: csMemberId } = action.value;
+          const csRow = {
+            routine_step_id: csId,
+            member_id: csMemberId,
+            completed_date: new Date().toISOString().split("T")[0],
+          };
+          supabase.from("routine_completions").insert(csRow).then(({ error }) => {
+            if (error) console.warn("[supabase] routine_completions insert failed:", error.message);
+          });
+          // Award points to member
+          const csStep = state.routines.flatMap((r) => r.steps || []).find((s) => s.id === csId);
+          if (csStep) {
+            const csMember = state.members.find((m) => m.id === csMemberId);
+            if (csMember) {
+              const newPts = csMember.points + (csStep.points_value || 5);
+              persist("family_members", "update", { id: csMemberId, points: newPts, level: Math.floor(newPts / 100) + 1 });
+            }
+          }
+          break;
+        }
+        case "UNCOMPLETE_ROUTINE_STEP": {
+          const { routine_step_id: ucId, member_id: ucMemberId } = action.value;
+          const ucToday = new Date().toISOString().split("T")[0];
+          supabase.from("routine_completions")
+            .delete()
+            .eq("routine_step_id", ucId)
+            .eq("member_id", ucMemberId)
+            .eq("completed_date", ucToday)
+            .then(({ error }) => {
+              if (error) console.warn("[supabase] routine_completions delete failed:", error.message);
+            });
+          // Deduct points
+          const ucStep = state.routines.flatMap((r) => r.steps || []).find((s) => s.id === ucId);
+          if (ucStep) {
+            const ucMember = state.members.find((m) => m.id === ucMemberId);
+            if (ucMember) {
+              const newPts = Math.max(0, ucMember.points - (ucStep.points_value || 5));
+              persist("family_members", "update", { id: ucMemberId, points: newPts, level: Math.floor(newPts / 100) + 1 });
+            }
+          }
+          break;
+        }
+        // ── Mood Check-ins ──
+        case "ADD_MOOD_CHECKIN": {
+          const { id: _mId, ...moodData } = action.value;
+          const mRow = { ...moodData, family_id: state.family.id };
+          // Upsert: use ON CONFLICT for member_id + checkin_date unique constraint
+          supabase.from("mood_checkins").upsert(mRow, { onConflict: "member_id,checkin_date" }).select().then(({ data }) => {
+            if (data && data[0]) {
+              dispatch({ type: "UPDATE_MOOD_CHECKIN", value: data[0] });
+            }
+          });
+          break;
+        }
+        case "UPDATE_MOOD_CHECKIN": {
+          const { id: mcId, ...mcUpdates } = action.value;
+          if (mcId && !mcId.startsWith("mood-")) {
+            const clean = {};
+            if (mcUpdates.mood !== undefined) clean.mood = mcUpdates.mood;
+            if (mcUpdates.note !== undefined) clean.note = mcUpdates.note;
+            if (Object.keys(clean).length > 0) {
+              supabase.from("mood_checkins").update(clean).eq("id", mcId).then(({ error }) => {
+                if (error) console.warn("[supabase] mood_checkins update failed:", error.message);
+              });
+            }
           }
           break;
         }

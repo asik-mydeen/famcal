@@ -48,6 +48,8 @@ import Rewards from "layouts/rewards";
 import Settings from "layouts/settings";
 import PrivacyPolicy from "layouts/legal/privacy";
 import TermsOfService from "layouts/legal/tos";
+import Routines from "layouts/routines";
+import Emergency from "layouts/emergency";
 import Dashboard from "layouts/dashboard";
 import KioskSetup from "layouts/kiosk-setup";
 
@@ -696,10 +698,12 @@ export default function App() {
                   <Route path="/chores" element={<ErrorBoundary><PageTransition><Chores /></PageTransition></ErrorBoundary>} />
                   <Route path="/meals" element={<ErrorBoundary><PageTransition><Meals /></PageTransition></ErrorBoundary>} />
                   <Route path="/lists" element={<ErrorBoundary><PageTransition><Lists /></PageTransition></ErrorBoundary>} />
+                  <Route path="/routines" element={<ErrorBoundary><PageTransition><Routines /></PageTransition></ErrorBoundary>} />
                   <Route path="/tasks" element={<Navigate to="/chores" replace />} />
                   <Route path="/family" element={<ErrorBoundary><PageTransition><Family /></PageTransition></ErrorBoundary>} />
                   <Route path="/rewards" element={<ErrorBoundary><PageTransition><Rewards /></PageTransition></ErrorBoundary>} />
                   <Route path="/settings" element={<ErrorBoundary><PageTransition><Settings /></PageTransition></ErrorBoundary>} />
+                  <Route path="/emergency" element={<ErrorBoundary><PageTransition><Emergency /></PageTransition></ErrorBoundary>} />
                   <Route path="*" element={<Navigate to="/calendar" replace />} />
                 </Routes>
               </AnimatePresence>

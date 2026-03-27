@@ -91,6 +91,22 @@ export default async function handler(req, res) {
     return `- "${a.title}" at ${time}${rec} (id: ${a.id})`;
   }).join("\n") || "None";
 
+  // Build routines
+  const routinesStr = ctx.routines?.map((r) => {
+    const who = ctx.members?.find((m) => m.id === r.member_id)?.name || "unassigned";
+    const steps = r.steps?.map((s) => {
+      const done = s.completions?.some((c) => c.completed_date === today);
+      return `  ${done ? "[x]" : "[ ]"} "${s.title}" (${s.points_value || 5}pts, id: ${s.id})`;
+    }).join("\n") || "  (no steps)";
+    return `"${r.name}" (${r.type}, ${who}, id: ${r.id}):\n${steps}`;
+  }).join("\n") || "None";
+
+  // Build today's moods
+  const moodsStr = ctx.moodCheckins?.filter((m) => m.checkin_date === today)?.map((m) => {
+    const who = ctx.members?.find((mem) => mem.id === m.member_id)?.name || "someone";
+    return `- ${who}: ${m.mood}${m.note ? ` ("${m.note}")` : ""}`;
+  }).join("\n") || "None checked in";
+
   // Build active tasks + recently completed
   const activeTasksStr = ctx.activeTasks?.map((t) => {
     const who = ctx.members?.find((m) => m.id === t.assigned_to)?.name || "unassigned";
@@ -149,12 +165,19 @@ ${timersStr}
 UPCOMING ALARMS:
 ${alarmsStr}
 
+ROUTINES:
+${routinesStr}
+
+TODAY'S MOODS:
+${moodsStr}
+
 PAGE CONTEXT: The user is currently on the "${ctx.currentPage || "unknown"}" page. When they say "add", "remove", or "check" something without specifying where, assume they mean the content relevant to this page:
 - "calendar" page → events
 - "chores" page → tasks/chores
 - "meals" page → meals
 - "lists" page → list items (default to Groceries list)
 - "rewards" page → rewards
+- "routines" page → routines/routine steps
 - "family" page → family members
 
 You MUST respond with valid JSON only. No markdown, no code blocks, no extra text.
@@ -207,6 +230,13 @@ Timers & Alarms:
 Messages:
 - send_message: {content, from_member_id, to_member_id?:null_for_all, pinned:false, urgent:false} — post a message on the family message board
 - remove_message: {message_id} — remove a message from the board
+
+Routines:
+- create_routine: {name, member_id, type:"morning|afternoon|bedtime|custom", steps:[{title, icon?, duration_minutes?, points_value?}]}
+- complete_routine_step: {routine_step_id, member_id}
+
+Mood:
+- mood_checkin: {member_id, mood:"happy|good|okay|tired|stressed|sad|angry|excited", note?}
 
 Memory:
 - save_memory: {content:"fact to remember", category:"preference|routine|rule|context"} — save something the family told you to remember. Use when they say "remember that...", mention a preference, allergy, routine, or important fact you should know for future conversations.

@@ -9,6 +9,7 @@ import { alpha } from "theme/helpers";
 const TABS = [
   { key: "calendar", label: "Calendar", icon: "calendar_today", path: "/calendar" },
   { key: "chores", label: "Chores", icon: "task_alt", path: "/chores" },
+  { key: "routines", label: "Routines", icon: "playlist_add_check", path: "/routines" },
   { key: "meals", label: "Meals", icon: "restaurant", path: "/meals" },
   { key: "lists", label: "Lists", icon: "checklist", path: "/lists" },
   { key: "rewards", label: "Rewards", icon: "emoji_events", path: "/rewards" },

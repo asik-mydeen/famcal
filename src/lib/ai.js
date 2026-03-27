@@ -2,7 +2,7 @@
 import { apiUrl } from "lib/api";
 
 export function buildAIContext(state, currentPage) {
-  const { family, members, tasks, events, meals, lists, notes, rewards, weather } = state;
+  const { family, members, tasks, events, meals, lists, notes, rewards, weather, routines, moodCheckins } = state;
   const today = new Date().toISOString().split("T")[0];
   const weekEnd = new Date();
   weekEnd.setDate(weekEnd.getDate() + 7);
@@ -67,6 +67,18 @@ export function buildAIContext(state, currentPage) {
       temp: weather.temp, condition: weather.condition,
       location: weather.location, forecast: weather.forecast,
     } : null,
+    routines: (routines || []).map((r) => ({
+      id: r.id, name: r.name, type: r.type, member_id: r.member_id,
+      steps: (r.steps || []).map((s) => ({
+        id: s.id, title: s.title, points_value: s.points_value,
+        completions: (s.completions || []).filter((c) => c.completed_date === today),
+      })),
+    })),
+    moodCheckins: (moodCheckins || [])
+      .filter((m) => m.checkin_date === today)
+      .map((m) => ({
+        member_id: m.member_id, mood: m.mood, note: m.note, checkin_date: m.checkin_date,
+      })),
     currentPage: currentPage || "unknown",
     familyId: family?.id || null,
   };

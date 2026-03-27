@@ -13,6 +13,7 @@ SmartSidebar.propTypes = {
   todayChoresWidget: PropTypes.node,
   tonightDinnerWidget: PropTypes.node,
   messagesWidget: PropTypes.node,
+  moodWidget: PropTypes.node,
   collapsed: PropTypes.bool.isRequired,
   onToggleCollapse: PropTypes.func.isRequired,
 };
@@ -23,6 +24,7 @@ function SmartSidebar({
   todayChoresWidget,
   tonightDinnerWidget,
   messagesWidget,
+  moodWidget,
   collapsed,
   onToggleCollapse,
 }) {
@@ -34,6 +36,7 @@ function SmartSidebar({
     { key: "countdowns", widget: countdownWidget, label: "Countdowns", icon: "timer", placeholder: "Countdowns widget coming soon" },
     { key: "chores", widget: todayChoresWidget, label: "Today's Chores", icon: "task_alt", placeholder: "Chores widget coming soon" },
     { key: "dinner", widget: tonightDinnerWidget, label: "Tonight's Dinner", icon: "restaurant", placeholder: "Dinner widget coming soon" },
+    { key: "mood", widget: moodWidget, label: "Mood Check-In", icon: "mood", placeholder: "Mood check-in coming soon" },
   ];
 
   return (

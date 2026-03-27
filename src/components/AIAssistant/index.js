@@ -34,6 +34,8 @@ const ACTION_SUMMARY_LABELS = {
   set_timer: "timer", cancel_timer: "timer cancellation",
   set_alarm: "alarm", cancel_alarm: "alarm cancellation",
   save_memory: "memory saved",
+  create_routine: "routine", complete_routine_step: "routine step",
+  mood_checkin: "mood check-in",
 };
 
 function buildActionSummary(executedTypes) {
@@ -232,6 +234,35 @@ function AIAssistant({
             }
             case "cancel_alarm":
               timerAlarmRef.current.removeAlarm(d.alarm_id); executed.push(action.type); break;
+            case "create_routine": {
+              const routineId = `routine-${Date.now()}`;
+              const routineSteps = (d.steps || []).map((s, idx) => ({
+                id: `step-${Date.now()}-${idx}`,
+                routine_id: routineId,
+                title: s.title, icon: s.icon || "check_circle",
+                duration_minutes: s.duration_minutes || 5,
+                points_value: s.points_value || 5,
+                sort_order: idx, completions: [],
+              }));
+              dispatch({ type: "ADD_ROUTINE", value: {
+                id: routineId, family_id: familyId, name: d.name,
+                type: d.type || "morning", member_id: d.member_id,
+                icon: d.type === "bedtime" ? "bedtime" : d.type === "afternoon" ? "wb_cloudy" : "wb_sunny",
+                sort_order: 0, active: true, steps: routineSteps,
+              }});
+              executed.push(action.type); break;
+            }
+            case "complete_routine_step":
+              dispatch({ type: "COMPLETE_ROUTINE_STEP", value: { routine_step_id: d.routine_step_id, member_id: d.member_id } });
+              executed.push(action.type); break;
+            case "mood_checkin":
+              dispatch({ type: "ADD_MOOD_CHECKIN", value: {
+                id: `mood-${Date.now()}`, family_id: familyId,
+                member_id: d.member_id, mood: d.mood, note: d.note || null,
+                checkin_date: new Date().toISOString().split("T")[0],
+                created_at: new Date().toISOString(),
+              }});
+              executed.push(action.type); break;
             case "save_memory":
               dispatch({ type: "ADD_MEMORY", value: { id: `mem-${Date.now()}`, family_id: familyId, category: d.category || "context", content: d.content, active: true } });
               executed.push(action.type); break;
