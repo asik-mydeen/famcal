@@ -11,7 +11,7 @@ import { alpha } from "theme/helpers";
 import TimerAlarmChips from "components/TimerAlarmChips";
 import BirthdayWidget from "components/BirthdayWidget";
 
-function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel }) {
+function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel, urgentMessageCount }) {
   const { tokens, darkMode } = useAppTheme();
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const isMobile = useMediaQuery("(max-width:767px)");
@@ -186,6 +186,47 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
         {/* Birthday Widget (hidden on mobile) */}
         {!isMobile && members && members.length > 0 && (
           <BirthdayWidget members={members} />
+        )}
+
+        {/* Message notification badge */}
+        {urgentMessageCount > 0 && !isMobile && (
+          <Tooltip title={`${urgentMessageCount} urgent message${urgentMessageCount > 1 ? "s" : ""}`} arrow>
+            <Box
+              sx={{
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                bgcolor: alpha(tokens.accent.main, darkMode ? 0.15 : 0.08),
+                cursor: "pointer",
+              }}
+            >
+              <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.light }}>forum</Icon>
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: -2,
+                  right: -2,
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  bgcolor: tokens.priority?.high || "#ef4444",
+                  color: "#fff",
+                  fontSize: "0.6rem",
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: `2px solid ${tokens.header?.bg || "#fff"}`,
+                }}
+              >
+                {urgentMessageCount}
+              </Box>
+            </Box>
+          </Tooltip>
         )}
 
         {/* Family Avatars (hidden on mobile) */}
@@ -432,6 +473,7 @@ HeaderBar.propTypes = {
   fontScale: PropTypes.number,
   onFontScaleChange: PropTypes.func,
   onOpenTimerPanel: PropTypes.func,
+  urgentMessageCount: PropTypes.number,
 };
 
 export default memo(HeaderBar);

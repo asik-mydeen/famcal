@@ -482,7 +482,7 @@ export default function App() {
   }, [darkMode, fontFamily, preset]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
-  const { members, photos, countdowns, family, dataLoaded } = state;
+  const { members, photos, countdowns, family, dataLoaded, messages } = state;
 
   // Unified FAB state
   const [aiOpen, setAiOpen] = useState(false);
@@ -681,6 +681,7 @@ export default function App() {
               fontScale={fontScale}
               onFontScaleChange={handleFontScaleChange}
               onOpenTimerPanel={() => setTimerPanelOpen(true)}
+              urgentMessageCount={(messages || []).filter((m) => m.urgent).length}
             />
             <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
               <TabStrip

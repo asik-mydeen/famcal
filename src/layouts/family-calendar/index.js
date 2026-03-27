@@ -35,6 +35,7 @@ import { apiUrl } from "lib/api";
 import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
+import MessageBoard from "components/MessageBoard";
 
 // ── Helpers ──
 
@@ -62,9 +63,95 @@ const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+const RECURRENCE_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "daily", label: "Daily" },
+  { value: "weekdays", label: "Weekdays (Mon-Fri)" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Biweekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
 function defaultEventForm(dateStr) {
   const today = dateStr || fmtDate(new Date());
-  return { title: "", member_id: "", startDate: today, startTime: "09:00", endDate: today, endTime: "10:00", allDay: false };
+  return { title: "", member_id: "", startDate: today, startTime: "09:00", endDate: today, endTime: "10:00", allDay: false, recurrence_rule: "" };
+}
+
+// ── Recurring Event Expansion ──
+
+function expandRecurringEvents(events, viewStart, viewEnd) {
+  const result = [];
+  const startDate = new Date(viewStart);
+  const endDate = new Date(viewEnd);
+
+  events.forEach((evt) => {
+    if (!evt.recurrence_rule) {
+      result.push({ ...evt, isRecurrence: false });
+      return;
+    }
+
+    // Original event
+    const origStart = new Date(evt.start);
+    const origEnd = evt.end ? new Date(evt.end) : new Date(origStart.getTime() + 3600000);
+    const duration = origEnd.getTime() - origStart.getTime();
+    const rule = evt.recurrence_rule;
+
+    // Add the original event if it falls in range
+    if (origStart >= startDate && origStart <= endDate) {
+      result.push({ ...evt, isRecurrence: false });
+    }
+
+    // Generate virtual copies
+    let cursor = new Date(origStart);
+    const maxIterations = 400; // Safety limit
+    let count = 0;
+
+    const advanceCursor = () => {
+      switch (rule) {
+        case "daily":
+          cursor.setDate(cursor.getDate() + 1);
+          break;
+        case "weekdays":
+          do {
+            cursor.setDate(cursor.getDate() + 1);
+          } while (cursor.getDay() === 0 || cursor.getDay() === 6);
+          break;
+        case "weekly":
+          cursor.setDate(cursor.getDate() + 7);
+          break;
+        case "biweekly":
+          cursor.setDate(cursor.getDate() + 14);
+          break;
+        case "monthly":
+          cursor.setMonth(cursor.getMonth() + 1);
+          break;
+        default:
+          cursor.setFullYear(cursor.getFullYear() + 100); // Stop
+      }
+    };
+
+    // Start from the day after the original
+    advanceCursor();
+
+    while (cursor <= endDate && count < maxIterations) {
+      if (cursor >= startDate) {
+        const virtualStart = new Date(cursor);
+        const virtualEnd = new Date(cursor.getTime() + duration);
+        result.push({
+          ...evt,
+          id: `${evt.id}_rec_${fmtDate(virtualStart)}`,
+          start: evt.allDay ? fmtDate(virtualStart) : virtualStart.toISOString(),
+          end: evt.allDay ? fmtDate(virtualEnd) : virtualEnd.toISOString(),
+          isRecurrence: true,
+          originalEventId: evt.id,
+        });
+      }
+      advanceCursor();
+      count++;
+    }
+  });
+
+  return result;
 }
 
 // ── Day Timeline ──
@@ -136,6 +223,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
               const m = members.find((x) => x.id === evt.member_id);
               return (
                 <Chip key={evt.id} label={evt.title} size="small" onClick={() => onEventClick(evt)}
+                  icon={evt.recurrence_rule ? <Icon sx={{ fontSize: "0.8rem !important" }}>repeat</Icon> : undefined}
                   sx={{ bgcolor: m ? `${m.avatar_color}18` : "background.paper", color: m ? m.avatar_color : "text.primary", fontWeight: 600, fontSize: "0.75rem", cursor: "pointer", border: "1px solid", borderColor: m ? `${m.avatar_color}30` : "divider" }}
                 />
               );
@@ -264,7 +352,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
                     "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${alpha(m.avatar_color, 0.3)}`, zIndex: 6 },
                   }}
                 >
-                  <Typography sx={{ fontWeight: 700, fontSize: height > 40 && totalCols < 3 ? "0.75rem" : "0.6rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: height > 40 && totalCols < 3 ? "0.75rem" : "0.6rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, display: "flex", alignItems: "center", gap: 0.5 }}>
+                    {evt.recurrence_rule && <Icon sx={{ fontSize: "0.7rem !important", opacity: 0.7 }}>repeat</Icon>}
                     {evt.title}
                   </Typography>
                   {height > 36 && totalCols < 3 && (
@@ -310,7 +399,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
 
 function FamilyCalendar() {
   const [state, dispatch] = useFamilyController();
-  const { family, members, events, tasks, notes, countdowns, meals } = state;
+  const { family, members, events, tasks, notes, countdowns, meals, messages } = state;
   const isDashboard = state.isDashboard || false; // Skip Google auth in dashboard mode
   const { tokens, alpha, gradient, darkMode } = useAppTheme();
   const calendarRef = useRef(null);
@@ -341,26 +430,70 @@ function FamilyCalendar() {
     ? `Week of ${MONTHS[currentDate.getMonth()].slice(0, 3)} ${currentDate.getDate()}`
     : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
+  // Compute view range for recurring event expansion
+  const viewRange = useMemo(() => {
+    const start = new Date(currentDate);
+    const end = new Date(currentDate);
+    if (viewTab === 0) {
+      // Day view: just this day
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (viewTab === 1) {
+      // Week view: current week
+      const day = start.getDay();
+      start.setDate(start.getDate() - day);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // Month view: current month + buffer
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(end.getMonth() + 1, 6);
+      end.setHours(23, 59, 59, 999);
+    }
+    return { start: fmtDate(start), end: fmtDate(end) };
+  }, [currentDate, viewTab]);
+
+  // Expand recurring events for the current view
+  const expandedEvents = useMemo(
+    () => expandRecurringEvents(events, viewRange.start, viewRange.end),
+    [events, viewRange]
+  );
+
   // FullCalendar events
-  const fcEvents = useMemo(() => events.map((evt) => ({
+  const fcEvents = useMemo(() => expandedEvents.map((evt) => ({
     id: evt.id, title: evt.title, start: evt.start, end: evt.end, allDay: evt.allDay,
     className: `event-${evt.className || "info"}`,
-    extendedProps: { member_id: evt.member_id },
-  })), [events]);
+    extendedProps: { member_id: evt.member_id, isRecurrence: evt.isRecurrence, recurrence_rule: evt.recurrence_rule },
+  })), [expandedEvents]);
 
   // Event handlers
   const handleEventClick = useCallback((evt) => {
-    const s = new Date(evt.start);
-    const e = evt.end ? new Date(evt.end) : s;
-    setEditingEvent(evt);
-    setEventForm({ title: evt.title, member_id: evt.member_id || "", startDate: fmtDate(s), startTime: evt.allDay ? "09:00" : fmtTime(s), endDate: fmtDate(e), endTime: evt.allDay ? "10:00" : fmtTime(e), allDay: evt.allDay || false });
+    // If this is a recurring instance, find the original event for editing
+    const targetEvt = evt.isRecurrence
+      ? events.find((e) => e.id === evt.originalEventId) || evt
+      : evt;
+    const s = new Date(targetEvt.start);
+    const e = targetEvt.end ? new Date(targetEvt.end) : s;
+    setEditingEvent(targetEvt);
+    setEventForm({
+      title: targetEvt.title,
+      member_id: targetEvt.member_id || "",
+      startDate: fmtDate(s),
+      startTime: targetEvt.allDay ? "09:00" : fmtTime(s),
+      endDate: fmtDate(e),
+      endTime: targetEvt.allDay ? "10:00" : fmtTime(e),
+      allDay: targetEvt.allDay || false,
+      recurrence_rule: targetEvt.recurrence_rule || "",
+    });
     setDialogOpen(true);
-  }, []);
+  }, [events]);
 
   const handleFcEventClick = useCallback((info) => {
-    const evt = events.find((e) => e.id === info.event.id);
+    const evt = expandedEvents.find((e) => e.id === info.event.id);
     if (evt) handleEventClick(evt);
-  }, [events, handleEventClick]);
+  }, [expandedEvents, handleEventClick]);
 
   const handleTimeClick = useCallback((dateStr, time, memberId) => {
     const [h] = time.split(":").map(Number);
@@ -384,7 +517,7 @@ function FamilyCalendar() {
   }, []);
 
   const handleSaveEvent = useCallback(() => {
-    const { title, member_id, startDate, startTime, endDate, endTime, allDay } = eventForm;
+    const { title, member_id, startDate, startTime, endDate, endTime, allDay, recurrence_rule } = eventForm;
     if (!title.trim()) return;
     const member = members.find((m) => m.id === member_id);
     const gradient = getMemberGradient(member);
@@ -409,7 +542,8 @@ function FamilyCalendar() {
           allDay,
           className: gradient,
           source: existingEvent?.source || "manual",
-          google_event_id: existingEvent?.google_event_id || null
+          google_event_id: existingEvent?.google_event_id || null,
+          recurrence_rule: recurrence_rule || null,
         }
       });
       // Google push in background after UI updates
@@ -432,7 +566,8 @@ function FamilyCalendar() {
         allDay,
         className: gradient,
         source: "manual",
-        google_event_id: null
+        google_event_id: null,
+        recurrence_rule: recurrence_rule || null,
       };
       // Close dialog FIRST so UI feels instant
       setDialogOpen(false); setEditingEvent(null);
@@ -475,7 +610,11 @@ function FamilyCalendar() {
     setDialogOpen(false); setEditingEvent(null);
   }, [editingEvent, events, members, dispatch]);
 
-  const handleCloseDialog = useCallback(() => { setDialogOpen(false); setEditingEvent(null); setEventForm(defaultEventForm()); }, []);
+  const handleCloseDialog = useCallback(() => {
+    setDialogOpen(false);
+    setEditingEvent(null);
+    setEventForm(defaultEventForm());
+  }, []);
 
   // Sync
   const handleSync = useCallback(async () => {
@@ -642,6 +781,16 @@ function FamilyCalendar() {
     />
   );
 
+  // Messages widget
+  const messagesWidget = (
+    <MessageBoard
+      messages={messages || []}
+      members={members}
+      dispatch={dispatch}
+      familyId={family?.id}
+    />
+  );
+
   // Today's chores mini-widget
   const todayStr = fmtDate(new Date());
   const todayTasks = tasks.filter(t => t.due_date === todayStr && !t.completed);
@@ -791,7 +940,7 @@ function FamilyCalendar() {
           {/* Day View */}
           {viewTab === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-              <DayTimeline date={currentDate} members={members} events={events} onEventClick={handleEventClick} onTimeClick={handleTimeClick} darkMode={darkMode} />
+              <DayTimeline date={currentDate} members={members} events={expandedEvents} onEventClick={handleEventClick} onTimeClick={handleTimeClick} darkMode={darkMode} />
             </motion.div>
           )}
 
@@ -853,6 +1002,7 @@ function FamilyCalendar() {
           countdownWidget={countdownWidget}
           todayChoresWidget={todayChoresWidget}
           tonightDinnerWidget={tonightDinnerWidget}
+          messagesWidget={messagesWidget}
         />
 
         {/* Sidebar reopen button — visible when collapsed */}
@@ -912,6 +1062,22 @@ function FamilyCalendar() {
           ))}
         </TextField>
         <FormControlLabel control={<Switch checked={eventForm.allDay} onChange={(e) => handleFormChange("allDay", e.target.checked)} />} label="All Day" />
+        <TextField
+          label="Repeat"
+          value={eventForm.recurrence_rule || ""}
+          onChange={(e) => handleFormChange("recurrence_rule", e.target.value)}
+          select
+          fullWidth
+          InputProps={{
+            startAdornment: eventForm.recurrence_rule ? (
+              <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.main, mr: 1 }}>repeat</Icon>
+            ) : null,
+          }}
+        >
+          {RECURRENCE_OPTIONS.map((opt) => (
+            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+          ))}
+        </TextField>
         <Box sx={{ display: "flex", gap: 2 }}>
           <TextField label="Start Date" type="date" value={eventForm.startDate} onChange={(e) => handleFormChange("startDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
           {!eventForm.allDay && <TextField label="Start Time" type="time" value={eventForm.startTime} onChange={(e) => handleFormChange("startTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}

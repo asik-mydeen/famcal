@@ -1,3 +1,4 @@
 # Intel Changelog
 # Format: [timestamp] | [command] | [summary] | Sections updated: [list] | Files changed: [count]
 2026-03-24T23:15:00Z | deep-research | Full codebase scan (7 parallel agents) — architecture, color/theme audit, deps, tests, state, domain, patterns | Sections updated: ALL | Files scanned: 52
+[2026-03-26T07:45:00Z] | intel-refresh | auto-detect | Sections updated: architecture, routes, state-management, color-system, integrations, api-surface, env-vars, google-sync, realtime, components, critical-paths, gotchas, gamification | Files analyzed: 55
