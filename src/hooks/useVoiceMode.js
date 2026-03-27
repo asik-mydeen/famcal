@@ -86,6 +86,12 @@ let moduleIsSpeaking = false;
 let moduleCooldownUntil = 0;
 let moduleIsShuttingDown = false;
 
+// Conversation buffer for multi-turn voice interactions
+let moduleConversationHistory = [];
+let moduleLastInteractionTime = 0;
+const CONVERSATION_TIMEOUT_MS = 60000; // 60s — start fresh after 1 min silence
+const MAX_HISTORY_MESSAGES = 10; // keep last 5 exchanges
+
 // Module-level function pointers — updated each render to avoid stale closures in VAD interval
 let moduleStartRecording = null;
 let moduleStopRecording = null;
@@ -305,7 +311,7 @@ export default function useVoiceMode(familyState, dispatch) {
     }
   }, [dispatch, familyState]);
 
-  // Send query to AI
+  // Send query to AI (with multi-turn conversation context)
   const sendToAI = useCallback(async (query) => {
     if (!query.trim() || !familyState || moduleIsShuttingDown) return;
 
@@ -313,10 +319,30 @@ export default function useVoiceMode(familyState, dispatch) {
     setTranscript(query);
 
     try {
+      // Clear stale conversation history
+      const now = Date.now();
+      if (now - moduleLastInteractionTime > CONVERSATION_TIMEOUT_MS) {
+        moduleConversationHistory = [];
+      }
+
+      // Build messages with history for multi-turn context
+      const messages = [...moduleConversationHistory, { role: "user", content: query }];
+
       const context = buildAIContext(familyState, window.location.pathname.split("/").pop() || "calendar");
-      const response = await voiceSendMessage(query, context, familyState.ai_preferences);
+      const memories = familyState.memories || [];
+      const response = await voiceSendMessage(messages, context, familyState.ai_preferences, memories);
 
       if (moduleIsShuttingDown) return;
+
+      // Update conversation history
+      moduleConversationHistory.push(
+        { role: "user", content: query },
+        { role: "assistant", content: response.text }
+      );
+      if (moduleConversationHistory.length > MAX_HISTORY_MESSAGES) {
+        moduleConversationHistory = moduleConversationHistory.slice(-MAX_HISTORY_MESSAGES);
+      }
+      moduleLastInteractionTime = Date.now();
 
       setAiResponse(response.text || "");
       setVoiceState(VOICE_STATES.SPEAKING);
@@ -606,6 +632,8 @@ export default function useVoiceMode(familyState, dispatch) {
 
   const stopAll = useCallback(() => {
     moduleIsShuttingDown = true;
+    moduleConversationHistory = [];
+    moduleLastInteractionTime = 0;
     clearTimers();
     stopVAD();
     isActivatedRef.current = false;

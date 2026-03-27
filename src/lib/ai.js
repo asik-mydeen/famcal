@@ -101,12 +101,15 @@ export async function sendAIMessage(messages, context, aiPreferences = null, mem
 }
 
 /**
- * Voice-specific AI call — sends a single user message with full context.
+ * Voice-specific AI call — supports multi-turn conversation history.
+ * @param {Array} messages — conversation history [{role, content}, ...]
+ * @param {Object} context — family context from buildAIContext
+ * @param {Object} aiPreferences — AI preferences
+ * @param {Array} memories — active memories to include
  * Returns { text, actions } for the voice overlay to display and execute.
  */
-export async function voiceSendMessage(query, context, aiPreferences = null) {
+export async function voiceSendMessage(messages, context, aiPreferences = null, memories = null) {
   try {
-    const messages = [{ role: "user", content: query }];
     const res = await fetch(apiUrl("/api/chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -114,7 +117,8 @@ export async function voiceSendMessage(query, context, aiPreferences = null) {
         messages,
         context,
         ai_preferences: aiPreferences || {},
-        voice_mode: true, // Tell backend to keep response concise
+        memories: memories?.filter((m) => m.active).slice(0, 50),
+        voice_mode: true,
       }),
     });
 
