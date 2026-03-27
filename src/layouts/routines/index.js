@@ -33,7 +33,8 @@ const DEFAULT_STEP_ICONS = [
 
 function Routines() {
   const [state, dispatch] = useFamilyController();
-  const { routines, members } = state;
+  const { routines: rawRoutines, members } = state;
+  const routines = rawRoutines || [];
   const { tokens, alpha, gradient, darkMode } = useAppTheme();
 
   const [selectedMemberId, setSelectedMemberId] = useState(null);

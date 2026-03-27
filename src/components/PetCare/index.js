@@ -54,7 +54,9 @@ function timeAgo(dateStr) {
 
 function PetCare() {
   const [state, dispatch] = useFamilyController();
-  const { members, pets, petCareLogs } = state;
+  const { members, pets: rawPets, petCareLogs: rawLogs } = state;
+  const pets = rawPets || [];
+  const petCareLogs = rawLogs || [];
   const { tokens, gradient, darkMode } = useAppTheme();
 
   const [addPetOpen, setAddPetOpen] = useState(false);

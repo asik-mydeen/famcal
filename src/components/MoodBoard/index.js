@@ -32,7 +32,8 @@ export { MOODS, getMoodConfig };
 
 function MoodBoard({ variant = "full" }) {
   const [state, dispatch] = useFamilyController();
-  const { members, moodCheckins } = state;
+  const { members, moodCheckins: rawMoodCheckins } = state;
+  const moodCheckins = rawMoodCheckins || [];
   const { tokens, alpha, darkMode } = useAppTheme();
 
   const [checkinMember, setCheckinMember] = useState(null);
