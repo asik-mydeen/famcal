@@ -2,8 +2,9 @@
  * VoiceOverlay — Visual feedback for "Hey Amara" voice mode.
  *
  * States:
- * - listening: subtle mic pill in corner
- * - activated: pulsing accent border around entire screen, mic animation
+ * - listening: mic pill in corner (tap or say "Hey Amara")
+ * - recording: pulsing accent border, mic animation (VAD detected speech)
+ * - activated: pulsing border, waiting for command after wake word
  * - processing: steady border glow, "Thinking..." text
  * - speaking: gentle glow, speaker icon, AI response text
  */
@@ -17,12 +18,12 @@ import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 import { VOICE_STATES } from "hooks/useVoiceMode";
 
-function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable, onTapToSpeak, mode }) {
+function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable, onTapToSpeak }) {
   const { tokens, darkMode } = useAppTheme();
 
   if (!isEnabled || voiceState === VOICE_STATES.IDLE) return null;
 
-  const isActive = voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.PROCESSING || voiceState === VOICE_STATES.SPEAKING;
+  const isActive = [VOICE_STATES.ACTIVATED, VOICE_STATES.RECORDING, VOICE_STATES.PROCESSING, VOICE_STATES.SPEAKING].includes(voiceState);
   const accent = tokens.accent.main;
 
   return (
@@ -49,7 +50,7 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
                 inset: 0,
                 border: `4px solid ${accent}`,
                 borderRadius: "0px",
-                animation: voiceState === VOICE_STATES.ACTIVATED
+                animation: (voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.RECORDING)
                   ? "voice-pulse 1.5s ease-in-out infinite"
                   : voiceState === VOICE_STATES.SPEAKING
                   ? "voice-glow 2s ease-in-out infinite"
@@ -122,21 +123,21 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: voiceState === VOICE_STATES.ACTIVATED
+                  background: (voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.RECORDING)
                     ? accent
                     : voiceState === VOICE_STATES.PROCESSING
                     ? alpha(accent, 0.2)
                     : voiceState === VOICE_STATES.SPEAKING
                     ? tokens.priority.low
                     : alpha(accent, 0.1),
-                  animation: voiceState === VOICE_STATES.ACTIVATED ? "mic-pulse 1s ease-in-out infinite" : "none",
+                  animation: (voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.RECORDING) ? "mic-pulse 1s ease-in-out infinite" : "none",
                   "@keyframes mic-pulse": {
                     "0%, 100%": { transform: "scale(1)" },
                     "50%": { transform: "scale(1.15)" },
                   },
                 }}
               >
-                <Icon sx={{ color: voiceState === VOICE_STATES.ACTIVATED ? "#fff" : accent, fontSize: "1.3rem !important" }}>
+                <Icon sx={{ color: (voiceState === VOICE_STATES.ACTIVATED || voiceState === VOICE_STATES.RECORDING) ? "#fff" : accent, fontSize: "1.3rem !important" }}>
                   {voiceState === VOICE_STATES.SPEAKING ? "volume_up" : voiceState === VOICE_STATES.PROCESSING ? "hourglass_top" : "mic"}
                 </Icon>
               </Box>
@@ -154,6 +155,7 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
                   }}
                 >
                   {voiceState === VOICE_STATES.LISTENING && "Say 'Hey Amara'..."}
+                  {voiceState === VOICE_STATES.RECORDING && (transcript || "Recording...")}
                   {voiceState === VOICE_STATES.ACTIVATED && (transcript || "Listening...")}
                   {voiceState === VOICE_STATES.PROCESSING && (transcript || "Thinking...")}
                   {voiceState === VOICE_STATES.SPEAKING && (aiResponse || "...")}
@@ -202,7 +204,7 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
             display: "flex",
             alignItems: "center",
             gap: 0.75,
-            px: mode === "whisper" ? 2 : 1.5,
+            px: 2,
             py: 0.75,
             borderRadius: "20px",
             background: darkMode ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.9)",
@@ -214,36 +216,26 @@ function VoiceOverlay({ voiceState, transcript, aiResponse, isEnabled, onDisable
             "&:hover": { boxShadow: `0 4px 20px ${alpha(accent, 0.3)}` },
             "&:active": { transform: "scale(0.95)" },
           }}
-          onClick={mode === "whisper" ? onTapToSpeak : onTapToSpeak}
+          onClick={onTapToSpeak}
           onContextMenu={(e) => { e.preventDefault(); onDisable?.(); }}
         >
-          {mode === "whisper" ? (
-            <>
-              <Icon sx={{ fontSize: "1rem !important", color: accent }}>mic</Icon>
-              <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "text.primary" }}>
-                Tap to ask Amara
-              </Typography>
-            </>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  bgcolor: tokens.priority.low,
-                  animation: "listening-dot 2s ease-in-out infinite",
-                  "@keyframes listening-dot": {
-                    "0%, 100%": { opacity: 0.4 },
-                    "50%": { opacity: 1 },
-                  },
-                }}
-              />
-              <Typography sx={{ fontSize: "0.65rem", fontWeight: 600, color: "text.secondary" }}>
-                Amara
-              </Typography>
-            </>
-          )}
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: tokens.priority.low,
+              animation: "listening-dot 2s ease-in-out infinite",
+              "@keyframes listening-dot": {
+                "0%, 100%": { opacity: 0.4 },
+                "50%": { opacity: 1 },
+              },
+            }}
+          />
+          <Icon sx={{ fontSize: "1rem !important", color: accent }}>mic</Icon>
+          <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "text.primary" }}>
+            Ask Amara
+          </Typography>
         </Box>
       )}
     </>

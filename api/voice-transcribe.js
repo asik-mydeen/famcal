@@ -1,12 +1,15 @@
 /**
  * /api/voice-transcribe — Transcribe audio using OpenAI Whisper API.
- * Fallback for browsers without Web Speech API (Firefox, Tauri Linux).
  *
- * Accepts: multipart/form-data with "audio" file field
+ * Accepts: multipart/form-data with "audio" file field + optional "prompt" text field
+ * The "prompt" field guides Whisper toward expected vocabulary (family names, wake words).
  * Returns: { text: "transcribed text" }
  *
  * Requires env: OPENAI_API_KEY (same key used for /api/chat)
  */
+
+const MAX_AUDIO_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_PROMPT_LENGTH = 500;
 
 export const config = {
   api: {
@@ -41,6 +44,7 @@ export default async function handler(req, res) {
 
     let audioBuffer;
     let filename = "audio.webm";
+    let promptText = "";
 
     if (boundaryMatch) {
       // Parse multipart form data manually
@@ -52,6 +56,12 @@ export default async function handler(req, res) {
       }
       audioBuffer = audioPart.data;
       filename = audioPart.filename || "audio.webm";
+
+      // Extract prompt for Whisper vocabulary guidance (family names, wake words)
+      const promptPart = parts.find((p) => p.name === "prompt");
+      if (promptPart) {
+        promptText = promptPart.data.toString().slice(0, MAX_PROMPT_LENGTH).trim();
+      }
     } else {
       // Raw audio body
       audioBuffer = body;
@@ -61,12 +71,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Audio too short or empty" });
     }
 
+    if (audioBuffer.length > MAX_AUDIO_SIZE) {
+      return res.status(413).json({ error: "Audio too large (max 10MB)" });
+    }
+
     // Send to OpenAI Whisper API
     const formData = new FormData();
     formData.append("file", new Blob([audioBuffer], { type: "audio/webm" }), filename);
     formData.append("model", "whisper-1");
     formData.append("language", "en");
     formData.append("response_format", "json");
+
+    // Pass prompt to guide Whisper toward expected vocabulary (family names, etc.)
+    if (promptText) {
+      formData.append("prompt", promptText);
+    }
 
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
@@ -86,7 +105,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ text: result.text || "" });
   } catch (err) {
     console.error("[whisper] Error:", err);
-    return res.status(500).json({ error: "Transcription failed: " + err.message });
+    return res.status(500).json({ error: "Transcription failed. Please try again." });
   }
 }
 

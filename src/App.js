@@ -750,7 +750,6 @@ export default function App() {
               isEnabled={voice.isEnabled}
               onDisable={voice.disable}
               onTapToSpeak={voice.tapToSpeak}
-              mode={voice.mode}
             />
           </KioskWrapper>
         </TimerAlarmProvider>
