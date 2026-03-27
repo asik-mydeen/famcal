@@ -5,6 +5,7 @@ import App from "App";
 import { AuthProvider } from "context/AuthContext";
 import { FamilyProvider } from "context/FamilyContext";
 import { ThemeModeProvider } from "context/ThemeContext";
+import * as serviceWorkerRegistration from "serviceWorkerRegistration";
 
 const root = createRoot(document.getElementById("root"));
 
@@ -19,3 +20,6 @@ root.render(
     </AuthProvider>
   </BrowserRouter>
 );
+
+// Register service worker for offline PWA support
+serviceWorkerRegistration.register();

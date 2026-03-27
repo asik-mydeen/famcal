@@ -37,6 +37,7 @@ import { TimerAlarmProvider } from "context/TimerAlarmContext";
 import AlertOverlay from "components/AlertOverlay";
 import TimerAlarmPanel from "components/TimerAlarmPanel";
 import ErrorBoundary from "components/ErrorBoundary";
+import DailyBriefing from "components/DailyBriefing";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
@@ -550,6 +551,43 @@ export default function App() {
   });
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
+  // ── Offline indicator ──
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // ── Daily Briefing ──
+  const [showBriefing, setShowBriefing] = useState(false);
+  const briefingDismissed = useRef(false);
+
+  // Show briefing on first interaction of the day, or force-show via button
+  const handleBriefingCheck = useCallback((forceShow) => {
+    if (forceShow) {
+      setShowBriefing(true);
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const lastBriefing = localStorage.getItem("famcal_last_briefing_date");
+    if (lastBriefing !== today && !briefingDismissed.current) {
+      setShowBriefing(true);
+    }
+  }, []);
+
+  const handleDismissBriefing = useCallback(() => {
+    briefingDismissed.current = true;
+    setShowBriefing(false);
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem("famcal_last_briefing_date", today);
+  }, []);
+
   const setupDone = localStorage.getItem("famcal_setup_done") === "true" || family?.setup_done === true;
   const isLoggedIn = Boolean(user);
   const showSetup = isLoggedIn && dataLoaded && !setupDone && members.length === 0;
@@ -611,6 +649,13 @@ export default function App() {
       fetchPhotosFromAlbums(selectedAlbumIds).then(setGooglePhotos).catch(console.error);
     }
   }, [isIdle, selectedAlbumIds, googlePhotos.length]);
+
+  // Check for daily briefing on initial data load
+  useEffect(() => {
+    if (dataLoaded && !briefingDismissed.current) {
+      handleBriefingCheck();
+    }
+  }, [dataLoaded, handleBriefingCheck]);
 
   // Weather data loading
   const [weatherData, setWeatherData] = useState(null);
@@ -736,8 +781,32 @@ export default function App() {
               photos={googlePhotos.length > 0 ? googlePhotos : photos}
               interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
               weather={weatherData}
-              onDismiss={() => { resetTimer(); setGooglePhotos([]); }}
+              onDismiss={() => { resetTimer(); setGooglePhotos([]); handleBriefingCheck(); }}
             />
+          )}
+
+          {/* Daily Briefing overlay */}
+          {showBriefing && (
+            <DailyBriefing
+              state={state}
+              dispatch={dispatch}
+              weather={weatherData}
+              onDismiss={handleDismissBriefing}
+            />
+          )}
+
+          {/* Offline indicator banner */}
+          {isOffline && (
+            <Box sx={{
+              position: "fixed", top: 0, left: 0, right: 0, zIndex: 2100,
+              background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+              color: "#fff", textAlign: "center", py: 0.75, px: 2,
+              fontSize: "0.8rem", fontWeight: 600,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 1,
+            }}>
+              <Icon sx={{ fontSize: "1.2rem !important" }}>wifi_off</Icon>
+              You are offline — some features may not work
+            </Box>
           )}
 
           {/* Main app wrapped in KioskWrapper */}
@@ -755,6 +824,7 @@ export default function App() {
               onFontScaleChange={handleFontScaleChange}
               onOpenTimerPanel={() => setTimerPanelOpen(true)}
               urgentMessageCount={(messages || []).filter((m) => m.urgent).length}
+              onOpenBriefing={() => handleBriefingCheck(true)}
             />
             <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
               <TabStrip

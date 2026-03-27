@@ -12,7 +12,7 @@ import { alpha } from "theme/helpers";
 import TimerAlarmChips from "components/TimerAlarmChips";
 import BirthdayWidget from "components/BirthdayWidget";
 
-function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel, urgentMessageCount }) {
+function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel, urgentMessageCount, onOpenBriefing }) {
   const { tokens, darkMode } = useAppTheme();
   const navigate = useNavigate();
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
@@ -88,6 +88,25 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
           gap: isMobile ? 1.5 : 2,
         }}
       >
+        {/* Today / Daily Briefing button */}
+        {onOpenBriefing && !isMobile && (
+          <Tooltip title="Daily briefing" arrow>
+            <IconButton
+              size="small"
+              onClick={() => onOpenBriefing()}
+              sx={{
+                width: 36, height: 36,
+                bgcolor: alpha(tokens.accent.main, darkMode ? 0.15 : 0.08),
+                color: tokens.accent.light,
+                "&:hover": { bgcolor: alpha(tokens.accent.main, darkMode ? 0.2 : 0.15) },
+                touchAction: "manipulation",
+              }}
+            >
+              <Icon sx={{ fontSize: "1.2rem !important" }}>today</Icon>
+            </IconButton>
+          </Tooltip>
+        )}
+
         {/* Weather Widget - prefer widget node, fallback to data-driven */}
         {weatherWidget ? weatherWidget : weather && (
           <Box
@@ -495,6 +514,7 @@ HeaderBar.propTypes = {
   onFontScaleChange: PropTypes.func,
   onOpenTimerPanel: PropTypes.func,
   urgentMessageCount: PropTypes.number,
+  onOpenBriefing: PropTypes.func,
 };
 
 export default memo(HeaderBar);
