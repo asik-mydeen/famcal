@@ -53,6 +53,7 @@ function buildActionSummary(executedTypes) {
 function AIAssistant({
   familyId, dispatch, state, currentPage, externalOpen, onExternalClose,
   voiceActive, voiceState, voiceTranscript, voiceQuery, onVoiceQueryHandled, onVoiceResponse, onTapToSpeak,
+  novaMode, novaState, novaSessionTime, onNovaStart, onNovaStop, onNovaInterrupt,
 }) {
   const { darkMode } = useThemeMode();
   const navigate = useNavigate();
@@ -445,7 +446,9 @@ function AIAssistant({
             Hi! I&apos;m {assistantName}
           </Typography>
           <Typography sx={{ fontSize: "0.85rem", color: "text.secondary", lineHeight: 1.5, maxWidth: 300, mx: "auto" }}>
-            {voiceActive
+            {novaMode
+              ? "Real-time voice mode. Tap the mic to start a session!"
+              : voiceActive
               ? "I'm listening. Say something or tap the mic below!"
               : "Your family assistant. I can plan meals, manage chores, update your calendar, and more."}
           </Typography>
@@ -542,6 +545,132 @@ function AIAssistant({
     );
   };
 
+  // ── Nova real-time voice input area ──
+  const renderNovaVoiceInput = () => {
+    const isConnected = novaState === "connected" || novaState === "listening" || novaState === "speaking";
+    const isListening = novaState === "listening";
+    const isSpeaking = novaState === "speaking";
+    const isConnecting = novaState === "connecting";
+    const isIdle = novaState === "idle";
+
+    let statusText = "Tap to start voice session";
+    let statusIcon = "mic";
+    if (isConnecting) { statusText = "Connecting to Nova..."; statusIcon = "hourglass_top"; }
+    else if (isListening) { statusText = voiceTranscript || "Listening..."; statusIcon = "hearing"; }
+    else if (isSpeaking) { statusText = voiceTranscript || "Speaking..."; statusIcon = "volume_up"; }
+    else if (isConnected) { statusText = "Connected — speak anytime"; statusIcon = "mic"; }
+
+    return (
+      <Box sx={{ px: 3, py: 2, borderTop: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`, display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+        {/* Nova session badge */}
+        {isConnected && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1.5, py: 0.4, borderRadius: "10px", background: darkMode ? "rgba(34,197,94,0.1)" : "rgba(34,197,94,0.08)", border: `1px solid ${darkMode ? "rgba(34,197,94,0.2)" : "rgba(34,197,94,0.15)"}` }}>
+            <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#22c55e", animation: "pulse 2s infinite" }} />
+            <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "#22c55e" }}>
+              Nova Real-time Voice
+            </Typography>
+            {novaSessionTime && (
+              <Typography sx={{ fontSize: "0.65rem", color: darkMode ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)" }}>
+                {novaSessionTime}
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* Voice status text */}
+        <Typography sx={{ fontSize: "0.8rem", fontWeight: 500, color: "text.secondary", textAlign: "center", maxWidth: 280 }}>
+          {statusText}
+        </Typography>
+
+        {/* Mic / connection button */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {/* Interrupt button (when speaking) */}
+          {isSpeaking && (
+            <Box
+              onClick={onNovaInterrupt}
+              sx={{
+                width: 40, height: 40, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", touchAction: "manipulation",
+                background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+                "&:hover": { background: darkMode ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)" },
+              }}
+            >
+              <Icon sx={{ fontSize: "1.2rem !important", color: "text.secondary" }}>stop</Icon>
+            </Box>
+          )}
+
+          {/* Main mic button */}
+          <Box
+            onClick={() => {
+              if (isIdle || novaState === "error") onNovaStart?.();
+              else if (isConnected || isListening || isSpeaking) onNovaStop?.();
+            }}
+            sx={{
+              position: "relative",
+              width: 56, height: 56, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", touchAction: "manipulation",
+              background: (isConnected || isListening)
+                ? "linear-gradient(135deg, #6C5CE7, #A29BFE)"
+                : isSpeaking
+                ? "linear-gradient(135deg, #22c55e, #4ade80)"
+                : isConnecting
+                ? darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)"
+                : darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
+              transition: "all 0.3s ease",
+              "&:hover": { transform: "scale(1.05)" },
+              "&:active": { transform: "scale(0.95)" },
+            }}
+          >
+            {/* Pulse ring when listening */}
+            {isListening && (
+              <Box
+                component={motion.div}
+                animate={{ scale: [1, 1.8], opacity: [0.5, 0] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
+                sx={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid #6C5CE7", pointerEvents: "none" }}
+              />
+            )}
+            {/* Sound wave rings when speaking */}
+            {isSpeaking && (
+              <Box
+                component={motion.div}
+                animate={{ scale: [1, 1.6], opacity: [0.4, 0] }}
+                transition={{ duration: 0.8, repeat: Infinity, ease: "easeOut" }}
+                sx={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid #22c55e", pointerEvents: "none" }}
+              />
+            )}
+            <Icon sx={{
+              fontSize: "1.5rem !important",
+              color: (isConnected || isListening || isSpeaking) ? "#fff" : darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)",
+            }}>
+              {isIdle || novaState === "error" ? "mic" : isConnecting ? "hourglass_top" : isConnected || isListening ? statusIcon : "stop"}
+            </Icon>
+          </Box>
+        </Box>
+
+        {/* End session / switch to keyboard */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {isConnected && (
+            <Typography
+              onClick={onNovaStop}
+              sx={{ fontSize: "0.72rem", color: "error.main", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+            >
+              End session
+            </Typography>
+          )}
+          <Typography
+            onClick={() => { if (inputRef.current) inputRef.current.focus(); setShowVoiceInput(false); }}
+            sx={{ fontSize: "0.72rem", color: "text.secondary", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+          >
+            or type instead
+          </Typography>
+        </Box>
+      </Box>
+    );
+  };
+
   // ── Text input area ──
   const renderTextInput = () => (
     <Box sx={{ px: 3, py: 2, borderTop: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`, display: "flex", gap: 1, alignItems: "flex-end" }}>
@@ -589,10 +718,12 @@ function AIAssistant({
 
   // When voice mode opens the sidebar, default to voice input
   useEffect(() => {
-    if (voiceActive && externalOpen && voiceState !== VOICE_STATES.IDLE) {
+    if (novaMode && externalOpen) {
+      setShowVoiceInput(true);
+    } else if (voiceActive && externalOpen && voiceState !== VOICE_STATES.IDLE) {
       setShowVoiceInput(true);
     }
-  }, [voiceActive, externalOpen, voiceState]);
+  }, [voiceActive, novaMode, externalOpen, voiceState]);
 
   // When voice state transitions to activated/recording/processing, show voice input
   useEffect(() => {
@@ -644,8 +775,12 @@ function AIAssistant({
           </>
         )}
 
-        {/* Input: voice mode or text mode */}
-        {voiceActive && showVoiceInput ? renderVoiceInput() : renderTextInput()}
+        {/* Input: Nova voice, legacy voice, or text mode */}
+        {novaMode && showVoiceInput
+          ? renderNovaVoiceInput()
+          : voiceActive && showVoiceInput
+          ? renderVoiceInput()
+          : renderTextInput()}
       </SlidePanel>
 
       {/* Conversation history menu */}
@@ -688,6 +823,12 @@ AIAssistant.propTypes = {
   onVoiceQueryHandled: PropTypes.func,
   onVoiceResponse: PropTypes.func,
   onTapToSpeak: PropTypes.func,
+  novaMode: PropTypes.bool,
+  novaState: PropTypes.string,
+  novaSessionTime: PropTypes.string,
+  onNovaStart: PropTypes.func,
+  onNovaStop: PropTypes.func,
+  onNovaInterrupt: PropTypes.func,
 };
 
 export default AIAssistant;

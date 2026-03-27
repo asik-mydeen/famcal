@@ -15,6 +15,14 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { apiUrl } from "lib/api";
 
+/**
+ * Check if Nova real-time voice is available (WebSocket support).
+ * When Nova key is configured, useNovaVoice is preferred over this hook.
+ */
+export function isNovaAvailable() {
+  return typeof WebSocket !== "undefined";
+}
+
 // Wake words + common misheard variations
 const WAKE_WORDS = [
   "hey amara", "ok amara", "hi amara",
