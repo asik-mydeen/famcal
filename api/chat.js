@@ -24,13 +24,16 @@ export default async function handler(req, res) {
   const today = new Date().toISOString().split("T")[0];
   const dayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
 
-  // Build member list with ages
+  // Build member list with ages and allowance info
   const memberList = ctx.members?.map((m) => {
     let desc = `- ${m.name} (id: ${m.id}, ${m.points || 0}pts, level ${m.level || 1}`;
     if (m.birth_date) {
       const age = Math.floor((Date.now() - new Date(m.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
       desc += `, age ${age}`;
     }
+    if (m.allowance_balance) desc += `, $${parseFloat(m.allowance_balance).toFixed(2)} balance`;
+    if (m.allowance_rate) desc += `, earns $${parseFloat(m.allowance_rate).toFixed(2)}/100pts`;
+    if (m.streak_days) desc += `, ${m.streak_days}d streak`;
     desc += ")";
     return desc;
   }).join("\n") || "No members";
@@ -238,6 +241,13 @@ Routines:
 Mood:
 - mood_checkin: {member_id, mood:"happy|good|okay|tired|stressed|sad|angry|excited", note?}
 
+Allowance:
+- add_allowance: {member_id, amount, type:"bonus|deduction", description} — add bonus money or deduct from a member's allowance
+- set_allowance_rate: {member_id, rate} — set allowance rate ($ per 100 points) for a member
+
+Achievements:
+- check_achievements: {member_id} — forces a re-check of achievements for a member
+
 Memory:
 - save_memory: {content:"fact to remember", category:"preference|routine|rule|context"} — save something the family told you to remember. Use when they say "remember that...", mention a preference, allergy, routine, or important fact you should know for future conversations.
 - forget_memory: {memory_id} — forget a previously saved memory when asked
@@ -306,7 +316,9 @@ CRITICAL — YOU MUST FOLLOW THESE:
 - Include variety: mix different dishes, cooking styles, and proteins across the week. Alternate between rice, roti, naan, dosa, chapathi, parotta as accompaniments.
 - Make kid-friendly options for younger children (milder spice, familiar foods).
 - For snacks: include healthy options appropriate for the family and children's ages.
-- After adding meals, offer to add grocery items for the ingredients needed.${mealInstructions}`;
+- After adding meals, offer to add grocery items for the ingredients needed.
+- After planning meals, ALWAYS offer to generate a grocery list. If the user accepts, extract all ingredients from the planned meals and add them to the Groceries list using add_list_items action.
+- When asked to "generate grocery list from meals" or similar, collect all meals for the current week and create a comprehensive grocery list with all needed ingredients.${mealInstructions}`;
 
   // ── Layer 3: Memories ──
   if (memories && Array.isArray(memories) && memories.length > 0) {

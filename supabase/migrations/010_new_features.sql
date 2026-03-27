@@ -105,3 +105,54 @@ CREATE POLICY "mood_checkins_select" ON mood_checkins FOR SELECT USING (true);
 CREATE POLICY "mood_checkins_insert" ON mood_checkins FOR INSERT WITH CHECK (true);
 CREATE POLICY "mood_checkins_update" ON mood_checkins FOR UPDATE USING (true);
 CREATE POLICY "mood_checkins_delete" ON mood_checkins FOR DELETE USING (true);
+
+-- =============================================
+-- Event Reminders
+-- =============================================
+ALTER TABLE events ADD COLUMN IF NOT EXISTS reminder_minutes INT;
+
+-- =============================================
+-- Allowance & Money Tracking
+-- =============================================
+ALTER TABLE family_members ADD COLUMN IF NOT EXISTS allowance_balance DECIMAL DEFAULT 0;
+ALTER TABLE family_members ADD COLUMN IF NOT EXISTS allowance_rate DECIMAL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS allowance_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id UUID REFERENCES families(id),
+  member_id UUID REFERENCES family_members(id),
+  amount DECIMAL NOT NULL,
+  type TEXT NOT NULL, -- earned, spent, bonus, deduction, allowance
+  description TEXT,
+  task_id UUID,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE allowance_transactions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allowance_transactions_select" ON allowance_transactions FOR SELECT USING (true);
+CREATE POLICY "allowance_transactions_insert" ON allowance_transactions FOR INSERT WITH CHECK (true);
+CREATE POLICY "allowance_transactions_update" ON allowance_transactions FOR UPDATE USING (true);
+CREATE POLICY "allowance_transactions_delete" ON allowance_transactions FOR DELETE USING (true);
+
+-- =============================================
+-- Achievements & Badges
+-- =============================================
+CREATE TABLE IF NOT EXISTS achievements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id UUID REFERENCES families(id),
+  member_id UUID REFERENCES family_members(id),
+  type TEXT NOT NULL, -- streak, milestone, special
+  key TEXT NOT NULL, -- unique identifier like "streak_7", "tasks_100"
+  title TEXT NOT NULL,
+  description TEXT,
+  icon TEXT DEFAULT 'emoji_events',
+  earned_at TIMESTAMPTZ DEFAULT now(),
+  points_bonus INT DEFAULT 0,
+  UNIQUE(family_id, member_id, key)
+);
+
+ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "achievements_select" ON achievements FOR SELECT USING (true);
+CREATE POLICY "achievements_insert" ON achievements FOR INSERT WITH CHECK (true);
+CREATE POLICY "achievements_update" ON achievements FOR UPDATE USING (true);
+CREATE POLICY "achievements_delete" ON achievements FOR DELETE USING (true);

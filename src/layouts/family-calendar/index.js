@@ -73,9 +73,18 @@ const RECURRENCE_OPTIONS = [
   { value: "monthly", label: "Monthly" },
 ];
 
+const REMINDER_OPTIONS = [
+  { value: "", label: "None" },
+  { value: 5, label: "5 minutes before" },
+  { value: 15, label: "15 minutes before" },
+  { value: 30, label: "30 minutes before" },
+  { value: 60, label: "1 hour before" },
+  { value: 1440, label: "1 day before" },
+];
+
 function defaultEventForm(dateStr) {
   const today = dateStr || fmtDate(new Date());
-  return { title: "", member_id: "", startDate: today, startTime: "09:00", endDate: today, endTime: "10:00", allDay: false, recurrence_rule: "" };
+  return { title: "", member_id: "", startDate: today, startTime: "09:00", endDate: today, endTime: "10:00", allDay: false, recurrence_rule: "", reminder_minutes: "" };
 }
 
 // ── Recurring Event Expansion ──
@@ -487,6 +496,7 @@ function FamilyCalendar() {
       endTime: targetEvt.allDay ? "10:00" : fmtTime(e),
       allDay: targetEvt.allDay || false,
       recurrence_rule: targetEvt.recurrence_rule || "",
+      reminder_minutes: targetEvt.reminder_minutes ?? "",
     });
     setDialogOpen(true);
   }, [events]);
@@ -518,7 +528,7 @@ function FamilyCalendar() {
   }, []);
 
   const handleSaveEvent = useCallback(() => {
-    const { title, member_id, startDate, startTime, endDate, endTime, allDay, recurrence_rule } = eventForm;
+    const { title, member_id, startDate, startTime, endDate, endTime, allDay, recurrence_rule, reminder_minutes } = eventForm;
     if (!title.trim()) return;
     const member = members.find((m) => m.id === member_id);
     const gradient = getMemberGradient(member);
@@ -545,6 +555,7 @@ function FamilyCalendar() {
           source: existingEvent?.source || "manual",
           google_event_id: existingEvent?.google_event_id || null,
           recurrence_rule: recurrence_rule || null,
+          reminder_minutes: reminder_minutes === "" ? null : Number(reminder_minutes),
         }
       });
       // Google push in background after UI updates
@@ -569,6 +580,7 @@ function FamilyCalendar() {
         source: "manual",
         google_event_id: null,
         recurrence_rule: recurrence_rule || null,
+        reminder_minutes: reminder_minutes === "" ? null : Number(reminder_minutes),
       };
       // Close dialog FIRST so UI feels instant
       setDialogOpen(false); setEditingEvent(null);
@@ -1081,6 +1093,22 @@ function FamilyCalendar() {
         >
           {RECURRENCE_OPTIONS.map((opt) => (
             <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="Reminder"
+          value={eventForm.reminder_minutes ?? ""}
+          onChange={(e) => handleFormChange("reminder_minutes", e.target.value)}
+          select
+          fullWidth
+          InputProps={{
+            startAdornment: eventForm.reminder_minutes ? (
+              <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.main, mr: 1 }}>notifications</Icon>
+            ) : null,
+          }}
+        >
+          {REMINDER_OPTIONS.map((opt) => (
+            <MenuItem key={String(opt.value)} value={opt.value}>{opt.label}</MenuItem>
           ))}
         </TextField>
         <Box sx={{ display: "flex", gap: 2 }}>

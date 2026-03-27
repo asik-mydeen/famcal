@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -7,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Icon from "@mui/material/Icon";
 import CircularProgress from "@mui/material/CircularProgress";
+import Snackbar from "@mui/material/Snackbar";
 import Stepper from "@mui/material/Stepper";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
@@ -484,7 +485,59 @@ export default function App() {
   }, [darkMode, fontFamily, preset]);
   const { user, loading } = useAuth();
   const [state, dispatch] = useFamilyController();
-  const { members, photos, countdowns, family, dataLoaded, messages } = state;
+  const { members, photos, countdowns, family, dataLoaded, messages, events } = state;
+
+  // ── Event Reminder Engine ──
+  const firedRemindersRef = useRef(new Set());
+  const [reminderToast, setReminderToast] = useState("");
+
+  useEffect(() => {
+    if (!dataLoaded || !events || events.length === 0) return;
+
+    const checkReminders = () => {
+      const now = new Date();
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      events.forEach((evt) => {
+        if (!evt.reminder_minutes || evt.allDay) return;
+        const eventStart = new Date(evt.start);
+        // Only check events in the next 24 hours
+        if (eventStart > in24h || eventStart < now) return;
+
+        const reminderTime = new Date(eventStart.getTime() - evt.reminder_minutes * 60 * 1000);
+        const todayStr = now.toISOString().split("T")[0];
+        const firedKey = `${evt.id}_${todayStr}`;
+
+        // Fire if reminder time has passed but event hasn't started yet
+        if (now >= reminderTime && now < eventStart && !firedRemindersRef.current.has(firedKey)) {
+          firedRemindersRef.current.add(firedKey);
+
+          // Calculate friendly time label
+          const minsLeft = Math.round((eventStart - now) / 60000);
+          let timeLabel;
+          if (minsLeft <= 1) timeLabel = "now";
+          else if (minsLeft < 60) timeLabel = `in ${minsLeft} minutes`;
+          else timeLabel = `in ${Math.round(minsLeft / 60)} hour${Math.round(minsLeft / 60) > 1 ? "s" : ""}`;
+
+          const message = `${evt.title} ${timeLabel}!`;
+          setReminderToast(message);
+
+          // TTS announcement if voice mode / speechSynthesis is available
+          if (window.speechSynthesis) {
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+          }
+        }
+      });
+    };
+
+    // Check immediately, then every 30 seconds
+    checkReminders();
+    const interval = setInterval(checkReminders, 30000);
+    return () => clearInterval(interval);
+  }, [dataLoaded, events]);
 
   // Unified FAB state
   const [aiOpen, setAiOpen] = useState(false);
@@ -659,6 +712,24 @@ export default function App() {
       ) : (
         <TimerAlarmProvider familyId={family?.id}>
           <AlertOverlay />
+          {/* Event reminder toast */}
+          <Snackbar
+            open={Boolean(reminderToast)}
+            autoHideDuration={8000}
+            onClose={() => setReminderToast("")}
+            message={reminderToast}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+            ContentProps={{
+              sx: {
+                background: `linear-gradient(135deg, ${tokens.accent.main} 0%, ${tokens.accent.light} 100%)`,
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                borderRadius: "16px",
+                boxShadow: `0 8px 32px ${tokens.accent.main}44`,
+              },
+            }}
+          />
           {/* Photo Frame overlay when idle */}
           {isIdle && (googlePhotos.length > 0 || photos.length > 0) && (
             <PhotoFrame

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -21,6 +21,7 @@ import SlidePanel from "components/SlidePanel";
 import { useFamilyController } from "context/FamilyContext";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
+import { apiUrl } from "lib/api";
 
 const INITIAL_MEAL_FORM = {
   title: "",
@@ -46,6 +47,7 @@ function Meals() {
   const [selectedMealType, setSelectedMealType] = useState(null);
   const [editingMeal, setEditingMeal] = useState(null);
   const [groceryItems, setGroceryItems] = useState("");
+  const [generatingGrocery, setGeneratingGrocery] = useState(false);
 
   // Week calculation
   const getMonday = useCallback((offset) => {
@@ -249,6 +251,78 @@ function Meals() {
     setPrefsExpanded(false);
   }, [prefsCuisine, prefsDietary, prefsServings, prefsSpeed, prefsMealInstructions, dispatch]);
 
+  // Generate grocery list from this week's meals via AI
+  const handleGenerateGroceryList = useCallback(async () => {
+    if (weekMeals.length === 0 || generatingGrocery) return;
+    setGeneratingGrocery(true);
+    try {
+      const mealSummary = weekMeals.map((m) => `${m.date} ${m.meal_type}: ${m.title}`).join("\n");
+      const prompt = `Based on these planned meals for the week:\n${mealSummary}\n\nGenerate a comprehensive grocery list with all ingredients needed. Add them to the Groceries list. Group similar items and estimate quantities for a family.`;
+
+      const context = {
+        familyId: family.id,
+        members: state.members,
+        lists: lists,
+        meals: weekMeals,
+        currentPage: "meals",
+      };
+
+      const res = await fetch(apiUrl("/api/chat"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: prompt }],
+          context,
+          ai_preferences: ai_preferences,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.actions && data.actions.length > 0) {
+        // Execute add_list_items actions
+        for (const action of data.actions) {
+          if (action.type === "add_list_items") {
+            const d = action.data || {};
+            const targetList = lists.find(
+              (l) => (d.list_name && l.name.toLowerCase() === d.list_name.toLowerCase()) ||
+                     (d.list_id && l.id === d.list_id)
+            ) || lists.find((l) => l.name.toLowerCase().includes("grocer"));
+
+            if (targetList) {
+              const items = Array.isArray(d.items) ? d.items : [d.items];
+              items.forEach((itemText) => {
+                dispatch({
+                  type: "ADD_LIST_ITEM",
+                  value: {
+                    listId: targetList.id,
+                    item: { id: `item-${Date.now()}-${Math.random()}`, text: itemText, checked: false },
+                  },
+                });
+              });
+            } else {
+              // Create Groceries list if it doesn't exist
+              const newListId = `list-${Date.now()}`;
+              dispatch({ type: "ADD_LIST", value: { id: newListId, family_id: family.id, title: "Groceries", items: [] } });
+              const items = Array.isArray(d.items) ? d.items : [d.items];
+              items.forEach((itemText) => {
+                dispatch({
+                  type: "ADD_LIST_ITEM",
+                  value: {
+                    listId: newListId,
+                    item: { id: `item-${Date.now()}-${Math.random()}`, text: itemText, checked: false },
+                  },
+                });
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[meals] Grocery list generation failed:", err);
+    }
+    setGeneratingGrocery(false);
+  }, [weekMeals, generatingGrocery, family.id, state.members, lists, ai_preferences, dispatch]);
+
   // Build chips from current preferences for collapsed view
   const prefsChips = useMemo(() => {
     const chips = [];
@@ -268,6 +342,25 @@ function Meals() {
           <Typography variant="h5" fontWeight={700}>
             Meal Plan
           </Typography>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Icon sx={{ fontSize: "1.2rem !important" }}>{generatingGrocery ? "hourglass_top" : "shopping_cart"}</Icon>}
+            disabled={weekMeals.length === 0 || generatingGrocery}
+            onClick={handleGenerateGroceryList}
+            sx={{
+              borderRadius: "12px",
+              textTransform: "none",
+              px: 2,
+              fontWeight: 600,
+              background: gradient(darkMode ? "accent" : "meals"),
+              color: "#fff",
+              "&:hover": { opacity: 0.9 },
+              "&.Mui-disabled": { bgcolor: "action.hover", color: "text.disabled" },
+            }}
+          >
+            {generatingGrocery ? "Generating..." : "Generate Grocery List"}
+          </Button>
         </Box>
 
         {/* Meal Preferences */}

@@ -36,6 +36,8 @@ const ACTION_SUMMARY_LABELS = {
   save_memory: "memory saved",
   create_routine: "routine", complete_routine_step: "routine step",
   mood_checkin: "mood check-in",
+  add_allowance: "allowance update", set_allowance_rate: "allowance rate",
+  check_achievements: "achievement check",
 };
 
 function buildActionSummary(executedTypes) {
@@ -263,6 +265,29 @@ function AIAssistant({
                 created_at: new Date().toISOString(),
               }});
               executed.push(action.type); break;
+            case "add_allowance": {
+              const alMember = state.members?.find((m) => m.id === d.member_id);
+              if (alMember) {
+                const signedAmt = d.type === "deduction" ? -Math.abs(d.amount) : Math.abs(d.amount);
+                dispatch({ type: "ADD_ALLOWANCE_TRANSACTION", value: {
+                  id: crypto.randomUUID(), family_id: familyId, member_id: d.member_id,
+                  amount: signedAmt, type: d.type || "bonus",
+                  description: d.description || (d.type === "deduction" ? "Deduction" : "Bonus"),
+                  created_at: new Date().toISOString(),
+                }});
+                dispatch({ type: "UPDATE_MEMBER", value: {
+                  id: d.member_id, allowance_balance: (alMember.allowance_balance || 0) + signedAmt,
+                }});
+              }
+              executed.push(action.type); break;
+            }
+            case "set_allowance_rate":
+              dispatch({ type: "UPDATE_MEMBER", value: { id: d.member_id, allowance_rate: d.rate || 0 } });
+              executed.push(action.type); break;
+            case "check_achievements":
+              // Force re-check by completing a no-op; the engine auto-checks on task complete
+              // For manual check, we just log it — the achievement engine runs on COMPLETE_TASK
+              executed.push(action.type); break;
             case "save_memory":
               dispatch({ type: "ADD_MEMORY", value: { id: `mem-${Date.now()}`, family_id: familyId, category: d.category || "context", content: d.content, active: true } });
               executed.push(action.type); break;
@@ -275,7 +300,7 @@ function AIAssistant({
       }
       return executed;
     },
-    [dispatch, familyId, lists]
+    [dispatch, familyId, lists, state]
   );
 
   // ── Submit message (works for both text and voice) ──

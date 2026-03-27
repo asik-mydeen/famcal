@@ -22,6 +22,67 @@ const TASK_CATEGORIES = [
   { key: "other", label: "Other", icon: "push_pin", color: _tokens.category.other },
 ];
 
+// ── Achievement Definitions ──
+const ACHIEVEMENT_DEFS = [
+  // Streak badges
+  { key: "streak_3", type: "streak", title: "3-Day Streak", description: "Complete tasks 3 days in a row", icon: "local_fire_department", threshold: 3, points_bonus: 15 },
+  { key: "streak_7", type: "streak", title: "7-Day Streak", description: "Complete tasks 7 days in a row", icon: "whatshot", threshold: 7, points_bonus: 30 },
+  { key: "streak_14", type: "streak", title: "14-Day Streak", description: "Complete tasks 14 days in a row", icon: "fireplace", threshold: 14, points_bonus: 50 },
+  { key: "streak_30", type: "streak", title: "30-Day Streak", description: "Complete tasks 30 days in a row", icon: "military_tech", threshold: 30, points_bonus: 100 },
+  // Milestone badges
+  { key: "tasks_10", type: "milestone", title: "Getting Started", description: "Complete 10 tasks", icon: "star_outline", threshold: 10, points_bonus: 10 },
+  { key: "tasks_25", type: "milestone", title: "Task Apprentice", description: "Complete 25 tasks", icon: "star_half", threshold: 25, points_bonus: 25 },
+  { key: "tasks_50", type: "milestone", title: "Task Expert", description: "Complete 50 tasks", icon: "star", threshold: 50, points_bonus: 50 },
+  { key: "tasks_100", type: "milestone", title: "Task Master", description: "Complete 100 tasks", icon: "stars", threshold: 100, points_bonus: 100 },
+  { key: "tasks_250", type: "milestone", title: "Task Legend", description: "Complete 250 tasks", icon: "workspace_premium", threshold: 250, points_bonus: 150 },
+  { key: "tasks_500", type: "milestone", title: "Task Supreme", description: "Complete 500 tasks", icon: "emoji_events", threshold: 500, points_bonus: 250 },
+  // First-timer badges
+  { key: "first_task", type: "special", title: "First Steps", description: "Complete your first task", icon: "rocket_launch", threshold: 1, points_bonus: 5 },
+];
+
+function checkAchievements(memberId, state) {
+  const member = state.members.find((m) => m.id === memberId);
+  if (!member) return [];
+
+  const earned = state.achievements.filter((a) => a.member_id === memberId);
+  const earnedKeys = new Set(earned.map((a) => a.key));
+  const newAchievements = [];
+
+  // Count total completed tasks by this member
+  const totalCompleted = state.tasks.filter((t) => t.completed_by === memberId && (t.completed || t.completed_at)).length;
+  const streakDays = member.streak_days || 0;
+
+  ACHIEVEMENT_DEFS.forEach((def) => {
+    if (earnedKeys.has(def.key)) return; // Already earned
+
+    let qualifies = false;
+    if (def.type === "streak") {
+      qualifies = streakDays >= def.threshold;
+    } else if (def.type === "milestone") {
+      qualifies = totalCompleted >= def.threshold;
+    } else if (def.key === "first_task") {
+      qualifies = totalCompleted >= 1;
+    }
+
+    if (qualifies) {
+      newAchievements.push({
+        id: crypto.randomUUID(),
+        family_id: state.family.id,
+        member_id: memberId,
+        type: def.type,
+        key: def.key,
+        title: def.title,
+        description: def.description,
+        icon: def.icon,
+        points_bonus: def.points_bonus,
+        earned_at: new Date().toISOString(),
+      });
+    }
+  });
+
+  return newAchievements;
+}
+
 const INITIAL_FAMILY = {
   id: "demo-family",
   name: "My Family",
@@ -86,6 +147,8 @@ const initialState = {
   messages: [],
   routines: [],
   moodCheckins: [],
+  allowanceTransactions: [],
+  achievements: [],
 };
 
 function reducer(state, action) {
@@ -154,6 +217,8 @@ function reducer(state, action) {
       const PRIORITY_MULTIPLIER = { high: 2, medium: 1, low: 0.5 };
       const multiplier = PRIORITY_MULTIPLIER[task.priority] || 1;
       const earnedPoints = Math.ceil((task.points_value || 10) * multiplier);
+      // Track allowance transaction if member has allowance_rate > 0
+      let newAllowanceTransaction = null;
       const members = state.members.map((m) => {
         if (m.id === action.value.memberId) {
           const newPoints = m.points + earnedPoints;
@@ -166,11 +231,29 @@ function reducer(state, action) {
             (t) => t.completed_by === m.id && t.completed_at === yStr
           );
           const newStreak = hadYesterday ? (m.streak_days || 0) + 1 : 1;
-          return { ...m, points: newPoints, level: newLevel, streak_days: newStreak };
+          // Allowance: if member has allowance_rate, earn money per task
+          const allowanceEarned = (m.allowance_rate || 0) > 0 ? Math.round(earnedPoints * (m.allowance_rate / 100) * 100) / 100 : 0;
+          const newBalance = allowanceEarned > 0 ? (m.allowance_balance || 0) + allowanceEarned : (m.allowance_balance || 0);
+          if (allowanceEarned > 0) {
+            newAllowanceTransaction = {
+              id: crypto.randomUUID(),
+              family_id: state.family.id,
+              member_id: m.id,
+              amount: allowanceEarned,
+              type: "earned",
+              description: `Completed: ${task.title}`,
+              task_id: task.id,
+              created_at: new Date().toISOString(),
+            };
+          }
+          return { ...m, points: newPoints, level: newLevel, streak_days: newStreak, allowance_balance: newBalance };
         }
         return m;
       });
-      return { ...state, tasks, members };
+      const newTransactions = newAllowanceTransaction
+        ? [newAllowanceTransaction, ...state.allowanceTransactions]
+        : state.allowanceTransactions;
+      return { ...state, tasks, members, allowanceTransactions: newTransactions };
     }
     case "UNCOMPLETE_TASK": {
       const task = state.tasks.find((t) => t.id === action.value.taskId);
@@ -484,6 +567,16 @@ function reducer(state, action) {
         ...state,
         moodCheckins: state.moodCheckins.map((m) => (m.id === action.value.id ? { ...m, ...action.value } : m)),
       };
+    // ── Allowance Transactions ──
+    case "SET_ALLOWANCE_TRANSACTIONS":
+      return { ...state, allowanceTransactions: action.value };
+    case "ADD_ALLOWANCE_TRANSACTION":
+      return { ...state, allowanceTransactions: [action.value, ...state.allowanceTransactions] };
+    // ── Achievements ──
+    case "SET_ACHIEVEMENTS":
+      return { ...state, achievements: action.value };
+    case "ADD_ACHIEVEMENT":
+      return { ...state, achievements: [...state.achievements, action.value] };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -505,6 +598,7 @@ function eventFromDb(row) {
     google_event_id: row.google_event_id || null,
     updated_at: row.updated_at || null,
     recurrence_rule: row.recurrence_rule || null,
+    reminder_minutes: row.reminder_minutes ?? null,
   };
 }
 
@@ -523,6 +617,7 @@ function eventToDb(evt) {
   if (evt.google_event_id) row.google_event_id = evt.google_event_id;
   if (evt.id && !evt.id.startsWith("evt-")) row.id = evt.id;
   if (evt.recurrence_rule !== undefined) row.recurrence_rule = evt.recurrence_rule || null;
+  if (evt.reminder_minutes !== undefined) row.reminder_minutes = evt.reminder_minutes;
   return row;
 }
 
@@ -904,6 +999,33 @@ function FamilyProvider({ children }) {
           console.log("[supabase] mood_checkins table not available yet:", e.message);
         }
 
+        // Load allowance transactions (last 90 days)
+        try {
+          const ninetyDaysAgo = new Date();
+          ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+          const { data: dbTransactions } = await supabase
+            .from("allowance_transactions")
+            .select("*")
+            .eq("family_id", family.id)
+            .gte("created_at", ninetyDaysAgo.toISOString())
+            .order("created_at", { ascending: false });
+          if (dbTransactions) dispatch({ type: "SET_ALLOWANCE_TRANSACTIONS", value: dbTransactions });
+        } catch (e) {
+          console.log("[supabase] allowance_transactions table not available yet:", e.message);
+        }
+
+        // Load achievements
+        try {
+          const { data: dbAchievements } = await supabase
+            .from("achievements")
+            .select("*")
+            .eq("family_id", family.id)
+            .order("earned_at", { ascending: false });
+          if (dbAchievements) dispatch({ type: "SET_ACHIEVEMENTS", value: dbAchievements });
+        } catch (e) {
+          console.log("[supabase] achievements table not available yet:", e.message);
+        }
+
         // Load AI Assistant data
         try {
           const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
@@ -952,6 +1074,8 @@ function FamilyProvider({ children }) {
       ADD_ROUTINE_STEP: "routine_steps", REMOVE_ROUTINE_STEP: "routine_steps",
       COMPLETE_ROUTINE_STEP: "routine_completions", UNCOMPLETE_ROUTINE_STEP: "routine_completions",
       ADD_MOOD_CHECKIN: "mood_checkins", UPDATE_MOOD_CHECKIN: "mood_checkins",
+      ADD_ALLOWANCE_TRANSACTION: "allowance_transactions",
+      ADD_ACHIEVEMENT: "achievements",
     };
 
     return (action) => {
@@ -999,6 +1123,8 @@ function FamilyProvider({ children }) {
           if (mv.avatar_url !== undefined) updatePayload.avatar_url = mv.avatar_url;
           if (mv.google_calendar_id !== undefined) updatePayload.google_calendar_id = mv.google_calendar_id;
           if (mv.birth_date !== undefined) updatePayload.birth_date = mv.birth_date;
+          if (mv.allowance_balance !== undefined) updatePayload.allowance_balance = mv.allowance_balance;
+          if (mv.allowance_rate !== undefined) updatePayload.allowance_rate = mv.allowance_rate;
           persist("family_members", "update", updatePayload);
           break;
         }
@@ -1035,7 +1161,42 @@ function FamilyProvider({ children }) {
               const hadYesterday = state.tasks.some((t) => t.completed_by === member.id && t.completed_at === yStr);
               const newStreak = hadYesterday ? (member.streak_days || 0) + 1 : 1;
               persist("family_members", "update", { id: member.id, points: newPoints, level: newLevel, streak_days: newStreak });
+              // Allowance: create transaction if member has allowance_rate
+              if ((member.allowance_rate || 0) > 0) {
+                const allowanceEarned = Math.round(earned * (member.allowance_rate / 100) * 100) / 100;
+                if (allowanceEarned > 0) {
+                  const newBal = (member.allowance_balance || 0) + allowanceEarned;
+                  persist("family_members", "update", { id: member.id, allowance_balance: newBal });
+                  supabase.from("allowance_transactions").insert({
+                    family_id: state.family.id,
+                    member_id: member.id,
+                    amount: allowanceEarned,
+                    type: "earned",
+                    description: `Completed: ${task.title}`,
+                    task_id: task.id,
+                  }).then(({ error }) => {
+                    if (error) console.warn("[supabase] allowance_transactions insert failed:", error.message);
+                  });
+                }
+              }
             }
+          }
+          // Achievement check: run after state updates (setTimeout so reducer runs first)
+          if (action.value.memberId) {
+            setTimeout(() => {
+              const newAchievements = checkAchievements(action.value.memberId, state);
+              newAchievements.forEach((ach) => {
+                dispatch({ type: "ADD_ACHIEVEMENT", value: ach });
+                // Award bonus points
+                if (ach.points_bonus > 0) {
+                  const achMember = state.members.find((m) => m.id === action.value.memberId);
+                  if (achMember) {
+                    const newPts = achMember.points + ach.points_bonus;
+                    dispatch({ type: "UPDATE_MEMBER", value: { id: achMember.id, points: newPts, level: Math.floor(newPts / 100) + 1 } });
+                  }
+                }
+              });
+            }, 100);
           }
           break;
         }
@@ -1077,6 +1238,7 @@ function FamilyProvider({ children }) {
           if (ev.source !== undefined) evUpdate.source = ev.source;
           if (ev.className !== undefined) evUpdate.color = ev.className;
           if (ev.recurrence_rule !== undefined) evUpdate.recurrence_rule = ev.recurrence_rule;
+          if (ev.reminder_minutes !== undefined) evUpdate.reminder_minutes = ev.reminder_minutes;
           evUpdate.updated_at = new Date().toISOString();
           persist("events", "update", evUpdate);
           break;
@@ -1524,6 +1686,34 @@ function FamilyProvider({ children }) {
           }
           break;
         }
+        // ── Allowance Transactions ──
+        case "ADD_ALLOWANCE_TRANSACTION": {
+          const { id: _atId, ...atData } = action.value;
+          const atRow = { ...atData, family_id: state.family.id };
+          supabase.from("allowance_transactions").insert(atRow).then(({ error }) => {
+            if (error) console.warn("[supabase] allowance_transactions insert failed:", error.message);
+          });
+          // Also update member's allowance_balance
+          if (action.value.member_id) {
+            const atMember = state.members.find((m) => m.id === action.value.member_id);
+            if (atMember) {
+              const newBal = (atMember.allowance_balance || 0) + action.value.amount;
+              persist("family_members", "update", { id: atMember.id, allowance_balance: newBal });
+            }
+          }
+          break;
+        }
+        // ── Achievements ──
+        case "ADD_ACHIEVEMENT": {
+          const { id: _achId, ...achData } = action.value;
+          const achRow = { ...achData, family_id: state.family.id };
+          supabase.from("achievements").insert(achRow).then(({ error }) => {
+            if (error && !error.message.includes("duplicate")) {
+              console.warn("[supabase] achievements insert failed:", error.message);
+            }
+          });
+          break;
+        }
         default:
           break;
       }
@@ -1554,4 +1744,5 @@ export {
   reducer as familyReducer,
   MEMBER_COLORS,
   TASK_CATEGORIES,
+  ACHIEVEMENT_DEFS,
 };
