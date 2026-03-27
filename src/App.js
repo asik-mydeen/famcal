@@ -24,6 +24,7 @@ import { fetchPhotosFromAlbums } from "lib/googlePhotos";
 import AnimatedBackground from "components/AnimatedBackground";
 import VoiceOverlay from "components/VoiceOverlay";
 import useVoiceMode from "hooks/useVoiceMode";
+import useNovaVoice from "hooks/useNovaVoice";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
 import FloatingNav from "components/FloatingNav";
@@ -553,11 +554,24 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [voiceQuery, setVoiceQuery] = useState(null);
 
-  // Voice mode — "Hey Amara" wake word → opens AI sidebar
-  const voice = useVoiceMode(state, {
+  // Nova Sonic real-time voice (via proxy) — preferred when configured
+  const novaProxyUrl = process.env.REACT_APP_NOVA_PROXY_URL || null;
+  const nova = useNovaVoice(novaProxyUrl, state, dispatch, {
+    currentPage: location.pathname.split("/")[1] || "calendar",
+    onTranscript: (text, role) => {
+      if (role === "user") setVoiceQuery(text);
+    },
+  });
+
+  // Legacy Whisper+TTS voice mode (fallback when no proxy configured)
+  const legacyVoice = useVoiceMode(state, {
     onWakeWord: () => setAiOpen(true),
     onVoiceCommand: (query) => setVoiceQuery(query),
   });
+
+  // Use Nova if proxy URL configured, otherwise fallback
+  const useNova = Boolean(novaProxyUrl) && nova.isAvailable;
+  const voice = useNova ? nova : legacyVoice;
 
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
