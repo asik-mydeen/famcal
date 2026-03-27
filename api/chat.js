@@ -333,14 +333,44 @@ CRITICAL — YOU MUST FOLLOW THESE:
   }
 
   try {
-    const result = await generateText({
-      model: gateway("anthropic/claude-haiku-4-5"),
-      system: systemPrompt,
-      messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
-      maxTokens: 16384,
-    });
+    let text;
 
-    const text = (result.text || "").trim();
+    // Use Nova API if NOVA_API_KEY is set, otherwise fallback to Claude
+    if (process.env.NOVA_API_KEY) {
+      const novaRes = await fetch("https://api.nova.amazon.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.NOVA_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "nova-2-lite-v1",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...chatMessages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+          max_tokens: 16384,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!novaRes.ok) {
+        const err = await novaRes.json().catch(() => ({}));
+        console.error("[ai] Nova API error:", err);
+        throw new Error(err.error?.message || "Nova API request failed");
+      }
+
+      const novaResult = await novaRes.json();
+      text = (novaResult.choices?.[0]?.message?.content || "").trim();
+    } else {
+      const result = await generateText({
+        model: gateway("anthropic/claude-haiku-4-5"),
+        system: systemPrompt,
+        messages: chatMessages.map((m) => ({ role: m.role, content: m.content })),
+        maxTokens: 16384,
+      });
+      text = (result.text || "").trim();
+    }
 
     let parsed;
     try {

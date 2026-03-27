@@ -24,7 +24,6 @@ import { fetchPhotosFromAlbums } from "lib/googlePhotos";
 import AnimatedBackground from "components/AnimatedBackground";
 import VoiceOverlay from "components/VoiceOverlay";
 import useVoiceMode from "hooks/useVoiceMode";
-import useNovaVoice from "hooks/useNovaVoice";
 import HeaderBar from "components/HeaderBar";
 import TabStrip from "components/TabStrip";
 import FloatingNav from "components/FloatingNav";
@@ -554,36 +553,12 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [voiceQuery, setVoiceQuery] = useState(null);
 
-  // ── Nova 2 Sonic real-time voice (preferred when available) ──
-  const [novaKey, setNovaKey] = useState(null);
-  useEffect(() => {
-    fetch(apiUrl("/api/voice-nova-key"))
-      .then((r) => r.json())
-      .then((d) => { if (d.key) setNovaKey(d.key); })
-      .catch(() => {});
-  }, []);
-
-  // Both hooks called unconditionally (React rules of hooks)
-  const nova = useNovaVoice(novaKey, state, dispatch, {
-    currentPage: location.pathname.split("/")[1] || "calendar",
-    onTranscript: (text, role) => {
-      if (role === "user") setVoiceQuery(text);
-      // assistant/system transcripts shown via AIAssistant
-    },
-    onError: (msg) => {
-      if (process.env.NODE_ENV === "development") console.warn("[nova] Error:", msg);
-    },
-  });
-
-  // Legacy Whisper+TTS voice mode (fallback)
-  const legacyVoice = useVoiceMode(state, {
+  // Voice mode — "Hey Amara" wake word → opens AI sidebar
+  const voice = useVoiceMode(state, {
     onWakeWord: () => setAiOpen(true),
     onVoiceCommand: (query) => setVoiceQuery(query),
   });
 
-  // Use Nova if key available and supported, otherwise fallback
-  const voice = nova.isAvailable ? nova : legacyVoice;
-  const isNovaActive = nova.isAvailable;
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
   // ── Offline indicator ──
@@ -923,29 +898,14 @@ export default function App() {
               state={state}
               currentPage={activeTab}
               externalOpen={aiOpen}
-              onExternalClose={() => {
-                setAiOpen(false);
-                if (isNovaActive) nova.endSession();
-                else voice.endVoiceSession?.();
-              }}
-              voiceActive={isNovaActive ? nova.isConnected : voice.isEnabled}
-              voiceState={isNovaActive ? nova.novaState : voice.voiceState}
-              voiceTranscript={isNovaActive ? nova.transcript : voice.transcript}
+              onExternalClose={() => { setAiOpen(false); voice.endVoiceSession(); }}
+              voiceActive={voice.isEnabled}
+              voiceState={voice.voiceState}
+              voiceTranscript={voice.transcript}
               voiceQuery={voiceQuery}
               onVoiceQueryHandled={() => setVoiceQuery(null)}
-              onVoiceResponse={isNovaActive ? null : (text) => voice.speakResponse(text)}
-              onTapToSpeak={isNovaActive
-                ? () => {
-                    setAiOpen(true);
-                    if (!nova.isConnected) nova.startSession();
-                  }
-                : voice.tapToSpeak}
-              novaMode={isNovaActive}
-              novaState={nova.novaState}
-              novaSessionTime={nova.sessionTimeFormatted}
-              onNovaStart={() => nova.startSession()}
-              onNovaStop={() => nova.endSession()}
-              onNovaInterrupt={() => nova.interrupt()}
+              onVoiceResponse={(text) => voice.speakResponse(text)}
+              onTapToSpeak={voice.tapToSpeak}
             />
             <TimerAlarmPanel
               open={timerPanelOpen}
@@ -953,14 +913,10 @@ export default function App() {
             />
             {/* Voice Mode — listening indicator only (chat happens in AIAssistant) */}
             <VoiceOverlay
-              voiceState={isNovaActive ? nova.novaState : voice.voiceState}
-              isEnabled={isNovaActive ? nova.isConnected : voice.isEnabled}
-              onDisable={isNovaActive ? nova.endSession : voice.disable}
-              onTapToSpeak={isNovaActive
-                ? () => { if (!nova.isConnected) nova.startSession(); }
-                : voice.tapToSpeak}
-              novaMode={isNovaActive}
-              novaSessionTime={nova.sessionTimeFormatted}
+              voiceState={voice.voiceState}
+              isEnabled={voice.isEnabled}
+              onDisable={voice.disable}
+              onTapToSpeak={voice.tapToSpeak}
             />
           </KioskWrapper>
         </TimerAlarmProvider>
