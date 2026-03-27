@@ -12,6 +12,9 @@ import MenuItem from "@mui/material/MenuItem";
 import Grid from "@mui/material/Grid";
 import Fab from "@mui/material/Fab";
 import Tooltip from "@mui/material/Tooltip";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Checkbox from "@mui/material/Checkbox";
 import { motion, AnimatePresence } from "framer-motion";
 import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
@@ -71,6 +74,8 @@ function Chores() {
     points_value: 10,
     recurring: false,
     recurring_pattern: "daily",
+    rotation_enabled: false,
+    rotation_members: [],
   });
 
   // --- Computed Stats ---
@@ -192,6 +197,8 @@ function Chores() {
       points_value: 10,
       recurring: false,
       recurring_pattern: "daily",
+      rotation_enabled: false,
+      rotation_members: [],
     });
     setOpenDialog(true);
   };
@@ -209,6 +216,8 @@ function Chores() {
       points_value: task.points_value || 10,
       recurring: task.recurring || false,
       recurring_pattern: task.recurring_pattern || "daily",
+      rotation_enabled: !!(task.rotation_members && task.rotation_members.length > 0),
+      rotation_members: task.rotation_members || [],
     });
     setOpenDialog(true);
   };
@@ -216,13 +225,21 @@ function Chores() {
   const handleSubmitTask = () => {
     if (!formData.title.trim()) return;
 
+    const { rotation_enabled, ...rest } = formData;
     const taskData = {
-      ...formData,
+      ...rest,
       family_id: state.family.id,
       completed: false,
       completed_at: null,
       completed_by: null,
+      rotation_members: rotation_enabled && rest.rotation_members.length > 1 ? rest.rotation_members : null,
+      rotation_index: rotation_enabled && rest.rotation_members.length > 1 ? 0 : null,
     };
+
+    // If rotation is enabled, set initial assigned_to to first rotation member
+    if (rotation_enabled && rest.rotation_members.length > 0 && !editingTask) {
+      taskData.assigned_to = rest.rotation_members[0];
+    }
 
     if (editingTask) {
       dispatch({
@@ -662,7 +679,7 @@ function Chores() {
                                     {!member.avatar_url && (member.avatar_emoji || member.name[0])}
                                   </Avatar>
                                 }
-                                label={member.name}
+                                label={task.rotation_members && task.rotation_members.length > 1 ? `${member.name} (rotates)` : member.name}
                                 size="small"
                                 sx={{
                                   height: "24px",
@@ -753,6 +770,20 @@ function Chores() {
                               <Chip
                                 icon={<Icon sx={{ fontSize: "0.875rem !important", color: tokens.accent.light }}>loop</Icon>}
                                 label={task.recurring_pattern || "Daily"}
+                                size="small"
+                                sx={{
+                                  height: "24px",
+                                  fontSize: "0.7rem",
+                                  borderRadius: "12px",
+                                  bgcolor: alpha(tokens.accent.main, 0.08),
+                                  color: tokens.accent.light,
+                                }}
+                              />
+                            )}
+                            {task.rotation_members && task.rotation_members.length > 1 && (
+                              <Chip
+                                icon={<Icon sx={{ fontSize: "0.875rem !important", color: tokens.accent.light }}>swap_horiz</Icon>}
+                                label={`Rotates (${task.rotation_members.length})`}
                                 size="small"
                                 sx={{
                                   height: "24px",
@@ -1074,6 +1105,78 @@ function Chores() {
               </TextField>
             )}
           </Box>
+          {/* Rotation Section */}
+          {formData.recurring && (
+            <Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.rotation_enabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setFormData({
+                        ...formData,
+                        rotation_enabled: enabled,
+                        rotation_members: enabled ? (formData.rotation_members.length > 0 ? formData.rotation_members : []) : [],
+                      });
+                    }}
+                  />
+                }
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.main }}>swap_horiz</Icon>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600 }}>Rotate between members</Typography>
+                  </Box>
+                }
+              />
+              {formData.rotation_enabled && (
+                <Box sx={{ ml: 1, mt: 1 }}>
+                  {members.map((member) => (
+                    <FormControlLabel
+                      key={member.id}
+                      control={
+                        <Checkbox
+                          checked={formData.rotation_members.includes(member.id)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setFormData((prev) => ({
+                              ...prev,
+                              rotation_members: checked
+                                ? [...prev.rotation_members, member.id]
+                                : prev.rotation_members.filter((id) => id !== member.id),
+                            }));
+                          }}
+                          sx={{ color: member.avatar_color, "&.Mui-checked": { color: member.avatar_color } }}
+                        />
+                      }
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Avatar
+                            src={member.avatar_url}
+                            sx={{ width: 24, height: 24, bgcolor: member.avatar_color, fontSize: "0.75rem" }}
+                          >
+                            {!member.avatar_url && (member.avatar_emoji || member.name[0])}
+                          </Avatar>
+                          <Typography sx={{ fontSize: "0.85rem" }}>{member.name}</Typography>
+                        </Box>
+                      }
+                    />
+                  ))}
+                  {formData.rotation_members.length > 1 && (
+                    <Typography sx={{ fontSize: "0.75rem", color: tokens.accent.main, fontWeight: 600, mt: 0.5 }}>
+                      <Icon sx={{ fontSize: "0.85rem !important", verticalAlign: "middle", mr: 0.5 }}>swap_horiz</Icon>
+                      Rotates between: {formData.rotation_members.map((id) => members.find((m) => m.id === id)?.name?.split(" ")[0]).filter(Boolean).join(", ")}
+                    </Typography>
+                  )}
+                  {formData.rotation_enabled && formData.rotation_members.length < 2 && (
+                    <Typography sx={{ fontSize: "0.75rem", color: tokens.priority.medium, mt: 0.5 }}>
+                      Select at least 2 members for rotation
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
         </SlidePanel>
     </PageShell>
   );

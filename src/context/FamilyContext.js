@@ -83,6 +83,7 @@ const initialState = {
   conversations: [],
   activeConversation: null,
   memories: [],
+  messages: [],
 };
 
 function reducer(state, action) {
@@ -131,12 +132,19 @@ function reducer(state, action) {
       // Non-recurring: set completed=true (permanent)
       const tasks = state.tasks.map((t) => {
         if (t.id === action.value.taskId) {
-          return {
+          const updates = {
             ...t,
             completed: !t.recurring,
             completed_at: completionDate,
             completed_by: action.value.memberId,
           };
+          // Rotation: increment rotation_index when recurring + rotation_members
+          if (t.recurring && t.rotation_members && t.rotation_members.length > 1) {
+            const nextIdx = ((t.rotation_index || 0) + 1) % t.rotation_members.length;
+            updates.rotation_index = nextIdx;
+            updates.assigned_to = t.rotation_members[nextIdx];
+          }
+          return updates;
         }
         return t;
       });
@@ -347,6 +355,17 @@ function reducer(state, action) {
       };
     case "REMOVE_MEMORY":
       return { ...state, memories: state.memories.filter((m) => m.id !== action.value.id) };
+    // Message Board
+    case "SET_MESSAGES":
+      return { ...state, messages: action.value };
+    case "ADD_MESSAGE_BOARD":
+      return { ...state, messages: [action.value, ...state.messages] };
+    case "UPDATE_MESSAGE_BOARD": {
+      const messages = state.messages.map((m) => (m.id === action.value.id ? { ...m, ...action.value } : m));
+      return { ...state, messages };
+    }
+    case "REMOVE_MESSAGE_BOARD":
+      return { ...state, messages: state.messages.filter((m) => m.id !== action.value) };
     default:
       throw new Error(`Unhandled action type: ${action.type}`);
   }
@@ -367,6 +386,7 @@ function eventFromDb(row) {
     source: row.source,
     google_event_id: row.google_event_id || null,
     updated_at: row.updated_at || null,
+    recurrence_rule: row.recurrence_rule || null,
   };
 }
 
@@ -384,6 +404,7 @@ function eventToDb(evt) {
   };
   if (evt.google_event_id) row.google_event_id = evt.google_event_id;
   if (evt.id && !evt.id.startsWith("evt-")) row.id = evt.id;
+  if (evt.recurrence_rule !== undefined) row.recurrence_rule = evt.recurrence_rule || null;
   return row;
 }
 
@@ -489,6 +510,7 @@ function FamilyProvider({ children }) {
       events: "SET_EVENTS", tasks: "SET_TASKS", family_members: "SET_MEMBERS",
       meals: "SET_MEALS", lists: "SET_LISTS", notes: "SET_NOTES",
       countdowns: "SET_COUNTDOWNS", rewards: "SET_REWARDS",
+      family_messages: "SET_MESSAGES",
     };
     const MAPPER_MAP = { events: eventFromDb, tasks: taskFromDb, family_members: memberFromDb };
 
@@ -703,6 +725,18 @@ function FamilyProvider({ children }) {
           console.log("[supabase] v3 tables not available yet:", e.message);
         }
 
+        // Load family messages
+        try {
+          const { data: dbMessages } = await supabase
+            .from("family_messages")
+            .select("*")
+            .eq("family_id", family.id)
+            .order("created_at", { ascending: false });
+          if (dbMessages) dispatch({ type: "SET_MESSAGES", value: dbMessages });
+        } catch (e) {
+          console.log("[supabase] family_messages table not available yet:", e.message);
+        }
+
         // Load AI Assistant data
         try {
           const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
@@ -746,6 +780,7 @@ function FamilyProvider({ children }) {
       ADD_LIST_ITEM: "list_items", TOGGLE_LIST_ITEM: "list_items", REMOVE_LIST_ITEM: "list_items",
       ADD_NOTE: "notes", REMOVE_NOTE: "notes",
       ADD_COUNTDOWN: "countdowns", REMOVE_COUNTDOWN: "countdowns",
+      ADD_MESSAGE_BOARD: "family_messages", UPDATE_MESSAGE_BOARD: "family_messages", REMOVE_MESSAGE_BOARD: "family_messages",
     };
 
     return (action) => {
@@ -810,7 +845,14 @@ function FamilyProvider({ children }) {
           const task = state.tasks.find((t) => t.id === action.value.taskId);
           if (task) {
             const completedFlag = !task.recurring; // recurring stays false
-            persist("tasks", "update", { id: task.id, completed: completedFlag, completed_at: new Date().toISOString(), completed_by: action.value.memberId });
+            const taskUpdate = { id: task.id, completed: completedFlag, completed_at: new Date().toISOString(), completed_by: action.value.memberId };
+            // Rotation: persist rotation_index and new assigned_to
+            if (task.recurring && task.rotation_members && task.rotation_members.length > 1) {
+              const nextIdx = ((task.rotation_index || 0) + 1) % task.rotation_members.length;
+              taskUpdate.rotation_index = nextIdx;
+              taskUpdate.assigned_to = task.rotation_members[nextIdx];
+            }
+            persist("tasks", "update", taskUpdate);
             const member = state.members.find((m) => m.id === action.value.memberId);
             if (member) {
               const pmul = { high: 2, medium: 1, low: 0.5 };
@@ -863,6 +905,7 @@ function FamilyProvider({ children }) {
           if (ev.google_event_id !== undefined) evUpdate.google_event_id = ev.google_event_id;
           if (ev.source !== undefined) evUpdate.source = ev.source;
           if (ev.className !== undefined) evUpdate.color = ev.className;
+          if (ev.recurrence_rule !== undefined) evUpdate.recurrence_rule = ev.recurrence_rule;
           evUpdate.updated_at = new Date().toISOString();
           persist("events", "update", evUpdate);
           break;
@@ -1123,6 +1166,34 @@ function FamilyProvider({ children }) {
           import("lib/supabase").then(({ deleteMemory }) => {
             deleteMemory(action.value.id);
           });
+          break;
+        }
+        // ── Message Board ──
+        case "ADD_MESSAGE_BOARD": {
+          const { id: _localId, ...msgData } = action.value;
+          const row = { ...msgData, family_id: state.family.id };
+          supabase.from("family_messages").insert(row).select().then(({ data }) => {
+            if (data && data[0]) dispatch({ type: "UPDATE_MESSAGE_BOARD", value: { id: action.value.id, ...data[0] } });
+          });
+          break;
+        }
+        case "UPDATE_MESSAGE_BOARD": {
+          const msgId = action.value.id;
+          if (msgId && !msgId.startsWith("msg-")) {
+            const { id, ...updates } = action.value;
+            supabase.from("family_messages").update(updates).eq("id", id).then(({ error }) => {
+              if (error) console.warn("[supabase] family_messages update failed:", error.message);
+            });
+          }
+          break;
+        }
+        case "REMOVE_MESSAGE_BOARD": {
+          const msgId = typeof action.value === "string" ? action.value : action.value?.id;
+          if (msgId && !msgId.startsWith("msg-")) {
+            supabase.from("family_messages").delete().eq("id", msgId).then(({ error }) => {
+              if (error) console.warn("[supabase] family_messages delete failed:", error.message);
+            });
+          }
           break;
         }
         default:

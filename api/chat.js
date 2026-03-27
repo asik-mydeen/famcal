@@ -66,6 +66,14 @@ export default async function handler(req, res) {
     return `- "${n.text}" by ${who}${n.pinned ? " (pinned)" : ""} (id: ${n.id})`;
   }).join("\n") || "None";
 
+  // Build family messages
+  const messagesStr = ctx.messages?.map((m) => {
+    const from = ctx.members?.find((mem) => mem.id === m.from_member_id)?.name || "someone";
+    const to = m.to_member_id ? (ctx.members?.find((mem) => mem.id === m.to_member_id)?.name || "someone") : "everyone";
+    const flags = [m.pinned ? "pinned" : "", m.urgent ? "URGENT" : ""].filter(Boolean).join(", ");
+    return `- "${m.content}" from ${from} to ${to}${flags ? ` (${flags})` : ""} (id: ${m.id})`;
+  }).join("\n") || "None";
+
   // Build countdowns
   const countdownsStr = ctx.countdowns?.map((c) => {
     const daysLeft = Math.ceil((new Date(c.target_date) - new Date()) / (86400000));
@@ -128,6 +136,9 @@ ${rewardsStr}
 
 NOTES:
 ${notesStr}
+
+FAMILY MESSAGES:
+${messagesStr}
 
 COUNTDOWNS:
 ${countdownsStr}
@@ -192,6 +203,10 @@ Timers & Alarms:
 - cancel_timer: {timer_id}
 - set_alarm: {title, time:"HH:mm", date?:"YYYY-MM-DD", recurring?:"daily|weekdays|weekends", icon?:"alarm"}
 - cancel_alarm: {alarm_id}
+
+Messages:
+- send_message: {content, from_member_id, to_member_id?:null_for_all, pinned:false, urgent:false} — post a message on the family message board
+- remove_message: {message_id} — remove a message from the board
 
 Memory:
 - save_memory: {content:"fact to remember", category:"preference|routine|rule|context"} — save something the family told you to remember. Use when they say "remember that...", mention a preference, allergy, routine, or important fact you should know for future conversations.

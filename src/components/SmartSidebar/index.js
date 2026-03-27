@@ -12,6 +12,7 @@ SmartSidebar.propTypes = {
   countdownWidget: PropTypes.node,
   todayChoresWidget: PropTypes.node,
   tonightDinnerWidget: PropTypes.node,
+  messagesWidget: PropTypes.node,
   collapsed: PropTypes.bool.isRequired,
   onToggleCollapse: PropTypes.func.isRequired,
 };
@@ -21,12 +22,14 @@ function SmartSidebar({
   countdownWidget,
   todayChoresWidget,
   tonightDinnerWidget,
+  messagesWidget,
   collapsed,
   onToggleCollapse,
 }) {
   const { darkMode } = useThemeMode();
 
   const sections = [
+    { key: "messages", widget: messagesWidget, label: "Messages", icon: "forum", placeholder: "Messages widget coming soon" },
     { key: "notes", widget: notesWidget, label: "Notes", icon: "sticky_note_2", placeholder: "Notes widget coming soon" },
     { key: "countdowns", widget: countdownWidget, label: "Countdowns", icon: "timer", placeholder: "Countdowns widget coming soon" },
     { key: "chores", widget: todayChoresWidget, label: "Today's Chores", icon: "task_alt", placeholder: "Chores widget coming soon" },
