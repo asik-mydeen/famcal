@@ -34,9 +34,10 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "tts-1",
+        model: "gpt-4o-mini-tts",
         input: truncated,
-        voice: voice || "nova", // nova = warm, friendly female voice
+        voice: voice || "coral",
+        instructions: "You are Amara, a warm and friendly family assistant on a wall-mounted calendar. Speak in a cheerful, natural, conversational tone. Be concise and enthusiastic but not over the top. Pronounce names carefully.",
         speed: speed || 1.0,
         response_format: "mp3",
       }),
