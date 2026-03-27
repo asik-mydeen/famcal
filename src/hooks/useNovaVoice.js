@@ -25,11 +25,14 @@ const CHUNK_SIZE = 4096; // ~170ms at 24kHz (must be power of 2 for ScriptProces
 
 // Module-level to avoid CRA closure bugs
 let moduleWs = null;
-let moduleAudioCtx = null;
+let modulePlaybackCtx = null; // dedicated AudioContext for playback
+let moduleMicCtx = null; // dedicated AudioContext for mic input
 let moduleStream = null;
 let moduleProcessor = null;
 let modulePlaybackTime = 0;
 let moduleIsShuttingDown = false;
+let moduleMicBufferQueue = []; // buffer mic audio before session is ready
+let moduleSessionReady = false;
 
 // Build Nova session instructions from family state
 function buildNovaInstructions(familyState, currentPage) {
@@ -291,27 +294,37 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
     return btoa(binary);
   }, []);
 
-  // Play PCM audio from Nova
+  // Play PCM audio from Nova — uses dedicated playback AudioContext
   const playAudioDelta = useCallback((base64Audio) => {
-    if (!moduleAudioCtx) return;
+    if (!modulePlaybackCtx) return;
     try {
+      // Resume AudioContext if suspended (browser autoplay policy)
+      if (modulePlaybackCtx.state === "suspended") {
+        modulePlaybackCtx.resume();
+      }
+
       const binary = atob(base64Audio);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const int16 = new Int16Array(bytes.buffer);
+
+      // Ensure byte length is even (Int16 = 2 bytes per sample)
+      const trimmedLength = bytes.length - (bytes.length % 2);
+      const int16 = new Int16Array(bytes.buffer, 0, trimmedLength / 2);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
 
-      const buffer = moduleAudioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
+      if (float32.length === 0) return;
+
+      const buffer = modulePlaybackCtx.createBuffer(1, float32.length, SAMPLE_RATE);
       buffer.copyToChannel(float32, 0);
 
-      const source = moduleAudioCtx.createBufferSource();
+      const source = modulePlaybackCtx.createBufferSource();
       source.buffer = buffer;
-      source.connect(moduleAudioCtx.destination);
+      source.connect(modulePlaybackCtx.destination);
 
-      // Schedule playback to avoid gaps
-      const now = moduleAudioCtx.currentTime;
-      const start = Math.max(now, modulePlaybackTime);
+      // Schedule playback sequentially to avoid gaps
+      const now = modulePlaybackCtx.currentTime;
+      const start = Math.max(now + 0.01, modulePlaybackTime);
       source.start(start);
       modulePlaybackTime = start + buffer.duration;
     } catch (e) {
@@ -323,12 +336,15 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
   const startSession = useCallback(async () => {
     if (!proxyUrl || moduleWs) return;
     moduleIsShuttingDown = false;
+    moduleSessionReady = false;
+    moduleMicBufferQueue = [];
 
     setNovaState(NOVA_STATES.CONNECTING);
 
     try {
-      // Set up audio context for playback
-      moduleAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+      // Create playback AudioContext early (on user gesture — critical for autoplay)
+      modulePlaybackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+      await modulePlaybackCtx.resume(); // force resume on user gesture
       modulePlaybackTime = 0;
 
       // Connect to proxy
@@ -348,7 +364,9 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
 
         switch (event.type) {
           case "session.created":
-            console.log("[nova] Session created — configuring...");
+            console.log("[nova] Session created — starting mic + configuring...");
+            // Start mic immediately (before config) so we don't miss first words
+            startMicStream(ws);
             // Configure session with family context
             ws.send(JSON.stringify({
               type: "session.update",
@@ -356,7 +374,13 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
                 type: "realtime",
                 instructions: buildNovaInstructions(familyStateRef.current, currentPageRef.current),
                 audio: {
-                  input: { turn_detection: { threshold: 0.5 } },
+                  input: {
+                    turn_detection: {
+                      threshold: 0.5,
+                      prefix_padding_ms: 500, // capture 500ms before speech onset (prevents cut-off)
+                      silence_duration_ms: 300,
+                    },
+                  },
                   output: { voice: "olivia" },
                 },
                 tools: NOVA_TOOLS,
@@ -367,11 +391,18 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
             break;
 
           case "session.updated":
-            console.log("[nova] Session configured — starting mic...");
+            console.log("[nova] Session configured — flushing buffered audio...");
+            moduleSessionReady = true;
             setNovaState(NOVA_STATES.CONNECTED);
             setSessionStartTime(Date.now());
-            // Start streaming mic audio
-            startMicStream(ws);
+            // Flush any mic audio buffered during config
+            moduleMicBufferQueue.forEach((chunk) => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: chunk }));
+              }
+            });
+            moduleMicBufferQueue = [];
+            setNovaState(NOVA_STATES.LISTENING);
             break;
 
           case "conversation.item.input_audio_transcription.completed":
@@ -380,7 +411,11 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
             break;
 
           case "response.output_audio.delta":
-            if (stateRef.current !== NOVA_STATES.SPEAKING) setNovaState(NOVA_STATES.SPEAKING);
+            if (stateRef.current !== NOVA_STATES.SPEAKING) {
+              setNovaState(NOVA_STATES.SPEAKING);
+              // Reset playback time on new response to avoid scheduling far in the future
+              modulePlaybackTime = modulePlaybackCtx?.currentTime || 0;
+            }
             playAudioDelta(event.delta);
             break;
 
@@ -422,7 +457,7 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
     }
   }, [proxyUrl, playAudioDelta, executeToolCall]);
 
-  // Start microphone streaming
+  // Start microphone streaming — buffers audio until session is ready
   const startMicStream = useCallback(async (ws) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -430,23 +465,32 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
       });
       moduleStream = stream;
 
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-      const source = audioCtx.createMediaStreamSource(stream);
-      const processor = audioCtx.createScriptProcessor(CHUNK_SIZE, 1, 1);
+      moduleMicCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+      const source = moduleMicCtx.createMediaStreamSource(stream);
+      const processor = moduleMicCtx.createScriptProcessor(CHUNK_SIZE, 1, 1);
 
       source.connect(processor);
-      processor.connect(audioCtx.destination);
+      // Connect to destination to keep processor alive (required in some browsers)
+      processor.connect(moduleMicCtx.destination);
 
       processor.onaudioprocess = (e) => {
         if (ws.readyState !== WebSocket.OPEN || moduleIsShuttingDown) return;
         const float32 = e.inputBuffer.getChannelData(0);
         const base64 = float32ToBase64Pcm(float32);
-        ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }));
+
+        if (moduleSessionReady) {
+          // Session ready — send directly
+          ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }));
+        } else {
+          // Buffer audio until session is configured (prevents losing first words)
+          moduleMicBufferQueue.push(base64);
+          // Cap buffer at ~3 seconds to prevent memory issues
+          if (moduleMicBufferQueue.length > 75) moduleMicBufferQueue.shift();
+        }
       };
 
       moduleProcessor = processor;
-      setNovaState(NOVA_STATES.LISTENING);
-      console.log("[nova] Mic streaming started");
+      console.log("[nova] Mic streaming started (buffering until session ready)");
     } catch (err) {
       console.error("[nova] Mic access failed:", err);
       setNovaState(NOVA_STATES.ERROR);
@@ -455,9 +499,12 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
 
   // Cleanup
   const cleanup = useCallback(() => {
+    moduleSessionReady = false;
+    moduleMicBufferQueue = [];
     if (moduleProcessor) { moduleProcessor.disconnect(); moduleProcessor = null; }
     if (moduleStream) { moduleStream.getTracks().forEach((t) => t.stop()); moduleStream = null; }
-    if (moduleAudioCtx) { try { moduleAudioCtx.close(); } catch {} moduleAudioCtx = null; }
+    if (moduleMicCtx) { try { moduleMicCtx.close(); } catch {} moduleMicCtx = null; }
+    if (modulePlaybackCtx) { try { modulePlaybackCtx.close(); } catch {} modulePlaybackCtx = null; }
     modulePlaybackTime = 0;
   }, []);
 
