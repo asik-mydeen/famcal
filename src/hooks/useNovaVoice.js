@@ -400,8 +400,6 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
                   input: {
                     turn_detection: {
                       threshold: 0.5,
-                      prefix_padding_ms: 500, // capture 500ms before speech onset (prevents cut-off)
-                      silence_duration_ms: 300,
                     },
                   },
                   output: { voice: "olivia" },
