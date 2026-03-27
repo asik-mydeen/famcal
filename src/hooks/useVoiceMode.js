@@ -192,6 +192,104 @@ export default function useVoiceMode(familyState, dispatch) {
     }
   }, [familyState, canCallWhisper]);
 
+  // Translate AI response actions to FamilyContext dispatch calls
+  // (mirrors AIAssistant/index.js executeActions — AI returns create_event, reducer expects ADD_EVENT)
+  const executeAIActions = useCallback((actions) => {
+    if (!actions || !dispatch) return;
+    const familyId = familyState?.family?.id;
+    const lists = familyState?.lists || [];
+
+    for (const action of actions) {
+      const d = action.data || {};
+      try {
+        switch (action.type) {
+          case "create_event":
+            dispatch({ type: "ADD_EVENT", value: { id: crypto.randomUUID(), family_id: familyId, ...d } });
+            break;
+          case "update_event":
+            dispatch({ type: "UPDATE_EVENT", value: d });
+            break;
+          case "remove_event":
+            dispatch({ type: "REMOVE_EVENT", value: { id: d.event_id } });
+            break;
+          case "create_task":
+            dispatch({ type: "ADD_TASK", value: { id: `task-${Date.now()}`, family_id: familyId, ...d } });
+            break;
+          case "update_task":
+            dispatch({ type: "UPDATE_TASK", value: d });
+            break;
+          case "complete_task":
+            dispatch({ type: "COMPLETE_TASK", value: d });
+            break;
+          case "remove_task":
+            dispatch({ type: "REMOVE_TASK", value: { id: d.task_id } });
+            break;
+          case "add_meal":
+            dispatch({ type: "ADD_MEAL", value: { id: `meal-${Date.now()}`, family_id: familyId, ...d } });
+            break;
+          case "update_meal":
+            dispatch({ type: "UPDATE_MEAL", value: d });
+            break;
+          case "remove_meal":
+            dispatch({ type: "REMOVE_MEAL", value: { id: d.meal_id } });
+            break;
+          case "create_list":
+            dispatch({ type: "ADD_LIST", value: { id: `list-${Date.now()}`, family_id: familyId, items: [], ...d } });
+            break;
+          case "add_list_items": {
+            const list = lists.find(
+              (l) => (d.list_name && l.name.toLowerCase() === d.list_name.toLowerCase()) ||
+                     (d.list_id && l.id === d.list_id)
+            ) || lists.find((l) => l.name.toLowerCase().includes("grocer"));
+            if (list) {
+              const items = Array.isArray(d.items) ? d.items : [d.items];
+              items.forEach((text) => {
+                dispatch({ type: "ADD_LIST_ITEM", value: { listId: list.id, item: { id: `item-${Date.now()}-${Math.random()}`, text, checked: false } } });
+              });
+            }
+            break;
+          }
+          case "toggle_list_item":
+            dispatch({ type: "TOGGLE_LIST_ITEM", value: { listId: d.list_id, itemId: d.item_id } });
+            break;
+          case "remove_list_item":
+            dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: d.list_id, itemId: d.item_id } });
+            break;
+          case "add_note":
+            dispatch({ type: "ADD_NOTE", value: { id: `note-${Date.now()}`, family_id: familyId, ...d } });
+            break;
+          case "remove_note":
+            dispatch({ type: "REMOVE_NOTE", value: { id: d.note_id } });
+            break;
+          case "add_countdown":
+            dispatch({ type: "ADD_COUNTDOWN", value: { id: `countdown-${Date.now()}`, family_id: familyId, ...d } });
+            break;
+          case "remove_countdown":
+            dispatch({ type: "REMOVE_COUNTDOWN", value: { id: d.countdown_id } });
+            break;
+          case "add_reward":
+            dispatch({ type: "ADD_REWARD", value: { id: `reward-${Date.now()}`, family_id: familyId, ...d } });
+            break;
+          case "claim_reward":
+            dispatch({ type: "CLAIM_REWARD", value: d });
+            break;
+          case "info":
+            break;
+          case "set_timer":
+          case "cancel_timer":
+          case "set_alarm":
+          case "cancel_alarm":
+            // Timer/alarm not available in voice mode (needs TimerAlarmContext)
+            break;
+          default:
+            console.warn("[voice] Unknown action type:", action.type);
+        }
+      } catch (e) {
+        console.warn("[voice] Action failed:", action.type, e);
+      }
+    }
+  }, [dispatch, familyState]);
+
   // Send query to AI
   const sendToAI = useCallback(async (query) => {
     if (!query.trim() || !familyState || moduleIsShuttingDown) return;
@@ -208,11 +306,7 @@ export default function useVoiceMode(familyState, dispatch) {
       setAiResponse(response.text || "");
       setVoiceState(VOICE_STATES.SPEAKING);
 
-      if (response.actions && response.actions.length > 0 && dispatch) {
-        for (const action of response.actions) {
-          try { dispatch(action); } catch (e) { console.warn("[voice] Action failed:", e); }
-        }
-      }
+      executeAIActions(response.actions);
 
       await speak(response.text || "Done.");
 
@@ -232,7 +326,7 @@ export default function useVoiceMode(familyState, dispatch) {
       setVoiceState(VOICE_STATES.LISTENING);
       setAiResponse("");
     }
-  }, [familyState, dispatch, speak]);
+  }, [familyState, dispatch, speak, executeAIActions]);
 
   // Check for wake word in transcription (fuzzy matching, longest match first)
   const extractWakeWord = useCallback((text) => {
