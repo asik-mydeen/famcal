@@ -572,6 +572,7 @@ export default function App() {
   // Use Nova if proxy URL configured, otherwise fallback
   const useNova = Boolean(novaProxyUrl) && nova.isAvailable;
   const voice = useNova ? nova : legacyVoice;
+  const voiceModeEnabled = localStorage.getItem("famcal_voice_mode") === "true";
 
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
@@ -913,13 +914,17 @@ export default function App() {
               currentPage={activeTab}
               externalOpen={aiOpen}
               onExternalClose={() => { setAiOpen(false); voice.endVoiceSession(); }}
-              voiceActive={voice.isEnabled}
+              voiceActive={voiceModeEnabled}
               voiceState={voice.voiceState}
               voiceTranscript={voice.transcript}
               voiceQuery={voiceQuery}
               onVoiceQueryHandled={() => setVoiceQuery(null)}
-              onVoiceResponse={(text) => voice.speakResponse(text)}
-              onTapToSpeak={voice.tapToSpeak}
+              onVoiceResponse={useNova ? null : (text) => voice.speakResponse(text)}
+              onTapToSpeak={() => {
+                setAiOpen(true);
+                if (useNova && !nova.isConnected) nova.startSession();
+                else voice.tapToSpeak();
+              }}
             />
             <TimerAlarmPanel
               open={timerPanelOpen}
@@ -928,9 +933,13 @@ export default function App() {
             {/* Voice Mode — listening indicator only (chat happens in AIAssistant) */}
             <VoiceOverlay
               voiceState={voice.voiceState}
-              isEnabled={voice.isEnabled}
+              isEnabled={voiceModeEnabled}
               onDisable={voice.disable}
-              onTapToSpeak={voice.tapToSpeak}
+              onTapToSpeak={() => {
+                setAiOpen(true);
+                if (useNova && !nova.isConnected) nova.startSession();
+                else voice.tapToSpeak();
+              }}
             />
           </KioskWrapper>
         </TimerAlarmProvider>

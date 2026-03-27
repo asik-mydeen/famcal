@@ -15,7 +15,10 @@ import { VOICE_STATES } from "hooks/useVoiceMode";
 function VoiceOverlay({ voiceState, isEnabled, onDisable, onTapToSpeak }) {
   const { tokens, darkMode } = useAppTheme();
 
-  if (!isEnabled || voiceState !== VOICE_STATES.LISTENING) return null;
+  // Show pill when voice mode enabled (Settings toggle) — regardless of connection state
+  // Hide during active states (recording, processing, speaking) since sidebar handles those
+  const activeStates = [VOICE_STATES.RECORDING, VOICE_STATES.PROCESSING, VOICE_STATES.SPEAKING, "speaking", "connecting"];
+  if (!isEnabled || activeStates.includes(voiceState)) return null;
 
   const accent = tokens.accent.main;
 
