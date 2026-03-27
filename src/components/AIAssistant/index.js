@@ -289,6 +289,9 @@ function AIAssistant({
               // Force re-check by completing a no-op; the engine auto-checks on task complete
               // For manual check, we just log it — the achievement engine runs on COMPLETE_TASK
               executed.push(action.type); break;
+            case "update_preferences":
+              dispatch({ type: "SET_AI_PREFERENCES", value: { ...(state?.ai_preferences || {}), ...d } });
+              executed.push(action.type); break;
             case "save_memory":
               dispatch({ type: "ADD_MEMORY", value: { id: `mem-${Date.now()}`, family_id: familyId, category: d.category || "context", content: d.content, active: true } });
               executed.push(action.type); break;

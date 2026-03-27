@@ -178,6 +178,21 @@ const NOVA_TOOLS = [
       required: ["content"],
     },
   },
+  {
+    type: "function",
+    name: "update_preferences",
+    description: "Update the family's meal and cooking preferences (cuisine type, dietary restrictions, etc.)",
+    parameters: {
+      type: "object",
+      properties: {
+        cuisine_preferences: { type: "string", description: "Cuisine types e.g. Indian, Italian" },
+        dietary_restrictions: { type: "string", description: "e.g. vegetarian, gluten-free" },
+        servings: { type: "integer", description: "Default number of servings" },
+        cooking_speed: { type: "string", enum: ["quick", "any"] },
+        meal_instructions: { type: "string", description: "Special meal planning instructions" },
+      },
+    },
+  },
 ];
 
 export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentPage, onTranscript, onError } = {}) {
@@ -259,6 +274,10 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
           dp({ type: "ADD_MEMORY", value: { id: `mem-${Date.now()}`, family_id: familyId, category: d.category || "context", content: d.content, active: true } });
           result.message = `Remembered: ${d.content}`;
           break;
+        case "update_preferences":
+          dp({ type: "SET_AI_PREFERENCES", value: { ...familyStateRef.current?.ai_preferences, ...d } });
+          result.message = `Updated preferences`;
+          break;
         default:
           result = { success: false, message: `Unknown tool: ${name}` };
       }
@@ -296,9 +315,12 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
 
   // Play PCM audio from Nova — uses dedicated playback AudioContext
   const playAudioDelta = useCallback((base64Audio) => {
-    if (!modulePlaybackCtx) return;
     try {
-      // Resume AudioContext if suspended (browser autoplay policy)
+      // Ensure playback context exists and is running
+      if (!modulePlaybackCtx || modulePlaybackCtx.state === "closed") {
+        modulePlaybackCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+        modulePlaybackTime = 0;
+      }
       if (modulePlaybackCtx.state === "suspended") {
         modulePlaybackCtx.resume();
       }
@@ -309,6 +331,7 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
 
       // Ensure byte length is even (Int16 = 2 bytes per sample)
       const trimmedLength = bytes.length - (bytes.length % 2);
+      if (trimmedLength < 2) return;
       const int16 = new Int16Array(bytes.buffer, 0, trimmedLength / 2);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
@@ -324,7 +347,7 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
 
       // Schedule playback sequentially to avoid gaps
       const now = modulePlaybackCtx.currentTime;
-      const start = Math.max(now + 0.01, modulePlaybackTime);
+      const start = Math.max(now + 0.005, modulePlaybackTime);
       source.start(start);
       modulePlaybackTime = start + buffer.duration;
     } catch (e) {
