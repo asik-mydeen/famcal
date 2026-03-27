@@ -9,6 +9,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 import TimerAlarmChips from "components/TimerAlarmChips";
+import BirthdayWidget from "components/BirthdayWidget";
 
 function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel }) {
   const { tokens, darkMode } = useAppTheme();
@@ -181,6 +182,11 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
             </Typography>
           </Box>
         ))}
+
+        {/* Birthday Widget (hidden on mobile) */}
+        {!isMobile && members && members.length > 0 && (
+          <BirthdayWidget members={members} />
+        )}
 
         {/* Family Avatars (hidden on mobile) */}
         {members && members.length > 0 && !isMobile && (

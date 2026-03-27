@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import Slider from "@mui/material/Slider";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -18,6 +19,7 @@ import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import Avatar from "@mui/material/Avatar";
 import CircularProgress from "@mui/material/CircularProgress";
+import { QRCodeSVG } from "qrcode.react";
 import { useFamilyController } from "context/FamilyContext";
 import { useAppTheme } from "context/ThemeContext";
 import { PRESET_META } from "theme/tokens";
@@ -29,7 +31,7 @@ import { uploadPhoto, deletePhoto } from "lib/supabase";
 function Settings() {
   const [state, dispatch] = useFamilyController();
   const { family, isSupabaseConnected, photos, ai_preferences, memories } = state;
-  const { tokens, alpha, darkMode, setMode: setDarkModeValue, preset, setPreset, presetNames } = useAppTheme();
+  const { tokens, alpha, darkMode, setMode: setDarkModeValue, autoTheme, setAutoTheme, preset, setPreset, presetNames } = useAppTheme();
   const { user, signOut } = useAuth();
 
   const [familyName, setFamilyName] = useState(family.name);
@@ -364,15 +366,33 @@ function Settings() {
               <Typography variant="h6" fontWeight="bold">Appearance</Typography>
             </Box>
 
-            {/* Dark Mode */}
+            {/* Auto Day/Night Theme */}
             <FormControlLabel
-              control={<Switch checked={darkMode} onChange={(e) => {
-                setDarkModeValue(e.target.checked);
-                dispatch({ type: "SET_FAMILY", value: { ...family, dark_mode: e.target.checked } });
+              control={<Switch checked={autoTheme} onChange={(e) => {
+                setAutoTheme(e.target.checked);
               }} />}
-              label="Dark Mode"
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <span>Auto Day/Night</span>
+                  <Typography component="span" sx={{ fontSize: "0.7rem", color: "text.secondary", fontWeight: 500 }}>
+                    (dark 7PM–7AM)
+                  </Typography>
+                </Box>
+              }
               sx={{ display: "flex", mb: 2 }}
             />
+
+            {/* Dark Mode */}
+            <Tooltip title={autoTheme ? "Controlled by auto theme" : ""} arrow placement="right">
+              <FormControlLabel
+                control={<Switch checked={darkMode} disabled={autoTheme} onChange={(e) => {
+                  setDarkModeValue(e.target.checked);
+                  dispatch({ type: "SET_FAMILY", value: { ...family, dark_mode: e.target.checked } });
+                }} />}
+                label="Dark Mode"
+                sx={{ display: "flex", mb: 2, opacity: autoTheme ? 0.5 : 1 }}
+              />
+            </Tooltip>
 
             {/* Voice Mode */}
             <FormControlLabel
@@ -728,9 +748,40 @@ function Settings() {
                     <Icon sx={{ fontSize: "1rem" }}>content_copy</Icon>
                   </Button>
                 </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-                  Open the link on your display device and enter the access token.
-                </Typography>
+                {/* QR Code for quick kiosk setup */}
+                <Box sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", sm: "row" },
+                  alignItems: "center",
+                  gap: 2, mt: 2, mb: 2, p: 2,
+                  borderRadius: "16px",
+                  bgcolor: darkMode ? "#1c1c2e" : "#fff",
+                  border: "1px solid", borderColor: "divider",
+                }}>
+                  <Box sx={{ p: 1.5, borderRadius: "12px", bgcolor: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <QRCodeSVG
+                      value={`${window.location.origin}/d/${family.dashboard_slug}?token=${family.dashboard_token}`}
+                      size={180} level="M" includeMargin={false}
+                    />
+                  </Box>
+                  <Box sx={{ textAlign: { xs: "center", sm: "left" } }}>
+                    <Typography fontSize="0.95rem" fontWeight={600} mb={0.5}>Quick Setup</Typography>
+                    <Typography fontSize="0.8rem" color="text.secondary" mb={1.5}>
+                      Scan this QR code on your display device to set up the kiosk automatically.
+                    </Typography>
+                    <Button
+                      size="small" variant="outlined"
+                      onClick={() => {
+                        const url = `${window.location.origin}/d/${family.dashboard_slug}?token=${family.dashboard_token}`;
+                        navigator.clipboard?.writeText(url);
+                      }}
+                      sx={{ borderRadius: "10px", textTransform: "none", fontSize: "0.8rem", touchAction: "manipulation" }}
+                      startIcon={<Icon sx={{ fontSize: "1rem !important" }}>link</Icon>}
+                    >
+                      Copy Full Link
+                    </Button>
+                  </Box>
+                </Box>
 
                 <Divider sx={{ my: 2 }} />
 
@@ -1303,6 +1354,50 @@ function Settings() {
                 </Typography>
               )}
             </Box>
+          </GlassCard>
+        </Grid>
+      </Grid>
+
+      {/* Data & Privacy */}
+      <Grid container spacing={2} mt={1}>
+        <Grid item xs={12} md={6}>
+          <GlassCard delay={0.3}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Icon sx={{ color: "primary.main", fontSize: "1.2rem !important" }}>download</Icon>
+              <Typography variant="h6" fontWeight="bold">Data & Privacy</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Export all your family data as a JSON file for backup or migration.
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<Icon sx={{ fontSize: "1.2rem !important" }}>file_download</Icon>}
+              onClick={() => {
+                const exportData = {
+                  exported_at: new Date().toISOString(),
+                  family_name: family?.name || "My Family",
+                  data: {
+                    family: { ...family, dashboard_token: undefined },
+                    members: (members || []).map(({ google_refresh_token, ...m }) => m),
+                    events, tasks, meals, lists, rewards,
+                    notes: notes || [],
+                    countdowns: countdowns || [],
+                    ai_preferences: state.ai_preferences || null,
+                    memories: (state.memories || []).map(({ id, category, content, active }) => ({ id, category, content, active })),
+                  },
+                };
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `famcal-export-${(family?.name || "family").replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              sx={{ borderRadius: "12px", textTransform: "none", touchAction: "manipulation" }}
+            >
+              Export Family Data
+            </Button>
           </GlassCard>
         </Grid>
       </Grid>

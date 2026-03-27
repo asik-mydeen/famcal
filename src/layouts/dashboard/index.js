@@ -628,8 +628,18 @@ function Dashboard() {
     setLoading(false);
   }, [slug]);
 
-  // Check for cached token on mount
+  // Check for cached token or ?token= URL parameter on mount
   useEffect(() => {
+    // Check URL params first (from QR code scan)
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    if (urlToken) {
+      // Clean URL params without triggering navigation
+      window.history.replaceState({}, "", window.location.pathname);
+      validateAndLoad(urlToken);
+      return;
+    }
+    // Fall back to cached token
     const cached = localStorage.getItem(`famcal_dashboard_token_${slug}`);
     if (cached) {
       validateAndLoad(cached);

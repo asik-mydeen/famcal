@@ -35,6 +35,7 @@ import AIAssistant from "components/AIAssistant";
 import { TimerAlarmProvider } from "context/TimerAlarmContext";
 import AlertOverlay from "components/AlertOverlay";
 import TimerAlarmPanel from "components/TimerAlarmPanel";
+import ErrorBoundary from "components/ErrorBoundary";
 import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 
@@ -641,6 +642,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <ErrorBoundary>
       <AnimatedBackground />
       {!isLoggedIn ? (
         <LoginScreen />
@@ -689,14 +691,14 @@ export default function App() {
             <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>
-                  <Route path="/calendar" element={<PageTransition><FamilyCalendar /></PageTransition>} />
-                  <Route path="/chores" element={<PageTransition><Chores /></PageTransition>} />
-                  <Route path="/meals" element={<PageTransition><Meals /></PageTransition>} />
-                  <Route path="/lists" element={<PageTransition><Lists /></PageTransition>} />
+                  <Route path="/calendar" element={<ErrorBoundary><PageTransition><FamilyCalendar /></PageTransition></ErrorBoundary>} />
+                  <Route path="/chores" element={<ErrorBoundary><PageTransition><Chores /></PageTransition></ErrorBoundary>} />
+                  <Route path="/meals" element={<ErrorBoundary><PageTransition><Meals /></PageTransition></ErrorBoundary>} />
+                  <Route path="/lists" element={<ErrorBoundary><PageTransition><Lists /></PageTransition></ErrorBoundary>} />
                   <Route path="/tasks" element={<Navigate to="/chores" replace />} />
-                  <Route path="/family" element={<PageTransition><Family /></PageTransition>} />
-                  <Route path="/rewards" element={<PageTransition><Rewards /></PageTransition>} />
-                  <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
+                  <Route path="/family" element={<ErrorBoundary><PageTransition><Family /></PageTransition></ErrorBoundary>} />
+                  <Route path="/rewards" element={<ErrorBoundary><PageTransition><Rewards /></PageTransition></ErrorBoundary>} />
+                  <Route path="/settings" element={<ErrorBoundary><PageTransition><Settings /></PageTransition></ErrorBoundary>} />
                   <Route path="*" element={<Navigate to="/calendar" replace />} />
                 </Routes>
               </AnimatePresence>
@@ -763,6 +765,7 @@ export default function App() {
           </KioskWrapper>
         </TimerAlarmProvider>
       )}
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

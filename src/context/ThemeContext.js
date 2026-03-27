@@ -5,10 +5,20 @@ import { alpha as alphaHelper, gradient as gradientHelper } from "theme/helpers"
 
 const ThemeContext = createContext(null);
 
+/** Returns true if current hour is in the "night" window (7PM-7AM). */
+function isNightTime() {
+  const hour = new Date().getHours();
+  return hour >= 19 || hour < 7;
+}
+
 export function ThemeModeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(() => {
     const stored = localStorage.getItem("famcal_dark_mode");
     return stored === null ? false : stored === "true";
+  });
+
+  const [autoTheme, setAutoThemeState] = useState(() => {
+    return localStorage.getItem("famcal_auto_theme") === "true";
   });
 
   const [preset, setPresetState] = useState(() => {
@@ -28,10 +38,40 @@ export function ThemeModeProvider({ children }) {
     localStorage.setItem("famcal_dark_mode", String(value));
   }, []);
 
+  const setAutoTheme = useCallback((enabled) => {
+    setAutoThemeState(enabled);
+    localStorage.setItem("famcal_auto_theme", String(enabled));
+    if (enabled) {
+      // Immediately apply based on current time
+      const shouldBeDark = isNightTime();
+      setDarkMode(shouldBeDark);
+      localStorage.setItem("famcal_dark_mode", String(shouldBeDark));
+    }
+  }, []);
+
   const setPreset = useCallback((name) => {
     setPresetState(name);
     localStorage.setItem("famcal_theme_preset", name);
   }, []);
+
+  // Auto day/night: check every 60 seconds
+  useEffect(() => {
+    if (!autoTheme) return;
+    const check = () => {
+      const shouldBeDark = isNightTime();
+      setDarkMode((prev) => {
+        if (prev !== shouldBeDark) {
+          localStorage.setItem("famcal_dark_mode", String(shouldBeDark));
+          return shouldBeDark;
+        }
+        return prev;
+      });
+    };
+    // Run immediately on mount/enable
+    check();
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [autoTheme]);
 
   // Listen for theme changes from dashboard/kiosk sync
   useEffect(() => {
@@ -44,8 +84,8 @@ export function ThemeModeProvider({ children }) {
   }, [setPreset, setMode]);
 
   const value = useMemo(
-    () => ({ darkMode, toggleDarkMode, setMode, preset, setPreset }),
-    [darkMode, toggleDarkMode, setMode, preset, setPreset]
+    () => ({ darkMode, toggleDarkMode, setMode, autoTheme, setAutoTheme, preset, setPreset }),
+    [darkMode, toggleDarkMode, setMode, autoTheme, setAutoTheme, preset, setPreset]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
