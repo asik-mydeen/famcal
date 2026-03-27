@@ -1,18 +1,18 @@
 /**
  * useVoiceMode — "Hey Amara" voice-activated AI assistant.
  *
- * Unified Whisper-based pipeline (replaces dual native/whisper approach):
- * 1. VAD (Voice Activity Detection) via Web Audio API monitors mic levels
- * 2. When speech detected → MediaRecorder captures audio
- * 3. Audio sent to Whisper API with family-context prompt (member names, etc.)
- * 4. Wake word checked in transcription (fuzzy matching)
- * 5. Command extracted and sent to AI
+ * Unified Whisper-based pipeline with VAD:
+ * 1. VAD via Web Audio API monitors mic levels
+ * 2. Speech detected → MediaRecorder captures audio
+ * 3. Audio sent to Whisper with family-context prompt
+ * 4. Wake word checked → calls onWakeWord (opens sidebar)
+ * 5. Command extracted → calls onVoiceCommand (AIAssistant handles AI call)
+ * 6. AIAssistant calls speakResponse() for TTS
  *
- * State machine: idle → listening → [VAD] → recording → processing → speaking → listening
- *               listening → [VAD] → recording → processing → activated → [VAD] → recording → processing → speaking → listening
+ * This hook does NOT call the AI API — it only handles audio I/O.
+ * The AIAssistant component handles AI calls, action execution, and conversation state.
  */
 import { useState, useCallback, useRef, useEffect } from "react";
-import { buildAIContext, voiceSendMessage } from "lib/ai";
 import { apiUrl } from "lib/api";
 
 // Wake words + common misheard variations
@@ -29,7 +29,7 @@ const MIN_RECORDING_MS = 500;
 const SILENCE_TIMEOUT_MS = 1500;
 const SPEECH_START_MS = 300;
 const VAD_INTERVAL_MS = 100;
-const VAD_THRESHOLD = -40; // dB — tuned for home/kiosk (less sensitive than -45)
+const VAD_THRESHOLD = -40;
 const MAX_WHISPER_PER_MIN = 10;
 const POST_SPEAK_COOLDOWN_MS = 800;
 
@@ -43,40 +43,32 @@ export const VOICE_STATES = {
   ERROR: "error",
 };
 
-// Sanitize text for Whisper prompt — prevent prompt injection via member names
+// Sanitize text for Whisper prompt
 function sanitizeForWhisper(text) {
   return (text || "").replace(/[^a-zA-Z0-9\s'-]/g, "").slice(0, 50).trim();
 }
 
-// Build Whisper prompt with family vocabulary for transcription accuracy
+// Build Whisper prompt with family vocabulary
 function buildWhisperPrompt(familyState) {
   const parts = ["Hey Amara.", "OK Amara."];
-
   const members = familyState?.members || [];
   if (members.length > 0) {
     const names = members.map((m) => sanitizeForWhisper(m.name)).filter(Boolean);
-    if (names.length > 0) {
-      parts.push(`Family members: ${names.join(", ")}.`);
-    }
+    if (names.length > 0) parts.push(`Family members: ${names.join(", ")}.`);
   }
-
   const assistantName = sanitizeForWhisper(familyState?.ai_preferences?.assistant_name);
-  if (assistantName && assistantName !== "Amara") {
-    parts.push(`Hey ${assistantName}.`);
-  }
-
+  if (assistantName && assistantName !== "Amara") parts.push(`Hey ${assistantName}.`);
   parts.push("Add chore. Add event. Plan meals. Check off. Assign to. Complete task.");
-
   return parts.join(" ");
 }
 
-// Supported MediaRecorder mime type (WebM → MP4 → OGG fallback)
+// Supported MediaRecorder mime type
 function getSupportedMimeType() {
   const types = ["audio/webm", "audio/mp4", "audio/ogg"];
   return types.find((type) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) || "";
 }
 
-// Module-level state to avoid CRA closure bugs in production
+// Module-level state (avoids CRA closure bugs)
 let moduleStream = null;
 let moduleAudioCtx = null;
 let moduleAnalyser = null;
@@ -86,20 +78,21 @@ let moduleIsSpeaking = false;
 let moduleCooldownUntil = 0;
 let moduleIsShuttingDown = false;
 
-// Conversation buffer for multi-turn voice interactions
-let moduleConversationHistory = [];
-let moduleLastInteractionTime = 0;
-const CONVERSATION_TIMEOUT_MS = 60000; // 60s — start fresh after 1 min silence
-const MAX_HISTORY_MESSAGES = 10; // keep last 5 exchanges
-
-// Module-level function pointers — updated each render to avoid stale closures in VAD interval
+// Module-level function pointers (updated each render)
 let moduleStartRecording = null;
 let moduleStopRecording = null;
+let moduleOnWakeWord = null;
+let moduleOnVoiceCommand = null;
 
-export default function useVoiceMode(familyState, dispatch) {
+/**
+ * @param {Object} familyState — family context for Whisper prompt
+ * @param {Object} callbacks
+ * @param {Function} callbacks.onWakeWord — called when wake word detected (open sidebar)
+ * @param {Function} callbacks.onVoiceCommand — called with transcribed command (submit to AI)
+ */
+export default function useVoiceMode(familyState, { onWakeWord, onVoiceCommand } = {}) {
   const [voiceState, setVoiceState] = useState(VOICE_STATES.IDLE);
   const [transcript, setTranscript] = useState("");
-  const [aiResponse, setAiResponse] = useState("");
   const [isEnabled, setIsEnabled] = useState(() => localStorage.getItem("famcal_voice_mode") === "true");
 
   const mediaRecorderRef = useRef(null);
@@ -111,8 +104,11 @@ export default function useVoiceMode(familyState, dispatch) {
   const whisperCallsRef = useRef([]);
   const stateRef = useRef(VOICE_STATES.IDLE);
 
-  // Keep stateRef in sync (avoids closure stale state)
   stateRef.current = voiceState;
+
+  // Update module-level callback refs each render
+  moduleOnWakeWord = onWakeWord;
+  moduleOnVoiceCommand = onVoiceCommand;
 
   const isSupported = typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 
@@ -121,7 +117,6 @@ export default function useVoiceMode(familyState, dispatch) {
     if (maxTimerRef.current) { clearTimeout(maxTimerRef.current); maxTimerRef.current = null; }
   }, []);
 
-  // Play activation beep
   const playBeep = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -145,7 +140,6 @@ export default function useVoiceMode(familyState, dispatch) {
       utterance.rate = 1.0;
       utterance.pitch = 1.05;
       utterance.volume = 1.0;
-
       const voices = window.speechSynthesis.getVoices();
       const preferred = voices.find((v) =>
         v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
@@ -153,11 +147,32 @@ export default function useVoiceMode(familyState, dispatch) {
         v.lang.startsWith("en") && (v.name.includes("Samantha") || v.name.includes("Google") || v.name.includes("Microsoft"))
       ) || voices.find((v) => v.lang.startsWith("en"));
       if (preferred) utterance.voice = preferred;
-
       utterance.onend = resolve;
       utterance.onerror = resolve;
       window.speechSynthesis.speak(utterance);
     });
+  }, []);
+
+  // Called by AIAssistant when AI response should be spoken
+  const speakResponse = useCallback(async (text) => {
+    if (!text || moduleIsShuttingDown) return;
+    setVoiceState(VOICE_STATES.SPEAKING);
+    setTranscript(text);
+    await speak(text);
+    if (moduleIsShuttingDown) return;
+    moduleCooldownUntil = Date.now() + POST_SPEAK_COOLDOWN_MS;
+    // Return to activated mode for follow-up (sidebar stays open)
+    isActivatedRef.current = true;
+    setVoiceState(VOICE_STATES.ACTIVATED);
+    setTranscript("");
+  }, [speak]);
+
+  // Called when sidebar closes or voice session ends
+  const endVoiceSession = useCallback(() => {
+    isActivatedRef.current = false;
+    window.speechSynthesis?.cancel();
+    setVoiceState(VOICE_STATES.LISTENING);
+    setTranscript("");
   }, []);
 
   // Rate limit check
@@ -167,29 +182,22 @@ export default function useVoiceMode(familyState, dispatch) {
     return whisperCallsRef.current.length < MAX_WHISPER_PER_MIN;
   }, []);
 
-  // Transcribe audio via Whisper API with family context prompt
+  // Transcribe audio via Whisper API
   const transcribeAudio = useCallback(async (audioBlob) => {
     if (!canCallWhisper()) {
-      console.warn("[voice] Rate limit reached — skipping transcription");
+      console.warn("[voice] Rate limit reached");
       return "__RATE_LIMITED__";
     }
     whisperCallsRef.current.push(Date.now());
-
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob, "voice.webm");
       formData.append("prompt", buildWhisperPrompt(familyState));
-
-      const res = await fetch(apiUrl("/api/voice-transcribe"), {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch(apiUrl("/api/voice-transcribe"), { method: "POST", body: formData });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Transcription failed");
       }
-
       const { text } = await res.json();
       return text || "";
     } catch (err) {
@@ -198,203 +206,24 @@ export default function useVoiceMode(familyState, dispatch) {
     }
   }, [familyState, canCallWhisper]);
 
-  // Translate AI response actions to FamilyContext dispatch calls
-  // (mirrors AIAssistant/index.js executeActions — AI returns create_event, reducer expects ADD_EVENT)
-  const executeAIActions = useCallback((actions) => {
-    if (!actions || !dispatch) return;
-    const familyId = familyState?.family?.id;
-    const lists = familyState?.lists || [];
-
-    for (const action of actions) {
-      const d = action.data || {};
-      try {
-        switch (action.type) {
-          case "create_event":
-            dispatch({ type: "ADD_EVENT", value: { id: crypto.randomUUID(), family_id: familyId, ...d } });
-            break;
-          case "update_event":
-            dispatch({ type: "UPDATE_EVENT", value: d });
-            break;
-          case "remove_event":
-            dispatch({ type: "REMOVE_EVENT", value: { id: d.event_id } });
-            break;
-          case "create_task":
-            dispatch({ type: "ADD_TASK", value: { id: `task-${Date.now()}`, family_id: familyId, ...d } });
-            break;
-          case "update_task":
-            dispatch({ type: "UPDATE_TASK", value: d });
-            break;
-          case "complete_task":
-            dispatch({ type: "COMPLETE_TASK", value: d });
-            break;
-          case "remove_task":
-            dispatch({ type: "REMOVE_TASK", value: { id: d.task_id } });
-            break;
-          case "add_meal":
-            dispatch({ type: "ADD_MEAL", value: { id: `meal-${Date.now()}`, family_id: familyId, ...d } });
-            break;
-          case "update_meal":
-            dispatch({ type: "UPDATE_MEAL", value: d });
-            break;
-          case "remove_meal":
-            dispatch({ type: "REMOVE_MEAL", value: { id: d.meal_id } });
-            break;
-          case "create_list":
-            dispatch({ type: "ADD_LIST", value: { id: `list-${Date.now()}`, family_id: familyId, items: [], ...d } });
-            break;
-          case "add_list_items": {
-            const list = lists.find(
-              (l) => (d.list_name && l.name.toLowerCase() === d.list_name.toLowerCase()) ||
-                     (d.list_id && l.id === d.list_id)
-            ) || lists.find((l) => l.name.toLowerCase().includes("grocer"));
-            if (list) {
-              const items = Array.isArray(d.items) ? d.items : [d.items];
-              items.forEach((text) => {
-                dispatch({ type: "ADD_LIST_ITEM", value: { listId: list.id, item: { id: `item-${Date.now()}-${Math.random()}`, text, checked: false } } });
-              });
-            }
-            break;
-          }
-          case "toggle_list_item":
-            dispatch({ type: "TOGGLE_LIST_ITEM", value: { listId: d.list_id, itemId: d.item_id } });
-            break;
-          case "remove_list_item":
-            dispatch({ type: "REMOVE_LIST_ITEM", value: { listId: d.list_id, itemId: d.item_id } });
-            break;
-          case "add_note":
-            dispatch({ type: "ADD_NOTE", value: { id: `note-${Date.now()}`, family_id: familyId, ...d } });
-            break;
-          case "remove_note":
-            dispatch({ type: "REMOVE_NOTE", value: { id: d.note_id } });
-            break;
-          case "add_countdown":
-            dispatch({ type: "ADD_COUNTDOWN", value: { id: `countdown-${Date.now()}`, family_id: familyId, ...d } });
-            break;
-          case "remove_countdown":
-            dispatch({ type: "REMOVE_COUNTDOWN", value: { id: d.countdown_id } });
-            break;
-          case "add_reward":
-            dispatch({ type: "ADD_REWARD", value: { id: `reward-${Date.now()}`, family_id: familyId, ...d } });
-            break;
-          case "claim_reward":
-            dispatch({ type: "CLAIM_REWARD", value: d });
-            break;
-          case "save_memory":
-            dispatch({
-              type: "ADD_MEMORY",
-              value: {
-                id: `mem-${Date.now()}`,
-                family_id: familyId,
-                category: d.category || "context",
-                content: d.content,
-                active: true,
-              },
-            });
-            break;
-          case "forget_memory":
-            dispatch({ type: "REMOVE_MEMORY", value: { id: d.memory_id } });
-            break;
-          case "info":
-            break;
-          case "set_timer":
-          case "cancel_timer":
-          case "set_alarm":
-          case "cancel_alarm":
-            // Timer/alarm not available in voice mode (needs TimerAlarmContext)
-            break;
-          default:
-            console.warn("[voice] Unknown action type:", action.type);
-        }
-      } catch (e) {
-        console.warn("[voice] Action failed:", action.type, e);
-      }
-    }
-  }, [dispatch, familyState]);
-
-  // Send query to AI (with multi-turn conversation context)
-  const sendToAI = useCallback(async (query) => {
-    if (!query.trim() || !familyState || moduleIsShuttingDown) return;
-
-    setVoiceState(VOICE_STATES.PROCESSING);
-    setTranscript(query);
-
-    try {
-      // Clear stale conversation history
-      const now = Date.now();
-      if (now - moduleLastInteractionTime > CONVERSATION_TIMEOUT_MS) {
-        moduleConversationHistory = [];
-      }
-
-      // Build messages with history for multi-turn context
-      const messages = [...moduleConversationHistory, { role: "user", content: query }];
-
-      const context = buildAIContext(familyState, window.location.pathname.split("/").pop() || "calendar");
-      const memories = familyState.memories || [];
-      const response = await voiceSendMessage(messages, context, familyState.ai_preferences, memories);
-
-      if (moduleIsShuttingDown) return;
-
-      // Update conversation history
-      moduleConversationHistory.push(
-        { role: "user", content: query },
-        { role: "assistant", content: response.text }
-      );
-      if (moduleConversationHistory.length > MAX_HISTORY_MESSAGES) {
-        moduleConversationHistory = moduleConversationHistory.slice(-MAX_HISTORY_MESSAGES);
-      }
-      moduleLastInteractionTime = Date.now();
-
-      setAiResponse(response.text || "");
-      setVoiceState(VOICE_STATES.SPEAKING);
-
-      executeAIActions(response.actions);
-
-      await speak(response.text || "Done.");
-
-      if (moduleIsShuttingDown) return;
-      moduleCooldownUntil = Date.now() + POST_SPEAK_COOLDOWN_MS;
-      setVoiceState(VOICE_STATES.LISTENING);
-      setAiResponse("");
-      setTranscript("");
-    } catch (err) {
-      if (moduleIsShuttingDown) return;
-      console.error("[voice] AI call failed:", err);
-      setAiResponse("Sorry, I couldn't process that.");
-      setVoiceState(VOICE_STATES.SPEAKING);
-      await speak("Sorry, I couldn't process that.");
-      if (moduleIsShuttingDown) return;
-      moduleCooldownUntil = Date.now() + POST_SPEAK_COOLDOWN_MS;
-      setVoiceState(VOICE_STATES.LISTENING);
-      setAiResponse("");
-    }
-  }, [familyState, dispatch, speak, executeAIActions]);
-
-  // Check for wake word in transcription (fuzzy matching, longest match first)
+  // Check for wake word (fuzzy matching, longest match first)
   const extractWakeWord = useCallback((text) => {
     const lower = text.toLowerCase().trim();
     const sorted = [...WAKE_WORDS].sort((a, b) => b.length - a.length);
     for (const w of sorted) {
       const idx = lower.indexOf(w);
-      if (idx !== -1) {
-        const afterWake = text.slice(idx + w.length).trim();
-        return { found: true, command: afterWake };
-      }
+      if (idx !== -1) return { found: true, command: text.slice(idx + w.length).trim() };
     }
     return { found: false, command: "" };
   }, []);
 
-  // Process a completed recording
+  // Process a completed recording — transcribe and route to callbacks
   const processRecording = useCallback(async (audioBlob) => {
     if (moduleIsShuttingDown) return;
-
     const duration = Date.now() - recordingStartRef.current;
 
     if (audioBlob.size < 1000 || duration < MIN_RECORDING_MS) {
-      if (isActivatedRef.current) {
-        setVoiceState(VOICE_STATES.ACTIVATED);
-      } else {
-        setVoiceState(VOICE_STATES.LISTENING);
-      }
+      setVoiceState(isActivatedRef.current ? VOICE_STATES.ACTIVATED : VOICE_STATES.LISTENING);
       return;
     }
 
@@ -402,57 +231,52 @@ export default function useVoiceMode(familyState, dispatch) {
     setTranscript("Transcribing...");
 
     const text = await transcribeAudio(audioBlob);
-
     if (moduleIsShuttingDown) return;
 
-    // Handle rate limiting
     if (text === "__RATE_LIMITED__") {
       setTranscript("Too many requests. Wait a moment.");
-      setTimeout(() => {
-        if (!moduleIsShuttingDown) {
-          setTranscript("");
-          setVoiceState(VOICE_STATES.LISTENING);
-        }
-      }, 2000);
+      setTimeout(() => { if (!moduleIsShuttingDown) { setTranscript(""); setVoiceState(VOICE_STATES.LISTENING); } }, 2000);
       return;
     }
 
     if (!text) {
       if (isActivatedRef.current) {
         setTranscript("Couldn't hear that. Try again.");
-        setTimeout(() => {
-          if (!moduleIsShuttingDown) {
-            setTranscript("");
-            setVoiceState(VOICE_STATES.ACTIVATED);
-          }
-        }, 1500);
+        setTimeout(() => { if (!moduleIsShuttingDown) { setTranscript(""); setVoiceState(VOICE_STATES.ACTIVATED); } }, 1500);
       } else {
         setVoiceState(VOICE_STATES.LISTENING);
       }
       return;
     }
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("[voice] Transcribed:", text);
-    }
+    if (process.env.NODE_ENV === "development") console.log("[voice] Transcribed:", text);
 
     if (isActivatedRef.current) {
-      isActivatedRef.current = false;
-      clearTimers();
+      // Already activated (follow-up) — send command directly
       const { command } = extractWakeWord(text);
-      await sendToAI(command || text);
+      const query = command || text;
+      setTranscript(query);
+      setVoiceState(VOICE_STATES.PROCESSING);
+      moduleOnVoiceCommand?.(query);
     } else {
+      // Check for wake word
       const { found, command } = extractWakeWord(text);
       if (found) {
         if (command.length > 3) {
-          await sendToAI(command);
+          // Wake word + command in one utterance
+          moduleOnWakeWord?.();
+          setTranscript(command);
+          setVoiceState(VOICE_STATES.PROCESSING);
+          // Small delay to let sidebar open before submitting
+          setTimeout(() => moduleOnVoiceCommand?.(command), 200);
         } else {
+          // Wake word only — open sidebar and wait for command
           isActivatedRef.current = true;
+          moduleOnWakeWord?.();
           setVoiceState(VOICE_STATES.ACTIVATED);
           setTranscript("");
           playBeep();
-          console.log("[voice] Wake word detected — listening for command");
-
+          console.log("[voice] Wake word detected — sidebar opened, listening for command");
           maxTimerRef.current = setTimeout(() => {
             if (isActivatedRef.current) {
               isActivatedRef.current = false;
@@ -465,11 +289,9 @@ export default function useVoiceMode(familyState, dispatch) {
         setVoiceState(VOICE_STATES.LISTENING);
       }
     }
-  }, [transcribeAudio, sendToAI, extractWakeWord, clearTimers, playBeep]);
+  }, [transcribeAudio, extractWakeWord, clearTimers, playBeep]);
 
-  // ──────────────────────────────────────────────────
-  // Recording: MediaRecorder on the shared mic stream
-  // ──────────────────────────────────────────────────
+  // ── Recording ──
 
   const startRecording = useCallback(() => {
     if (!moduleStream || moduleIsShuttingDown) return;
@@ -482,23 +304,16 @@ export default function useVoiceMode(familyState, dispatch) {
       const options = mimeType ? { mimeType } : {};
       const mediaRecorder = new MediaRecorder(moduleStream, options);
       audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType || "audio/webm" });
         processRecording(audioBlob);
       };
-
       mediaRecorderRef.current = mediaRecorder;
       recordingStartRef.current = Date.now();
       mediaRecorder.start();
       setVoiceState(VOICE_STATES.RECORDING);
-      if (isActivatedRef.current) {
-        setTranscript("Listening...");
-      }
+      if (isActivatedRef.current) setTranscript("Listening...");
     } catch (err) {
       console.error("[voice] Failed to start recording:", err);
     }
@@ -510,17 +325,13 @@ export default function useVoiceMode(familyState, dispatch) {
     }
   }, []);
 
-  // Update module-level function pointers each render (avoids stale closures in VAD)
   moduleStartRecording = startRecording;
   moduleStopRecording = stopRecording;
 
-  // ──────────────────────────────────────────────────
-  // VAD: Voice Activity Detection via AnalyserNode
-  // ──────────────────────────────────────────────────
+  // ── VAD ──
 
   const startVAD = useCallback(() => {
     if (!moduleAnalyser) return;
-
     const analyser = moduleAnalyser;
     const dataArray = new Float32Array(analyser.fftSize);
 
@@ -531,31 +342,21 @@ export default function useVoiceMode(familyState, dispatch) {
         if (Date.now() < moduleCooldownUntil) return;
 
         analyser.getFloatTimeDomainData(dataArray);
-
         let rms = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          rms += dataArray[i] * dataArray[i];
-        }
+        for (let i = 0; i < dataArray.length; i++) rms += dataArray[i] * dataArray[i];
         rms = Math.sqrt(rms / dataArray.length);
         const db = 20 * Math.log10(Math.max(rms, 0.00001));
-
         const now = Date.now();
 
         if (db > VAD_THRESHOLD) {
           if (!moduleIsSpeaking) {
-            if (!moduleSpeechStartTime) {
-              moduleSpeechStartTime = now;
-            } else if (now - moduleSpeechStartTime >= SPEECH_START_MS) {
+            if (!moduleSpeechStartTime) { moduleSpeechStartTime = now; }
+            else if (now - moduleSpeechStartTime >= SPEECH_START_MS) {
               moduleIsSpeaking = true;
-              if (state === VOICE_STATES.LISTENING || state === VOICE_STATES.ACTIVATED) {
-                moduleStartRecording?.();
-              }
+              if (state === VOICE_STATES.LISTENING || state === VOICE_STATES.ACTIVATED) moduleStartRecording?.();
             }
           }
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-          }
+          if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
         } else {
           moduleSpeechStartTime = 0;
           if (moduleIsSpeaking && !silenceTimerRef.current) {
@@ -568,63 +369,40 @@ export default function useVoiceMode(familyState, dispatch) {
         }
       } catch (err) {
         console.error("[voice] VAD error:", err);
-        // Stop VAD on repeated errors to prevent console spam
-        if (moduleVadInterval) {
-          clearInterval(moduleVadInterval);
-          moduleVadInterval = null;
-        }
+        if (moduleVadInterval) { clearInterval(moduleVadInterval); moduleVadInterval = null; }
       }
     }, VAD_INTERVAL_MS);
-  }, []); // No deps — uses module-level function pointers
+  }, []);
 
   const stopVAD = useCallback(() => {
-    if (moduleVadInterval) {
-      clearInterval(moduleVadInterval);
-      moduleVadInterval = null;
-    }
+    if (moduleVadInterval) { clearInterval(moduleVadInterval); moduleVadInterval = null; }
     moduleIsSpeaking = false;
     moduleSpeechStartTime = 0;
   }, []);
 
-  // ──────────────────────────────────────────────────
-  // LIFECYCLE
-  // ──────────────────────────────────────────────────
+  // ── Lifecycle ──
 
   const startListening = useCallback(async () => {
     moduleIsShuttingDown = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       moduleStream = stream;
-
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 2048;
       source.connect(analyser);
-
       moduleAudioCtx = audioCtx;
       moduleAnalyser = analyser;
-
       setVoiceState(VOICE_STATES.LISTENING);
       startVAD();
-      console.log("[voice] Whisper + VAD listening started — say 'Hey Amara'");
+      console.log("[voice] Whisper + VAD listening started");
     } catch (err) {
       console.error("[voice] Mic access failed:", err);
-      // Cleanup on error — prevent memory leaks
-      if (moduleStream) {
-        moduleStream.getTracks().forEach((t) => t.stop());
-        moduleStream = null;
-      }
-      if (moduleAudioCtx) {
-        try { moduleAudioCtx.close(); } catch {}
-        moduleAudioCtx = null;
-      }
+      if (moduleStream) { moduleStream.getTracks().forEach((t) => t.stop()); moduleStream = null; }
+      if (moduleAudioCtx) { try { moduleAudioCtx.close(); } catch {} moduleAudioCtx = null; }
       moduleAnalyser = null;
       setVoiceState(VOICE_STATES.ERROR);
     }
@@ -632,35 +410,22 @@ export default function useVoiceMode(familyState, dispatch) {
 
   const stopAll = useCallback(() => {
     moduleIsShuttingDown = true;
-    moduleConversationHistory = [];
-    moduleLastInteractionTime = 0;
     clearTimers();
     stopVAD();
     isActivatedRef.current = false;
-
     if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.onstop = null; // prevent processRecording
+      mediaRecorderRef.current.onstop = null;
       try { mediaRecorderRef.current.stop(); } catch {}
     }
-
-    if (moduleStream) {
-      moduleStream.getTracks().forEach((t) => t.stop());
-      moduleStream = null;
-    }
-
-    if (moduleAudioCtx) {
-      try { moduleAudioCtx.close(); } catch {}
-      moduleAudioCtx = null;
-    }
+    if (moduleStream) { moduleStream.getTracks().forEach((t) => { t.stop(); t.enabled = false; }); moduleStream = null; }
+    if (moduleAudioCtx) { try { moduleAudioCtx.close(); } catch {} moduleAudioCtx = null; }
     moduleAnalyser = null;
     moduleIsSpeaking = false;
     moduleSpeechStartTime = 0;
     moduleCooldownUntil = 0;
-
     window.speechSynthesis?.cancel();
     setVoiceState(VOICE_STATES.IDLE);
     setTranscript("");
-    setAiResponse("");
   }, [clearTimers, stopVAD]);
 
   const enable = useCallback(() => {
@@ -675,14 +440,14 @@ export default function useVoiceMode(familyState, dispatch) {
     stopAll();
   }, [stopAll]);
 
-  // Tap-to-speak: manual activation (bypass wake word, record directly)
+  // Tap-to-speak: manual activation (bypass wake word)
   const tapToSpeak = useCallback(() => {
     if (voiceState === VOICE_STATES.RECORDING) {
       stopRecording();
     } else {
       isActivatedRef.current = true;
       playBeep();
-
+      moduleOnWakeWord?.();
       const doActivate = () => {
         setVoiceState(VOICE_STATES.ACTIVATED);
         setTranscript("");
@@ -695,32 +460,20 @@ export default function useVoiceMode(familyState, dispatch) {
           }
         }, MAX_LISTEN_TIME);
       };
-
-      if (moduleStream) {
-        doActivate();
-      } else {
-        startListening().then(doActivate);
-      }
+      if (moduleStream) doActivate();
+      else startListening().then(doActivate);
     }
   }, [voiceState, stopRecording, startListening, playBeep]);
 
-  // Auto-start on mount if enabled
+  // Auto-start on mount
   useEffect(() => {
-    if (isEnabled && voiceState === VOICE_STATES.IDLE && isSupported) {
-      startListening();
-    }
+    if (isEnabled && voiceState === VOICE_STATES.IDLE && isSupported) startListening();
     return () => {
       moduleIsShuttingDown = true;
       stopVAD();
       clearTimers();
-      if (moduleStream) {
-        moduleStream.getTracks().forEach((t) => t.stop());
-        moduleStream = null;
-      }
-      if (moduleAudioCtx) {
-        try { moduleAudioCtx.close(); } catch {}
-        moduleAudioCtx = null;
-      }
+      if (moduleStream) { moduleStream.getTracks().forEach((t) => t.stop()); moduleStream = null; }
+      if (moduleAudioCtx) { try { moduleAudioCtx.close(); } catch {} moduleAudioCtx = null; }
       moduleAnalyser = null;
       moduleIsSpeaking = false;
       moduleSpeechStartTime = 0;
@@ -729,14 +482,9 @@ export default function useVoiceMode(familyState, dispatch) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnabled]);
 
-  // Ensure mic is released on page navigation
+  // Mic cleanup on page navigation
   useEffect(() => {
-    const cleanup = () => {
-      if (moduleStream) {
-        moduleStream.getTracks().forEach((t) => { t.stop(); t.enabled = false; });
-        moduleStream = null;
-      }
-    };
+    const cleanup = () => { if (moduleStream) { moduleStream.getTracks().forEach((t) => { t.stop(); t.enabled = false; }); moduleStream = null; } };
     window.addEventListener("beforeunload", cleanup);
     return () => window.removeEventListener("beforeunload", cleanup);
   }, []);
@@ -752,11 +500,12 @@ export default function useVoiceMode(familyState, dispatch) {
   return {
     voiceState,
     transcript,
-    aiResponse,
     isEnabled,
     isSupported,
     enable,
     disable,
     tapToSpeak,
+    speakResponse, // AIAssistant calls this to trigger TTS
+    endVoiceSession, // Called when sidebar closes
   };
 }

@@ -483,11 +483,15 @@ export default function App() {
   const [state, dispatch] = useFamilyController();
   const { members, photos, countdowns, family, dataLoaded } = state;
 
-  // Voice mode — "Hey Amara" wake word
-  const voice = useVoiceMode(state, dispatch);
-
   // Unified FAB state
   const [aiOpen, setAiOpen] = useState(false);
+  const [voiceQuery, setVoiceQuery] = useState(null);
+
+  // Voice mode — "Hey Amara" wake word → opens AI sidebar
+  const voice = useVoiceMode(state, {
+    onWakeWord: () => setAiOpen(true),
+    onVoiceCommand: (query) => setVoiceQuery(query),
+  });
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
   const setupDone = localStorage.getItem("famcal_setup_done") === "true" || family?.setup_done === true;
@@ -736,17 +740,22 @@ export default function App() {
               state={state}
               currentPage={activeTab}
               externalOpen={aiOpen}
-              onExternalClose={() => setAiOpen(false)}
+              onExternalClose={() => { setAiOpen(false); voice.endVoiceSession(); }}
+              voiceActive={voice.isEnabled}
+              voiceState={voice.voiceState}
+              voiceTranscript={voice.transcript}
+              voiceQuery={voiceQuery}
+              onVoiceQueryHandled={() => setVoiceQuery(null)}
+              onVoiceResponse={(text) => voice.speakResponse(text)}
+              onTapToSpeak={voice.tapToSpeak}
             />
             <TimerAlarmPanel
               open={timerPanelOpen}
               onClose={() => setTimerPanelOpen(false)}
             />
-            {/* Voice Mode — "Hey Amara" */}
+            {/* Voice Mode — listening indicator only (chat happens in AIAssistant) */}
             <VoiceOverlay
               voiceState={voice.voiceState}
-              transcript={voice.transcript}
-              aiResponse={voice.aiResponse}
               isEnabled={voice.isEnabled}
               onDisable={voice.disable}
               onTapToSpeak={voice.tapToSpeak}
