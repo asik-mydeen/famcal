@@ -273,6 +273,21 @@ export default function useVoiceMode(familyState, dispatch) {
           case "claim_reward":
             dispatch({ type: "CLAIM_REWARD", value: d });
             break;
+          case "save_memory":
+            dispatch({
+              type: "ADD_MEMORY",
+              value: {
+                id: `mem-${Date.now()}`,
+                family_id: familyId,
+                category: d.category || "context",
+                content: d.content,
+                active: true,
+              },
+            });
+            break;
+          case "forget_memory":
+            dispatch({ type: "REMOVE_MEMORY", value: { id: d.memory_id } });
+            break;
           case "info":
             break;
           case "set_timer":

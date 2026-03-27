@@ -458,6 +458,23 @@ function AIAssistant({ familyId, dispatch, state, currentPage, externalOpen, onE
             timerAlarmRef.current.removeAlarm(d.alarm_id);
             executed.push(action.type);
             break;
+          case "save_memory":
+            dispatch({
+              type: "ADD_MEMORY",
+              value: {
+                id: `mem-${Date.now()}`,
+                family_id: familyId,
+                category: d.category || "context",
+                content: d.content,
+                active: true,
+              },
+            });
+            executed.push(action.type);
+            break;
+          case "forget_memory":
+            dispatch({ type: "REMOVE_MEMORY", value: { id: d.memory_id } });
+            executed.push(action.type);
+            break;
           case "info":
             // No action, just informational response
             break;
