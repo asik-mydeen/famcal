@@ -5,8 +5,6 @@ import App from "App";
 import { AuthProvider } from "context/AuthContext";
 import { FamilyProvider } from "context/FamilyContext";
 import { ThemeModeProvider } from "context/ThemeContext";
-import * as serviceWorkerRegistration from "serviceWorkerRegistration";
-
 const root = createRoot(document.getElementById("root"));
 
 root.render(
@@ -21,5 +19,5 @@ root.render(
   </BrowserRouter>
 );
 
-// Register service worker for offline PWA support
-serviceWorkerRegistration.register();
+// Service worker registration disabled — CRA 5 requires cra-template-pwa
+// for proper service worker support. The offline banner in App.js still works.
