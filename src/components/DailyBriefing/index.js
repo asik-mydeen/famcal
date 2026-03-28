@@ -267,19 +267,19 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
         }}
         onClick={handleInteraction}
       >
-        <Box sx={{ maxWidth: 900, mx: "auto", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 4 } }}>
+        <Box sx={{ maxWidth: 900, mx: "auto", px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 4 }, overflow: "hidden" }}>
           {/* Header: Greeting + Weather + Date */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
-              <Box>
+            <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 3, gap: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{
-                  fontWeight: 800, fontSize: { xs: "1.6rem", md: "2rem" },
+                  fontWeight: 800, fontSize: { xs: "1.4rem", md: "2rem" },
                   letterSpacing: "-0.03em", color: "text.primary", lineHeight: 1.2,
-                }}>
+                }} noWrap>
                   {getGreeting()} {"\u2728"}
                 </Typography>
                 <Typography sx={{ fontSize: "0.95rem", color: "text.secondary", mt: 0.5 }}>
@@ -436,15 +436,15 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
                         display: "flex", alignItems: "center", gap: 1, py: 0.5, px: 1,
                         borderRadius: "8px", background: alpha("#4ECDC4", darkMode ? 0.1 : 0.05),
                       }}>
-                        <Icon sx={{ fontSize: "1.2rem !important", color: "#4ECDC4" }}>
+                        <Icon sx={{ fontSize: "1.2rem !important", color: "#4ECDC4", flexShrink: 0 }}>
                           {meal.meal_type === "breakfast" ? "egg_alt" :
                             meal.meal_type === "lunch" ? "lunch_dining" : "dinner_dining"}
                         </Icon>
-                        <Box>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
                           <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: "text.secondary", textTransform: "capitalize" }}>
                             {meal.meal_type || "Meal"}
                           </Typography>
-                          <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "text.primary" }} noWrap>
+                          <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {meal.title || meal.name}
                           </Typography>
                         </Box>
@@ -472,7 +472,7 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
                         background: alpha(msg.urgent ? "#ef4444" : tokens.accent.main, darkMode ? 0.1 : 0.05),
                         borderLeft: msg.urgent ? "3px solid #ef4444" : "none",
                       }}>
-                        <Typography sx={{ fontSize: "0.8rem", color: "text.primary" }} noWrap>
+                        <Typography sx={{ fontSize: "0.8rem", color: "text.primary", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {msg.content || msg.text}
                         </Typography>
                         <Typography sx={{ fontSize: "0.65rem", color: "text.secondary", mt: 0.25 }}>
@@ -512,14 +512,14 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
                           )}
                         </Box>
                         {!existingMood && (
-                          <Box sx={{ display: "flex", gap: 0.5, pl: 3.5 }}>
+                          <Box sx={{ display: "flex", gap: 0.5, pl: 3.5, flexWrap: "wrap" }}>
                             {MOOD_OPTIONS.map((mood) => (
                               <Box
                                 key={mood.key}
                                 onClick={(e) => { e.stopPropagation(); handleMoodSelect(member.id, mood.key); }}
                                 sx={{
                                   cursor: "pointer", touchAction: "manipulation",
-                                  fontSize: "1.1rem", p: 0.25, borderRadius: "8px",
+                                  fontSize: { xs: "0.95rem", md: "1.1rem" }, p: 0.25, borderRadius: "8px",
                                   transition: "all 0.15s ease",
                                   "&:hover": {
                                     transform: "scale(1.3)",
@@ -627,7 +627,7 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
                         background: alpha(tokens.accent.main, darkMode ? 0.06 : 0.03),
                         border: `1px solid ${alpha(tokens.accent.main, darkMode ? 0.1 : 0.06)}`,
                       }}>
-                        <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: "text.primary", mb: 0.25 }}>
+                        <Typography sx={{ fontSize: { xs: "0.7rem", md: "0.78rem" }, fontWeight: 700, color: "text.primary", mb: 0.25 }} noWrap>
                           {day.label}
                         </Typography>
                         <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5 }}>
