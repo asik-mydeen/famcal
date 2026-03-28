@@ -11,13 +11,13 @@ import GlassCard from "components/GlassCard";
 import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 
-// ── Mood emoji mapping ──
+// ── Mood config — Material Icons + gradient (no emojis) ──
 const MOOD_OPTIONS = [
-  { key: "great", emoji: "\uD83D\uDE04", label: "Great" },
-  { key: "good", emoji: "\uD83D\uDE42", label: "Good" },
-  { key: "okay", emoji: "\uD83D\uDE10", label: "Okay" },
-  { key: "tired", emoji: "\uD83D\uDE34", label: "Tired" },
-  { key: "sad", emoji: "\uD83D\uDE22", label: "Sad" },
+  { key: "happy", icon: "sentiment_very_satisfied", label: "Happy", color: "#22c55e", gradient: "linear-gradient(135deg, #22c55e, #4ade80)" },
+  { key: "good", icon: "sentiment_satisfied", label: "Good", color: "#3b82f6", gradient: "linear-gradient(135deg, #3b82f6, #60a5fa)" },
+  { key: "okay", icon: "sentiment_neutral", label: "Okay", color: "#94a3b8", gradient: "linear-gradient(135deg, #94a3b8, #cbd5e1)" },
+  { key: "tired", icon: "bedtime", label: "Tired", color: "#8b5cf6", gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
+  { key: "sad", icon: "sentiment_dissatisfied", label: "Sad", color: "#6366f1", gradient: "linear-gradient(135deg, #6366f1, #818cf8)" },
 ];
 
 // ── Time-based greeting ──
@@ -505,31 +505,44 @@ function DailyBriefing({ state, dispatch, weather, onDismiss }) {
                           <Typography sx={{ fontSize: "0.78rem", fontWeight: 600, color: "text.primary", flex: 1 }}>
                             {member.name}
                           </Typography>
-                          {existingMood && (
-                            <Typography sx={{ fontSize: "0.95rem" }}>
-                              {MOOD_OPTIONS.find((m) => m.key === existingMood)?.emoji || ""}
-                            </Typography>
-                          )}
+                          {existingMood && (() => {
+                            const mc = MOOD_OPTIONS.find((m) => m.key === existingMood);
+                            return mc ? (
+                              <Box sx={{ width: 24, height: 24, borderRadius: "50%", background: mc.gradient, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <Icon sx={{ fontSize: "0.8rem !important", color: "#fff" }}>{mc.icon}</Icon>
+                              </Box>
+                            ) : null;
+                          })()}
                         </Box>
                         {!existingMood && (
-                          <Box sx={{ display: "flex", gap: 0.5, pl: 3.5, flexWrap: "wrap" }}>
+                          <Box sx={{ display: "flex", gap: 1, pl: 3.5, flexWrap: "wrap" }}>
                             {MOOD_OPTIONS.map((mood) => (
                               <Box
                                 key={mood.key}
                                 onClick={(e) => { e.stopPropagation(); handleMoodSelect(member.id, mood.key); }}
                                 sx={{
+                                  display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25,
                                   cursor: "pointer", touchAction: "manipulation",
-                                  fontSize: { xs: "0.95rem", md: "1.1rem" }, p: 0.25, borderRadius: "8px",
-                                  transition: "all 0.15s ease",
-                                  "&:hover": {
-                                    transform: "scale(1.3)",
-                                    background: alpha(tokens.accent.main, 0.1),
-                                  },
+                                  transition: "all 0.2s ease",
+                                  "&:hover": { transform: "translateY(-2px)" },
                                   "&:active": { transform: "scale(0.9)" },
                                 }}
                                 title={mood.label}
                               >
-                                {mood.emoji}
+                                <Box sx={{
+                                  width: 32, height: 32, borderRadius: "50%",
+                                  background: darkMode ? `${mood.color}20` : `${mood.color}12`,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  transition: "all 0.2s ease",
+                                  "&:hover": { background: mood.gradient, boxShadow: `0 3px 10px ${mood.color}40` },
+                                }}>
+                                  <Icon sx={{ fontSize: "1rem !important", color: mood.color, ".MuiBox-root:hover > &": { color: "#fff" } }}>
+                                    {mood.icon}
+                                  </Icon>
+                                </Box>
+                                <Typography sx={{ fontSize: "0.55rem", fontWeight: 600, color: mood.color }}>
+                                  {mood.label}
+                                </Typography>
                               </Box>
                             ))}
                           </Box>

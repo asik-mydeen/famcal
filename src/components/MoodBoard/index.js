@@ -13,15 +13,16 @@ import GlassCard from "components/GlassCard";
 import { useFamilyController } from "context/FamilyContext";
 import { useAppTheme } from "context/ThemeContext";
 
+// Mood definitions — Material Icons + gradient colors (no emojis)
 const MOODS = [
-  { key: "happy", emoji: "\uD83D\uDE0A", label: "Happy", color: "#22c55e" },
-  { key: "good", emoji: "\uD83D\uDC4D", label: "Good", color: "#3b82f6" },
-  { key: "okay", emoji: "\uD83D\uDE10", label: "Okay", color: "#94a3b8" },
-  { key: "tired", emoji: "\uD83D\uDE34", label: "Tired", color: "#8b5cf6" },
-  { key: "stressed", emoji: "\uD83D\uDE30", label: "Stressed", color: "#f59e0b" },
-  { key: "sad", emoji: "\uD83D\uDE22", label: "Sad", color: "#6366f1" },
-  { key: "angry", emoji: "\uD83D\uDE24", label: "Angry", color: "#ef4444" },
-  { key: "excited", emoji: "\uD83E\uDD29", label: "Excited", color: "#ec4899" },
+  { key: "happy", icon: "sentiment_very_satisfied", label: "Happy", color: "#22c55e", gradient: "linear-gradient(135deg, #22c55e, #4ade80)" },
+  { key: "good", icon: "sentiment_satisfied", label: "Good", color: "#3b82f6", gradient: "linear-gradient(135deg, #3b82f6, #60a5fa)" },
+  { key: "okay", icon: "sentiment_neutral", label: "Okay", color: "#94a3b8", gradient: "linear-gradient(135deg, #94a3b8, #cbd5e1)" },
+  { key: "tired", icon: "bedtime", label: "Tired", color: "#8b5cf6", gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)" },
+  { key: "stressed", icon: "psychology_alt", label: "Stressed", color: "#f59e0b", gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)" },
+  { key: "sad", icon: "sentiment_dissatisfied", label: "Sad", color: "#6366f1", gradient: "linear-gradient(135deg, #6366f1, #818cf8)" },
+  { key: "angry", icon: "sentiment_very_dissatisfied", label: "Angry", color: "#ef4444", gradient: "linear-gradient(135deg, #ef4444, #f87171)" },
+  { key: "excited", icon: "celebration", label: "Excited", color: "#ec4899", gradient: "linear-gradient(135deg, #ec4899, #f472b6)" },
 ];
 
 function getMoodConfig(moodKey) {
@@ -30,11 +31,62 @@ function getMoodConfig(moodKey) {
 
 export { MOODS, getMoodConfig };
 
+// Mood icon pill — reusable across all variants
+function MoodPill({ mood, size = "medium", selected, onClick, darkMode }) {
+  const sz = size === "small" ? 28 : size === "large" ? 48 : 36;
+  const iconSz = size === "small" ? "0.9rem" : size === "large" ? "1.5rem" : "1.2rem";
+  const labelSz = size === "small" ? "0.55rem" : "0.65rem";
+
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25,
+        cursor: onClick ? "pointer" : "default",
+        touchAction: "manipulation",
+        transition: "all 0.2s ease",
+        "&:hover": onClick ? { transform: "translateY(-2px)" } : {},
+        "&:active": onClick ? { transform: "scale(0.92)" } : {},
+      }}
+    >
+      <Box sx={{
+        width: sz, height: sz, borderRadius: "50%",
+        background: selected ? mood.gradient : darkMode ? `${mood.color}20` : `${mood.color}12`,
+        border: `2px solid ${selected ? mood.color : "transparent"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: selected ? `0 4px 14px ${mood.color}44` : "none",
+        transition: "all 0.2s ease",
+      }}>
+        <Icon sx={{
+          fontSize: `${iconSz} !important`,
+          color: selected ? "#fff" : mood.color,
+        }}>
+          {mood.icon}
+        </Icon>
+      </Box>
+      {size !== "small" && (
+        <Typography sx={{ fontSize: labelSz, fontWeight: 600, color: selected ? mood.color : darkMode ? "rgba(255,255,255,0.5)" : "text.secondary" }}>
+          {mood.label}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+MoodPill.propTypes = {
+  mood: PropTypes.object.isRequired,
+  size: PropTypes.oneOf(["small", "medium", "large"]),
+  selected: PropTypes.bool,
+  onClick: PropTypes.func,
+  darkMode: PropTypes.bool,
+};
+
 function MoodBoard({ variant = "full" }) {
   const [state, dispatch] = useFamilyController();
   const { members, moodCheckins: rawMoodCheckins } = state;
   const moodCheckins = rawMoodCheckins || [];
-  const { tokens, alpha, darkMode } = useAppTheme();
+  const { tokens, darkMode } = useAppTheme();
+  const alpha = (hex, opacity) => `${hex}${Math.round(opacity * 255).toString(16).padStart(2, "0")}`;
 
   const [checkinMember, setCheckinMember] = useState(null);
   const [noteText, setNoteText] = useState("");
@@ -42,18 +94,14 @@ function MoodBoard({ variant = "full" }) {
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Today's check-ins per member
   const todayMoods = useMemo(() => {
     const map = {};
     moodCheckins.forEach((c) => {
-      if (c.checkin_date === todayStr) {
-        map[c.member_id] = c;
-      }
+      if (c.checkin_date === todayStr) map[c.member_id] = c;
     });
     return map;
   }, [moodCheckins, todayStr]);
 
-  // Last 7 days for weekly trend
   const weekDates = useMemo(() => {
     const dates = [];
     for (let i = 6; i >= 0; i--) {
@@ -64,19 +112,18 @@ function MoodBoard({ variant = "full" }) {
     return dates;
   }, []);
 
-  const getMemberWeekMoods = (memberId) => {
-    return weekDates.map((date) => {
+  const getMemberWeekMoods = (memberId) =>
+    weekDates.map((date) => {
       const checkin = moodCheckins.find((c) => c.member_id === memberId && c.checkin_date === date);
       return checkin ? getMoodConfig(checkin.mood) : null;
     });
-  };
 
   const handleSelectMood = (memberId, moodKey) => {
     dispatch({
       type: "ADD_MOOD_CHECKIN",
       value: {
         id: `mood-${Date.now()}`,
-        family_id: state.family.id,
+        family_id: state.family?.id,
         member_id: memberId,
         mood: moodKey,
         note: noteText.trim() || null,
@@ -89,7 +136,7 @@ function MoodBoard({ variant = "full" }) {
     setShowNote(false);
   };
 
-  // Compact variant for HeaderBar badge
+  // ── Badge variant (HeaderBar) ──
   if (variant === "badge") {
     return (
       <Box display="flex" alignItems="center" gap={0.5}>
@@ -99,9 +146,13 @@ function MoodBoard({ variant = "full" }) {
           const config = getMoodConfig(mood.mood);
           return (
             <Tooltip key={member.id} title={`${member.name}: ${config.label}`} arrow>
-              <Typography fontSize="0.85rem" sx={{ lineHeight: 1 }}>
-                {config.emoji}
-              </Typography>
+              <Box sx={{
+                width: 20, height: 20, borderRadius: "50%",
+                background: config.gradient,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <Icon sx={{ fontSize: "0.7rem !important", color: "#fff" }}>{config.icon}</Icon>
+              </Box>
             </Tooltip>
           );
         })}
@@ -109,7 +160,7 @@ function MoodBoard({ variant = "full" }) {
     );
   }
 
-  // Sidebar widget variant
+  // ── Widget variant (sidebar) ──
   if (variant === "widget") {
     return (
       <Box>
@@ -124,29 +175,23 @@ function MoodBoard({ variant = "full" }) {
             const mood = todayMoods[member.id];
             const config = mood ? getMoodConfig(mood.mood) : null;
             return (
-              <Box
-                key={member.id}
-                sx={{
-                  display: "flex", alignItems: "center", gap: 1,
-                  p: 1, borderRadius: "10px",
-                  bgcolor: darkMode ? alpha("#fff", 0.03) : alpha("#000", 0.01),
-                }}
-              >
-                <Avatar
-                  src={member.avatar_url}
-                  sx={{ width: 24, height: 24, bgcolor: member.avatar_color, fontSize: "0.65rem" }}
-                >
+              <Box key={member.id} sx={{
+                display: "flex", alignItems: "center", gap: 1,
+                p: 1, borderRadius: "10px",
+                bgcolor: config ? alpha(config.color, 0.06) : darkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.01)",
+              }}>
+                <Avatar src={member.avatar_url} sx={{ width: 24, height: 24, bgcolor: member.avatar_color, fontSize: "0.65rem" }}>
                   {!member.avatar_url && (member.avatar_emoji || member.name[0])}
                 </Avatar>
                 <Typography fontSize="0.78rem" color={darkMode ? "#fff" : "#1a1a1a"} flex={1}>
                   {member.name.split(" ")[0]}
                 </Typography>
                 {config ? (
-                  <Typography fontSize="1rem">{config.emoji}</Typography>
+                  <Box sx={{ width: 22, height: 22, borderRadius: "50%", background: config.gradient, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon sx={{ fontSize: "0.8rem !important", color: "#fff" }}>{config.icon}</Icon>
+                  </Box>
                 ) : (
-                  <Typography fontSize="0.7rem" color={darkMode ? "rgba(255,255,255,0.3)" : "#94a3b8"}>
-                    --
-                  </Typography>
+                  <Typography fontSize="0.7rem" color={darkMode ? "rgba(255,255,255,0.3)" : "#94a3b8"}>--</Typography>
                 )}
               </Box>
             );
@@ -156,7 +201,7 @@ function MoodBoard({ variant = "full" }) {
     );
   }
 
-  // Full variant for calendar sidebar
+  // ── Full variant (calendar sidebar) ──
   return (
     <GlassCard>
       <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -166,7 +211,6 @@ function MoodBoard({ variant = "full" }) {
         </Typography>
       </Box>
 
-      {/* Per-member mood display + check-in */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         {members.map((member) => {
           const mood = todayMoods[member.id];
@@ -180,46 +224,46 @@ function MoodBoard({ variant = "full" }) {
                 onClick={() => setCheckinMember(isCheckinActive ? null : member.id)}
                 sx={{
                   display: "flex", alignItems: "center", gap: 1.5,
-                  p: 1.5, borderRadius: "12px",
-                  cursor: "pointer",
-                  touchAction: "manipulation",
-                  bgcolor: config
-                    ? darkMode ? alpha(config.color, 0.08) : alpha(config.color, 0.04)
-                    : darkMode ? alpha("#fff", 0.03) : alpha("#000", 0.01),
+                  p: 1.5, borderRadius: "14px",
+                  cursor: "pointer", touchAction: "manipulation",
+                  bgcolor: config ? alpha(config.color, 0.06) : darkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.01)",
                   border: "1px solid",
-                  borderColor: config
-                    ? alpha(config.color, darkMode ? 0.2 : 0.12)
-                    : darkMode ? alpha("#fff", 0.06) : alpha("#000", 0.04),
+                  borderColor: config ? alpha(config.color, 0.15) : darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
                   transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: darkMode ? alpha("#fff", 0.05) : alpha("#000", 0.02),
-                    transform: "translateY(-1px)",
-                  },
+                  "&:hover": { bgcolor: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.02)", transform: "translateY(-1px)" },
                   "&:active": { transform: "scale(0.97)" },
                 }}
               >
-                <Avatar
-                  src={member.avatar_url}
-                  sx={{ width: 32, height: 32, bgcolor: member.avatar_color, fontSize: "0.75rem" }}
-                >
+                <Avatar src={member.avatar_url} sx={{ width: 32, height: 32, bgcolor: member.avatar_color, fontSize: "0.75rem" }}>
                   {!member.avatar_url && (member.avatar_emoji || member.name[0])}
                 </Avatar>
-                <Box flex={1}>
+                <Box flex={1} minWidth={0}>
                   <Typography fontSize="0.85rem" fontWeight={600} color={darkMode ? "#fff" : "#1a1a1a"}>
                     {member.name.split(" ")[0]}
                   </Typography>
-                  {/* Weekly trend: emoji row */}
-                  <Box display="flex" gap={0.25} mt={0.25}>
+                  {/* Weekly trend — icon dots */}
+                  <Box display="flex" gap={0.5} mt={0.25}>
                     {weekMoods.map((wm, i) => (
-                      <Typography key={i} fontSize="0.65rem" sx={{ opacity: wm ? 1 : 0.3, lineHeight: 1 }}>
-                        {wm ? wm.emoji : "\u2022"}
-                      </Typography>
+                      <Box key={i} sx={{
+                        width: 14, height: 14, borderRadius: "50%",
+                        background: wm ? wm.gradient : darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {wm && <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>{wm.icon}</Icon>}
+                      </Box>
                     ))}
                   </Box>
                 </Box>
                 {config ? (
-                  <Box display="flex" alignItems="center" gap={0.5}>
-                    <Typography fontSize="1.3rem">{config.emoji}</Typography>
+                  <Box display="flex" alignItems="center" gap={0.75}>
+                    <Box sx={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: config.gradient,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: `0 3px 10px ${config.color}40`,
+                    }}>
+                      <Icon sx={{ fontSize: "1.1rem !important", color: "#fff" }}>{config.icon}</Icon>
+                    </Box>
                     <Typography fontSize="0.75rem" fontWeight={600} color={config.color}>
                       {config.label}
                     </Typography>
@@ -231,7 +275,7 @@ function MoodBoard({ variant = "full" }) {
                 )}
               </Box>
 
-              {/* Mood Selection Row */}
+              {/* Mood Selection Grid */}
               <AnimatePresence>
                 {isCheckinActive && (
                   <motion.div
@@ -240,77 +284,43 @@ function MoodBoard({ variant = "full" }) {
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Box sx={{ mt: 1, px: 0.5 }}>
-                      <Box display="flex" flexWrap="wrap" gap={0.75} mb={1}>
+                    <Box sx={{ mt: 1.5, px: 0.5 }}>
+                      <Box display="flex" flexWrap="wrap" gap={1.5} justifyContent="center" mb={1.5}>
                         {MOODS.map((m) => (
-                          <Box
+                          <MoodPill
                             key={m.key}
-                            onClick={() => {
-                              if (!showNote) handleSelectMood(member.id, m.key);
-                            }}
-                            sx={{
-                              display: "flex", flexDirection: "column", alignItems: "center",
-                              gap: 0.25, p: 1, borderRadius: "12px",
-                              cursor: "pointer",
-                              touchAction: "manipulation",
-                              bgcolor: mood?.mood === m.key
-                                ? alpha(m.color, darkMode ? 0.2 : 0.12)
-                                : darkMode ? alpha("#fff", 0.03) : alpha("#000", 0.01),
-                              border: "1px solid",
-                              borderColor: mood?.mood === m.key
-                                ? alpha(m.color, darkMode ? 0.35 : 0.25)
-                                : "transparent",
-                              transition: "all 0.15s ease",
-                              "&:hover": {
-                                bgcolor: alpha(m.color, darkMode ? 0.15 : 0.08),
-                                transform: "scale(1.08)",
-                              },
-                              "&:active": { transform: "scale(0.95)" },
-                              minWidth: 52,
-                            }}
-                          >
-                            <Typography fontSize="1.3rem">{m.emoji}</Typography>
-                            <Typography fontSize="0.6rem" fontWeight={600} color={m.color}>
-                              {m.label}
-                            </Typography>
-                          </Box>
+                            mood={m}
+                            size="medium"
+                            selected={mood?.mood === m.key}
+                            darkMode={darkMode}
+                            onClick={() => { if (!showNote) handleSelectMood(member.id, m.key); }}
+                          />
                         ))}
                       </Box>
 
-                      {/* Note toggle + input */}
                       {!showNote ? (
                         <Button
                           size="small"
                           startIcon={<Icon sx={{ fontSize: "1rem !important" }}>edit_note</Icon>}
                           onClick={() => setShowNote(true)}
-                          sx={{
-                            fontSize: "0.75rem", textTransform: "none",
-                            color: darkMode ? "rgba(255,255,255,0.5)" : "text.secondary",
-                          }}
+                          sx={{ fontSize: "0.75rem", textTransform: "none", color: darkMode ? "rgba(255,255,255,0.5)" : "text.secondary" }}
                         >
                           Add a note
                         </Button>
                       ) : (
                         <Box display="flex" gap={1} alignItems="flex-end">
                           <TextField
-                            size="small"
-                            fullWidth
-                            multiline
-                            maxRows={2}
+                            size="small" fullWidth multiline maxRows={2}
                             placeholder="How are you feeling?"
                             value={noteText}
                             onChange={(e) => setNoteText(e.target.value)}
                             autoFocus
                           />
-                          <Box display="flex" gap={0.5}>
-                            <IconButton
-                              size="small"
-                              onClick={() => { setShowNote(false); setNoteText(""); }}
-                              sx={{ color: darkMode ? "rgba(255,255,255,0.4)" : "#94a3b8" }}
-                            >
-                              <Icon sx={{ fontSize: "1.2rem !important" }}>close</Icon>
-                            </IconButton>
-                          </Box>
+                          <IconButton size="small" onClick={() => { setShowNote(false); setNoteText(""); }}
+                            sx={{ color: darkMode ? "rgba(255,255,255,0.4)" : "#94a3b8" }}
+                          >
+                            <Icon sx={{ fontSize: "1.2rem !important" }}>close</Icon>
+                          </IconButton>
                         </Box>
                       )}
 
