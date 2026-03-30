@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -44,19 +44,20 @@ import useIdleTimer from "hooks/useIdleTimer";
 import { fetchWeather } from "lib/weather";
 import { apiUrl } from "lib/api";
 
-import FamilyCalendar from "layouts/family-calendar";
-import Chores from "layouts/chores";
-import Meals from "layouts/meals";
-import Lists from "layouts/lists";
-import Family from "layouts/family";
-import Rewards from "layouts/rewards";
-import Settings from "layouts/settings";
-import PrivacyPolicy from "layouts/legal/privacy";
-import TermsOfService from "layouts/legal/tos";
-import Routines from "layouts/routines";
-import Emergency from "layouts/emergency";
-import Dashboard from "layouts/dashboard";
-import KioskSetup from "layouts/kiosk-setup";
+// Lazy-load page components for code splitting
+const FamilyCalendar = lazy(() => import("layouts/family-calendar"));
+const Chores = lazy(() => import("layouts/chores"));
+const Meals = lazy(() => import("layouts/meals"));
+const Lists = lazy(() => import("layouts/lists"));
+const Family = lazy(() => import("layouts/family"));
+const Rewards = lazy(() => import("layouts/rewards"));
+const Settings = lazy(() => import("layouts/settings"));
+const PrivacyPolicy = lazy(() => import("layouts/legal/privacy"));
+const TermsOfService = lazy(() => import("layouts/legal/tos"));
+const Routines = lazy(() => import("layouts/routines"));
+const Emergency = lazy(() => import("layouts/emergency"));
+const Dashboard = lazy(() => import("layouts/dashboard"));
+const KioskSetup = lazy(() => import("layouts/kiosk-setup"));
 
 // ── Supabase Auth Sign-In Screen ──
 
@@ -829,7 +830,13 @@ export default function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <KioskSetup />
+        <Suspense fallback={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <CircularProgress sx={{ color: "#6C5CE7" }} />
+          </Box>
+        }>
+          <KioskSetup />
+        </Suspense>
       </ThemeProvider>
     );
   }
@@ -839,9 +846,15 @@ export default function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Routes>
-          <Route path="/d/:slug/*" element={<Dashboard />} />
-        </Routes>
+        <Suspense fallback={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <CircularProgress sx={{ color: "#6C5CE7" }} />
+          </Box>
+        }>
+          <Routes>
+            <Route path="/d/:slug/*" element={<Dashboard />} />
+          </Routes>
+        </Suspense>
       </ThemeProvider>
     );
   }
@@ -851,7 +864,13 @@ export default function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <PrivacyPolicy />
+        <Suspense fallback={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <CircularProgress sx={{ color: "#6C5CE7" }} />
+          </Box>
+        }>
+          <PrivacyPolicy />
+        </Suspense>
       </ThemeProvider>
     );
   }
@@ -859,7 +878,13 @@ export default function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <TermsOfService />
+        <Suspense fallback={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <CircularProgress sx={{ color: "#6C5CE7" }} />
+          </Box>
+        }>
+          <TermsOfService />
+        </Suspense>
       </ThemeProvider>
     );
   }
@@ -980,21 +1005,27 @@ export default function App() {
               />
             </Box>
             <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
-              <AnimatePresence mode="wait">
-                <Routes location={location} key={location.pathname}>
-                  <Route path="/calendar" element={<ErrorBoundary><PageTransition><FamilyCalendar /></PageTransition></ErrorBoundary>} />
-                  <Route path="/chores" element={<ErrorBoundary><PageTransition><Chores /></PageTransition></ErrorBoundary>} />
-                  <Route path="/meals" element={<ErrorBoundary><PageTransition><Meals /></PageTransition></ErrorBoundary>} />
-                  <Route path="/lists" element={<ErrorBoundary><PageTransition><Lists /></PageTransition></ErrorBoundary>} />
-                  <Route path="/routines" element={<ErrorBoundary><PageTransition><Routines /></PageTransition></ErrorBoundary>} />
-                  <Route path="/tasks" element={<Navigate to="/chores" replace />} />
-                  <Route path="/family" element={<ErrorBoundary><PageTransition><Family /></PageTransition></ErrorBoundary>} />
-                  <Route path="/rewards" element={<ErrorBoundary><PageTransition><Rewards /></PageTransition></ErrorBoundary>} />
-                  <Route path="/settings" element={<ErrorBoundary><PageTransition><Settings /></PageTransition></ErrorBoundary>} />
-                  <Route path="/emergency" element={<ErrorBoundary><PageTransition><Emergency /></PageTransition></ErrorBoundary>} />
-                  <Route path="*" element={<Navigate to="/calendar" replace />} />
-                </Routes>
-              </AnimatePresence>
+              <Suspense fallback={
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+                  <CircularProgress sx={{ color: "#6C5CE7" }} />
+                </Box>
+              }>
+                <AnimatePresence mode="wait">
+                  <Routes location={location} key={location.pathname}>
+                    <Route path="/calendar" element={<ErrorBoundary><PageTransition><FamilyCalendar /></PageTransition></ErrorBoundary>} />
+                    <Route path="/chores" element={<ErrorBoundary><PageTransition><Chores /></PageTransition></ErrorBoundary>} />
+                    <Route path="/meals" element={<ErrorBoundary><PageTransition><Meals /></PageTransition></ErrorBoundary>} />
+                    <Route path="/lists" element={<ErrorBoundary><PageTransition><Lists /></PageTransition></ErrorBoundary>} />
+                    <Route path="/routines" element={<ErrorBoundary><PageTransition><Routines /></PageTransition></ErrorBoundary>} />
+                    <Route path="/tasks" element={<Navigate to="/chores" replace />} />
+                    <Route path="/family" element={<ErrorBoundary><PageTransition><Family /></PageTransition></ErrorBoundary>} />
+                    <Route path="/rewards" element={<ErrorBoundary><PageTransition><Rewards /></PageTransition></ErrorBoundary>} />
+                    <Route path="/settings" element={<ErrorBoundary><PageTransition><Settings /></PageTransition></ErrorBoundary>} />
+                    <Route path="/emergency" element={<ErrorBoundary><PageTransition><Emergency /></PageTransition></ErrorBoundary>} />
+                    <Route path="*" element={<Navigate to="/calendar" replace />} />
+                  </Routes>
+                </AnimatePresence>
+              </Suspense>
             </Box>
             <Box sx={{ display: { xs: "flex", md: "none" } }}>
               <FloatingNav />
@@ -1035,13 +1066,13 @@ export default function App() {
               state={state}
               currentPage={activeTab}
               externalOpen={aiOpen}
-              onExternalClose={() => { setAiOpen(false); voice.endVoiceSession(); }}
+              onExternalClose={() => { setAiOpen(false); voice.endVoiceSession?.(); }}
               voiceActive={voiceModeEnabled}
               voiceState={voice.voiceState}
               voiceTranscript={voice.transcript}
               voiceQuery={voiceQuery}
               onVoiceQueryHandled={() => setVoiceQuery(null)}
-              onVoiceResponse={useNova ? null : (text) => voice.speakResponse(text)}
+              onVoiceResponse={useNova ? null : (text) => voice.speakResponse?.(text)}
               onTapToSpeak={() => {
                 setAiOpen(true);
                 if (useNova && !nova.isConnected) nova.startSession();

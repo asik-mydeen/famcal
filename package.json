@@ -25,6 +25,11 @@
     "@mui/material": "5.13.1",
     "@mui/styled-engine": "5.12.3",
     "@supabase/supabase-js": "^2.99.1",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-autostart": "^2.2.0",
+    "@tauri-apps/plugin-global-shortcut": "^2.2.0",
+    "@tauri-apps/plugin-process": "^2.2.0",
+    "@tauri-apps/plugin-window-state": "^2.2.0",
     "@testing-library/jest-dom": "5.16.5",
     "@testing-library/react": "14.0.0",
     "@testing-library/user-event": "14.4.3",
@@ -85,7 +90,6 @@
     "react-dom": ">=16.8.0"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/cli": "^2.10.1",
     "ajv": "^8.12.0",
     "cross-env": "^10.1.0",

@@ -6,6 +6,8 @@
  * Uses the provider_token from Supabase Auth (Google OAuth) for authentication.
  */
 
+import { apiUrl } from "lib/api";
+
 function getProviderToken() {
   return localStorage.getItem("famcal_provider_token") || null;
 }
@@ -20,7 +22,7 @@ export async function connectGooglePhotos() {
     throw new Error("No Google token available. Please sign out and sign in again to grant Photos access.");
   }
   // Test via serverless proxy
-  const res = await fetch("/api/photos?action=albums", {
+  const res = await fetch(apiUrl("/api/photos?action=albums"), {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 403) {
@@ -45,7 +47,7 @@ export async function fetchAlbums() {
   const token = getProviderToken();
   if (!token) throw new Error("Not signed in with Google. Sign out and sign in again.");
 
-  const res = await fetch("/api/photos?action=albums", {
+  const res = await fetch(apiUrl("/api/photos?action=albums"), {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -81,7 +83,7 @@ export async function fetchPhotosFromAlbums(albumIds) {
 
   for (const albumId of albumIds) {
     try {
-      const res = await fetch("/api/photos?action=photos", {
+      const res = await fetch(apiUrl("/api/photos?action=photos"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

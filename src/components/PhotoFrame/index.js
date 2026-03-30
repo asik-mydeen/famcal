@@ -118,21 +118,15 @@ EventsCard.propTypes = {
   })).isRequired,
 };
 
-// Generate random Ken Burns params for each photo
-function randomKenBurns() {
-  const directions = [
-    { startX: 0, startY: 0, endX: -3, endY: -2 },
-    { startX: -2, startY: -1, endX: 1, endY: 1 },
-    { startX: 1, startY: -2, endX: -1, endY: 0 },
-    { startX: -1, startY: 1, endX: 2, endY: -1 },
-    { startX: 0, startY: -2, endX: 0, endY: 2 },
-    { startX: -2, startY: 0, endX: 2, endY: 0 },
-  ];
-  const dir = directions[Math.floor(Math.random() * directions.length)];
-  const startScale = 1.0 + Math.random() * 0.05;
-  const endScale = startScale + 0.12 + Math.random() * 0.06;
-  return { ...dir, startScale, endScale };
-}
+// Fixed Ken Burns presets — prevents CSS class accumulation in Emotion CSSOM
+const KENBURNS_PRESETS = [
+  { startScale: 1.00, endScale: 1.15, startX: 0, startY: 0, endX: -3, endY: -2 },
+  { startScale: 1.02, endScale: 1.18, startX: -2, startY: -1, endX: 1, endY: 1 },
+  { startScale: 1.03, endScale: 1.17, startX: 1, startY: -2, endX: -1, endY: 0 },
+  { startScale: 1.01, endScale: 1.16, startX: -1, startY: 1, endX: 2, endY: -1 },
+  { startScale: 1.04, endScale: 1.19, startX: 0, startY: -2, endX: 0, endY: 2 },
+  { startScale: 1.02, endScale: 1.14, startX: -2, startY: 0, endX: 2, endY: 0 },
+];
 
 const FADE_TIME = 1500; // 1.5s crossfade
 
@@ -151,20 +145,23 @@ function PhotoFrame({ photos, interval = 10, weather, ambientInfo, onDismiss }) 
   const [infoCardIndex, setInfoCardIndex] = useState(0);
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
-  const kenBurnsRef = useRef(photos.map(() => randomKenBurns()));
 
-  // Ensure kenBurns array matches photos length
-  useEffect(() => {
-    if (photos.length > kenBurnsRef.current.length) {
-      kenBurnsRef.current = photos.map(() => randomKenBurns());
-    }
-  }, [photos.length]);
+  // Use fixed preset indices instead of random Ken Burns params (prevents CSS class leak)
+  const kenBurnsRef = useRef(photos.map((_, i) => i % KENBURNS_PRESETS.length));
 
-  // Reset transition counter on mount/unmount
+  // Reset transition counter on mount/unmount + limit cycles for memory management
   useEffect(() => {
     moduleTransitionCount = 0;
     return () => { moduleTransitionCount = 0; };
   }, []);
+
+  // Preload next image to prevent loading delays during crossfade
+  useEffect(() => {
+    if (photos.length <= 1) return;
+    const nextIndex = (current + 1) % photos.length;
+    const prefetch = new Image();
+    prefetch.src = photos[nextIndex]?.url || "";
+  }, [current, photos]);
 
   // Clock
   useEffect(() => {
@@ -186,12 +183,16 @@ function PhotoFrame({ photos, interval = 10, weather, ambientInfo, onDismiss }) 
         setPrevious(prev);
         setFading(true);
         const next = (prev + 1) % photos.length;
-        // Generate new Ken Burns for next photo
-        kenBurnsRef.current[next] = randomKenBurns();
         setTimeout(() => { setFading(false); setPrevious(-1); }, FADE_TIME);
 
         // Trigger ambient info panel every 2nd transition
         moduleTransitionCount += 1;
+
+        // Reset transition counter periodically to prevent unbounded memory growth
+        if (moduleTransitionCount > photos.length * 2) {
+          moduleTransitionCount = 0;
+        }
+
         if (moduleTransitionCount % 2 === 0 && ambientInfo) {
           const activeCards = [
             ambientInfo.tasks?.length  > 0 && "tasks",
@@ -230,7 +231,8 @@ function PhotoFrame({ photos, interval = 10, weather, ambientInfo, onDismiss }) 
 
   const renderPhoto = (index, isActive) => {
     if (index < 0 || index >= photos.length) return null;
-    const kb = kenBurnsRef.current[index] || randomKenBurns();
+    const presetIdx = kenBurnsRef.current[index] || 0;
+    const kb = KENBURNS_PRESETS[presetIdx];
     const photo = photos[index];
 
     return (
@@ -253,14 +255,30 @@ function PhotoFrame({ photos, interval = 10, weather, ambientInfo, onDismiss }) 
             width: "116%",
             height: "116%",
             objectFit: "cover",
-            animation: isActive ? `kenburns ${displayTime}ms ease-out forwards` : "none",
-            "@keyframes kenburns": {
-              "0%": {
-                transform: `scale(${kb.startScale}) translate(${kb.startX}%, ${kb.startY}%)`,
-              },
-              "100%": {
-                transform: `scale(${kb.endScale}) translate(${kb.endX}%, ${kb.endY}%)`,
-              },
+            animation: isActive ? `kenburns-${presetIdx} ${displayTime}ms ease-out forwards` : "none",
+            "@keyframes kenburns-0": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[0].startScale}) translate(${KENBURNS_PRESETS[0].startX}%, ${KENBURNS_PRESETS[0].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[0].endScale}) translate(${KENBURNS_PRESETS[0].endX}%, ${KENBURNS_PRESETS[0].endY}%)` },
+            },
+            "@keyframes kenburns-1": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[1].startScale}) translate(${KENBURNS_PRESETS[1].startX}%, ${KENBURNS_PRESETS[1].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[1].endScale}) translate(${KENBURNS_PRESETS[1].endX}%, ${KENBURNS_PRESETS[1].endY}%)` },
+            },
+            "@keyframes kenburns-2": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[2].startScale}) translate(${KENBURNS_PRESETS[2].startX}%, ${KENBURNS_PRESETS[2].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[2].endScale}) translate(${KENBURNS_PRESETS[2].endX}%, ${KENBURNS_PRESETS[2].endY}%)` },
+            },
+            "@keyframes kenburns-3": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[3].startScale}) translate(${KENBURNS_PRESETS[3].startX}%, ${KENBURNS_PRESETS[3].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[3].endScale}) translate(${KENBURNS_PRESETS[3].endX}%, ${KENBURNS_PRESETS[3].endY}%)` },
+            },
+            "@keyframes kenburns-4": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[4].startScale}) translate(${KENBURNS_PRESETS[4].startX}%, ${KENBURNS_PRESETS[4].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[4].endScale}) translate(${KENBURNS_PRESETS[4].endX}%, ${KENBURNS_PRESETS[4].endY}%)` },
+            },
+            "@keyframes kenburns-5": {
+              "0%": { transform: `scale(${KENBURNS_PRESETS[5].startScale}) translate(${KENBURNS_PRESETS[5].startX}%, ${KENBURNS_PRESETS[5].startY}%)` },
+              "100%": { transform: `scale(${KENBURNS_PRESETS[5].endScale}) translate(${KENBURNS_PRESETS[5].endX}%, ${KENBURNS_PRESETS[5].endY}%)` },
             },
           }}
         />

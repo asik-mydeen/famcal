@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useReducer } from "react";
+import { useState, useEffect, useCallback, useMemo, useReducer, useRef, lazy, Suspense } from "react";
 import { useParams, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -20,16 +20,27 @@ import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import { fetchWeather } from "lib/weather";
 import AIAssistant from "components/AIAssistant";
+import PhotoFrame from "components/PhotoFrame";
+import VoiceOverlay from "components/VoiceOverlay";
+import DailyBriefing from "components/DailyBriefing";
+import ErrorBoundary from "components/ErrorBoundary";
 import { TimerAlarmProvider } from "context/TimerAlarmContext";
 import AlertOverlay from "components/AlertOverlay";
 import TimerAlarmPanel from "components/TimerAlarmPanel";
+import useIdleTimer from "hooks/useIdleTimer";
+import useNovaVoice from "hooks/useNovaVoice";
+import useVoiceMode from "hooks/useVoiceMode";
+import { fetchArtPhotos } from "lib/artPhotos";
 
-import FamilyCalendar from "layouts/family-calendar";
-import Chores from "layouts/chores";
-import Meals from "layouts/meals";
-import Lists from "layouts/lists";
-import Family from "layouts/family";
-import Rewards from "layouts/rewards";
+// Lazy-load page components for code splitting
+const FamilyCalendar = lazy(() => import("layouts/family-calendar"));
+const Chores = lazy(() => import("layouts/chores"));
+const Meals = lazy(() => import("layouts/meals"));
+const Lists = lazy(() => import("layouts/lists"));
+const Family = lazy(() => import("layouts/family"));
+const Rewards = lazy(() => import("layouts/rewards"));
+const Routines = lazy(() => import("layouts/routines"));
+const Emergency = lazy(() => import("layouts/emergency"));
 
 // Map DB field names to client field names
 function eventFromDb(row) {
@@ -376,6 +387,13 @@ function DashboardShell({ data, slug, onDisconnect }) {
     };
   }, []);
 
+  // Disable right-click context menu in kiosk mode
+  useEffect(() => {
+    const handler = (e) => e.preventDefault();
+    document.addEventListener("contextmenu", handler);
+    return () => document.removeEventListener("contextmenu", handler);
+  }, []);
+
   // Font scale (per-device, stored in localStorage)
   const [fontScale, setFontScale] = useState(() => parseFloat(localStorage.getItem("famcal_font_scale") || "1.15"));
   const handleFontScaleChange = useCallback((newScale) => {
@@ -412,6 +430,155 @@ function DashboardShell({ data, slug, onDisconnect }) {
   const pathParts = location.pathname.split("/");
   const activeTab = pathParts.length > 3 ? pathParts[3] : "calendar";
 
+  // ── Voice Mode (Nova + Whisper Fallback) ──
+  const [voiceQuery, setVoiceQuery] = useState(null);
+
+  // Nova Sonic real-time voice (preferred when configured)
+  const novaProxyUrl = process.env.REACT_APP_NOVA_PROXY_URL || null;
+  const nova = useNovaVoice(novaProxyUrl, state, persistingDispatch, {
+    currentPage: activeTab,
+    onTranscript: (text, role) => { if (role === "user") setVoiceQuery(text); },
+  });
+
+  // Legacy Whisper+TTS voice (fallback)
+  const legacyVoice = useVoiceMode(state, {
+    onWakeWord: () => setAiOpen(true),
+    onVoiceCommand: (query) => setVoiceQuery(query),
+  });
+
+  const useNova = Boolean(novaProxyUrl) && nova.isAvailable;
+  const voice = useNova ? nova : legacyVoice;
+  const voiceModeEnabled = localStorage.getItem("famcal_voice_mode") === "true";
+
+  // ── Screensaver (Idle Detection + Art Photos) ──
+  const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
+  const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
+
+  // Manual screensaver trigger
+  const [manualScreensaver, setManualScreensaver] = useState(false);
+  useEffect(() => {
+    const handler = () => setManualScreensaver(true);
+    window.addEventListener("famcal-screensaver-start", handler);
+    return () => window.removeEventListener("famcal-screensaver-start", handler);
+  }, []);
+
+  const isScreensaverActive = isIdle || manualScreensaver;
+
+  // Art photos for screensaver (Google Photos not available in kiosk — no OAuth)
+  const [artPhotos, setArtPhotos] = useState([]);
+
+  // Ambient info for screensaver lower-third
+  const ambientInfo = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
+    // Tasks: not completed and due today or overdue (no due date = always relevant)
+    const pendingTasks = (state.tasks || []).filter(
+      (t) => !t.completed && (!t.due_date || t.due_date <= today)
+    );
+    const tasksByMember = {};
+    pendingTasks.forEach((task) => {
+      const member = (state.members || []).find((m) => m.id === task.assigned_to);
+      const key = member?.id || "unassigned";
+      if (!tasksByMember[key]) {
+        tasksByMember[key] = {
+          memberName: member?.name || "Family",
+          memberColor: member?.avatar_color || "#888888",
+          items: [],
+        };
+      }
+      if (tasksByMember[key].items.length < 2) {
+        tasksByMember[key].items.push(task.title);
+      }
+    });
+    const tasks = Object.values(tasksByMember).slice(0, 3);
+
+    // Meals: today only, sorted breakfast → lunch → dinner
+    const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack"];
+    const MEAL_LABELS = {
+      breakfast: { emoji: "\u{1F305}", label: "Breakfast" },
+      lunch:     { emoji: "\u2600\uFE0F", label: "Lunch" },
+      dinner:    { emoji: "\u{1F319}", label: "Dinner" },
+      snack:     { emoji: "\u{1F34E}", label: "Snack" },
+    };
+    const meals = (state.meals || [])
+      .filter((m) => m.date === today && m.title)
+      .sort((a, b) => MEAL_ORDER.indexOf(a.meal_type) - MEAL_ORDER.indexOf(b.meal_type))
+      .map((m) => ({
+        type: m.meal_type,
+        emoji: MEAL_LABELS[m.meal_type]?.emoji || "\u{1F37D}\uFE0F",
+        label: MEAL_LABELS[m.meal_type]?.label || m.meal_type,
+        title: m.title,
+      }));
+
+    // Events: today + tomorrow, max 4, sorted by start time
+    const events = (state.events || [])
+      .filter((e) => {
+        const d = (e.start || "").split("T")[0];
+        return d === today || d === tomorrow;
+      })
+      .sort((a, b) => new Date(a.start) - new Date(b.start))
+      .slice(0, 4)
+      .map((e) => {
+        const member = (state.members || []).find((m) => m.id === e.member_id);
+        const eventDate = (e.start || "").split("T")[0];
+        let timeLabel;
+        if (e.allDay) {
+          timeLabel = eventDate === today ? "Today \u00B7 All day" : "Tomorrow \u00B7 All day";
+        } else {
+          const t = new Date(e.start).toLocaleTimeString("en-US", {
+            hour: "numeric", minute: "2-digit", hour12: true,
+          });
+          timeLabel = eventDate === today ? `Today ${t}` : "Tomorrow";
+        }
+        return {
+          memberName: member?.name || "Family",
+          memberColor: member?.avatar_color || "#888888",
+          title: e.title,
+          timeLabel,
+        };
+      });
+
+    return { tasks, meals, events, totalPendingTasks: pendingTasks.length };
+  }, [state.tasks, state.meals, state.events, state.members]);
+
+  // Load art photos when screensaver activates
+  useEffect(() => {
+    if (!isScreensaverActive) return;
+    if (artPhotos.length === 0) {
+      const artCategory = localStorage.getItem("famcal_art_category") || "all";
+      fetchArtPhotos(artCategory).then(setArtPhotos).catch(console.error);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScreensaverActive]);
+
+  // ── Daily Briefing ──
+  const [showBriefing, setShowBriefing] = useState(false);
+  const briefingDismissed = useRef(false);
+
+  const handleBriefingCheck = useCallback((forceShow) => {
+    if (forceShow) {
+      setShowBriefing(true);
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const lastBriefing = localStorage.getItem("famcal_last_briefing_date");
+    if (lastBriefing !== today && !briefingDismissed.current) {
+      setShowBriefing(true);
+    }
+  }, []);
+
+  const handleDismissBriefing = useCallback(() => {
+    briefingDismissed.current = true;
+    setShowBriefing(false);
+    localStorage.setItem("famcal_last_briefing_date", new Date().toISOString().split("T")[0]);
+  }, []);
+
+  // Show briefing on initial load
+  useEffect(() => {
+    if (!briefingDismissed.current) handleBriefingCheck();
+  }, [handleBriefingCheck]);
+
   const handleTabChange = (key, path) => {
     // Navigate within the dashboard: /d/{slug}/calendar, /d/{slug}/chores, etc.
     navigate(`/d/${slug}/${key}`);
@@ -430,6 +597,39 @@ function DashboardShell({ data, slug, onDisconnect }) {
     <FamilyContext.Provider value={contextValue}>
       <AlertOverlay />
       <AnimatedBackground />
+
+      {/* Screensaver overlay — idle or manually triggered */}
+      {isScreensaverActive && (() => {
+        // In kiosk mode, only art + uploaded photos available (no Google OAuth)
+        const uploadedPhotos = state.photos || [];
+        const combined = [...artPhotos, ...uploadedPhotos];
+        if (combined.length === 0) return null;
+        return (
+          <PhotoFrame
+            photos={combined}
+            interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
+            weather={weatherData}
+            ambientInfo={ambientInfo}
+            onDismiss={() => {
+              resetTimer();
+              setManualScreensaver(false);
+              setArtPhotos([]);
+              handleBriefingCheck();
+            }}
+          />
+        );
+      })()}
+
+      {/* Daily Briefing overlay */}
+      {showBriefing && (
+        <DailyBriefing
+          state={state}
+          dispatch={persistingDispatch}
+          weather={weatherData}
+          onDismiss={handleDismissBriefing}
+        />
+      )}
+
       <HeaderBar
         members={state.members}
         weatherWidget={headerWeatherWidget}
@@ -439,23 +639,32 @@ function DashboardShell({ data, slug, onDisconnect }) {
         fontScale={fontScale}
         onFontScaleChange={handleFontScaleChange}
         onOpenTimerPanel={() => setTimerPanelOpen(true)}
+        onOpenBriefing={() => handleBriefingCheck(true)}
       />
       <Box className="kiosk-tab-strip" sx={{ display: { xs: "none", md: "flex" }, px: 3, pt: 1 }}>
         <TabStrip activeTab={activeTab} onTabChange={handleTabChange} hideTabs={["settings"]} />
       </Box>
       <Box sx={{ flex: 1, overflow: "auto", pb: { xs: 10, md: 2 } }}>
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            <Route path="calendar" element={<PageTransition><FamilyCalendar /></PageTransition>} />
-            <Route path="chores" element={<PageTransition><Chores /></PageTransition>} />
-            <Route path="meals" element={<PageTransition><Meals /></PageTransition>} />
-            <Route path="lists" element={<PageTransition><Lists /></PageTransition>} />
-            <Route path="family" element={<PageTransition><Family /></PageTransition>} />
-            <Route path="rewards" element={<PageTransition><Rewards /></PageTransition>} />
-            <Route path="" element={<Navigate to="calendar" replace />} />
-            <Route path="*" element={<Navigate to="calendar" replace />} />
-          </Routes>
-        </AnimatePresence>
+        <Suspense fallback={
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+            <CircularProgress sx={{ color: "#6C5CE7" }} />
+          </Box>
+        }>
+          <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+              <Route path="calendar" element={<ErrorBoundary><PageTransition><FamilyCalendar /></PageTransition></ErrorBoundary>} />
+              <Route path="chores" element={<ErrorBoundary><PageTransition><Chores /></PageTransition></ErrorBoundary>} />
+              <Route path="meals" element={<ErrorBoundary><PageTransition><Meals /></PageTransition></ErrorBoundary>} />
+              <Route path="lists" element={<ErrorBoundary><PageTransition><Lists /></PageTransition></ErrorBoundary>} />
+              <Route path="family" element={<ErrorBoundary><PageTransition><Family /></PageTransition></ErrorBoundary>} />
+              <Route path="rewards" element={<ErrorBoundary><PageTransition><Rewards /></PageTransition></ErrorBoundary>} />
+              <Route path="routines" element={<ErrorBoundary><PageTransition><Routines /></PageTransition></ErrorBoundary>} />
+              <Route path="emergency" element={<ErrorBoundary><PageTransition><Emergency /></PageTransition></ErrorBoundary>} />
+              <Route path="" element={<Navigate to="calendar" replace />} />
+              <Route path="*" element={<Navigate to="calendar" replace />} />
+            </Routes>
+          </AnimatePresence>
+        </Suspense>
       </Box>
       {/* Mobile: show TabStrip at bottom instead of FloatingNav */}
       <Box sx={{ display: { xs: "flex", md: "none" }, position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1100, px: 1, pb: 1, bgcolor: "background.default" }}>
@@ -577,7 +786,30 @@ function DashboardShell({ data, slug, onDisconnect }) {
         state={state}
         currentPage={activeTab}
         externalOpen={aiOpen}
-        onExternalClose={() => setAiOpen(false)}
+        onExternalClose={() => { setAiOpen(false); voice.endVoiceSession?.(); }}
+        voiceActive={voiceModeEnabled}
+        voiceState={voice.voiceState}
+        voiceTranscript={voice.transcript}
+        voiceQuery={voiceQuery}
+        onVoiceQueryHandled={() => setVoiceQuery(null)}
+        onVoiceResponse={useNova ? null : (text) => voice.speakResponse?.(text)}
+        onTapToSpeak={() => {
+          setAiOpen(true);
+          if (useNova && !nova.isConnected) nova.startSession();
+          else voice.tapToSpeak?.();
+        }}
+      />
+      {/* Voice Mode — listening indicator only (chat happens in AIAssistant) */}
+      <VoiceOverlay
+        voiceState={voice.voiceState}
+        isEnabled={voiceModeEnabled}
+        onDisable={voice.disable}
+        onTapToSpeak={() => {
+          setAiOpen(true);
+          if (useNova && !nova.isConnected) nova.startSession();
+          else voice.tapToSpeak?.();
+        }}
+        onInterrupt={useNova ? nova.bargeIn : undefined}
       />
       <TimerAlarmPanel
         open={timerPanelOpen}
