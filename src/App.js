@@ -940,6 +940,7 @@ export default function App() {
                 if (useNova && !nova.isConnected) nova.startSession();
                 else voice.tapToSpeak();
               }}
+              onInterrupt={useNova ? nova.bargeIn : undefined}
             />
           </KioskWrapper>
         </TimerAlarmProvider>

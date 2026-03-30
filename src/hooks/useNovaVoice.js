@@ -22,6 +22,8 @@ const NOVA_STATES = {
 const SESSION_MAX_MS = 8 * 60 * 1000; // 8 minutes
 const SAMPLE_RATE = 24000;
 const CHUNK_SIZE = 4096; // ~170ms at 24kHz (must be power of 2 for ScriptProcessorNode)
+const BARGE_IN_DB_THRESHOLD = -35; // dB — speech vs ambient noise during playback
+const BARGE_IN_DEBOUNCE_MS = 150;  // ms sustained speech before barge-in triggers
 
 // Module-level to avoid CRA closure bugs
 let moduleWs = null;
@@ -33,6 +35,11 @@ let modulePlaybackTime = 0;
 let moduleIsShuttingDown = false;
 let moduleMicBufferQueue = []; // buffer mic audio before session is ready
 let moduleSessionReady = false;
+let moduleActiveSources = [];     // AudioBufferSource nodes currently scheduled
+let moduleCurrentItemId = null;   // item_id of active response (for truncate)
+let moduleResponseStartTime = 0;  // AudioContext.currentTime when response started
+let moduleBargeInStartMs = 0;     // wall-clock ms when above-threshold energy began
+let moduleBargeInFn = null;       // updated each render to avoid stale closure in onaudioprocess
 
 // Build Nova session instructions from family state
 function buildNovaInstructions(familyState, currentPage) {
@@ -350,6 +357,12 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
       const start = Math.max(now + 0.005, modulePlaybackTime);
       source.start(start);
       modulePlaybackTime = start + buffer.duration;
+
+      // Track node so bargeIn() can cancel it
+      moduleActiveSources.push(source);
+      source.onended = () => {
+        moduleActiveSources = moduleActiveSources.filter((s) => s !== source);
+      };
     } catch (e) {
       console.warn("[nova] Audio playback error:", e.message);
     }
@@ -436,6 +449,10 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
               setNovaState(NOVA_STATES.SPEAKING);
               // Reset playback time on new response to avoid scheduling far in the future
               modulePlaybackTime = modulePlaybackCtx?.currentTime || 0;
+              // Record response start for accurate audio_end_ms calculation
+              moduleResponseStartTime = modulePlaybackCtx?.currentTime || 0;
+              // Capture item_id for conversation.item.truncate
+              moduleCurrentItemId = event.item_id || null;
             }
             playAudioDelta(event.delta);
             break;
@@ -452,6 +469,13 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
           case "error":
             console.error("[nova] Error:", event.error);
             onError?.(event.error?.message || "Nova error");
+            break;
+
+          case "input_audio_buffer.speech_started":
+            // Server detected user speech — barge in if we're currently speaking
+            if (stateRef.current === NOVA_STATES.SPEAKING) {
+              moduleBargeInFn?.();
+            }
             break;
 
           default:
@@ -499,6 +523,29 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
         const float32 = e.inputBuffer.getChannelData(0);
         const base64 = float32ToBase64Pcm(float32);
 
+        // Barge-in detection: check mic energy during SPEAKING
+        // stateRef is a stable React ref — always holds latest state value
+        if (stateRef.current === NOVA_STATES.SPEAKING) {
+          let rms = 0;
+          for (let i = 0; i < float32.length; i++) rms += float32[i] * float32[i];
+          rms = Math.sqrt(rms / float32.length);
+          const db = 20 * Math.log10(Math.max(rms, 0.00001));
+
+          if (db > BARGE_IN_DB_THRESHOLD) {
+            if (!moduleBargeInStartMs) {
+              moduleBargeInStartMs = Date.now();
+            } else if (Date.now() - moduleBargeInStartMs >= BARGE_IN_DEBOUNCE_MS) {
+              // Sustained speech detected — barge in
+              moduleBargeInFn?.();
+            }
+          } else {
+            // Reset debounce on silence
+            moduleBargeInStartMs = 0;
+          }
+        } else {
+          moduleBargeInStartMs = 0;
+        }
+
         if (moduleSessionReady) {
           // Session ready — send directly
           ws.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }));
@@ -522,6 +569,11 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
   const cleanup = useCallback(() => {
     moduleSessionReady = false;
     moduleMicBufferQueue = [];
+    moduleActiveSources.forEach((s) => { try { s.stop(); } catch {} });
+    moduleActiveSources = [];
+    moduleCurrentItemId = null;
+    moduleResponseStartTime = 0;
+    moduleBargeInStartMs = 0;
     if (moduleProcessor) { moduleProcessor.disconnect(); moduleProcessor = null; }
     if (moduleStream) { moduleStream.getTracks().forEach((t) => t.stop()); moduleStream = null; }
     if (moduleMicCtx) { try { moduleMicCtx.close(); } catch {} moduleMicCtx = null; }
@@ -542,13 +594,51 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
     setTranscript("");
   }, [cleanup]);
 
-  // Interrupt AI while speaking
-  const interrupt = useCallback(() => {
+  // Barge-in: stop local audio immediately + signal Nova to cancel response
+  const bargeIn = useCallback(() => {
+    // Guard: only act during SPEAKING (idempotent — safe to call multiple times)
+    if (stateRef.current !== NOVA_STATES.SPEAKING) return;
+
+    // 1. Stop all scheduled AudioBufferSource nodes immediately
+    moduleActiveSources.forEach((s) => { try { s.stop(); } catch {} });
+    moduleActiveSources = [];
+
+    // 2. Calculate how many ms of audio actually played
+    const audioEndMs = moduleResponseStartTime
+      ? Math.round((modulePlaybackCtx?.currentTime - moduleResponseStartTime) * 1000)
+      : 0;
+
+    // 3. Signal Nova to truncate + cancel
     if (moduleWs?.readyState === WebSocket.OPEN) {
-      moduleWs.send(JSON.stringify({ type: "conversation.item.truncate", content_index: 0, audio_end_ms: 0 }));
+      // Only send truncate if we have a valid item_id
+      if (moduleCurrentItemId) {
+        moduleWs.send(JSON.stringify({
+          type: "conversation.item.truncate",
+          item_id: moduleCurrentItemId,
+          content_index: 0,
+          audio_end_ms: Math.max(0, audioEndMs),
+        }));
+      }
+      moduleWs.send(JSON.stringify({ type: "response.cancel" }));
     }
+
+    // 4. Reset playback state
+    if (modulePlaybackCtx) {
+      modulePlaybackTime = modulePlaybackCtx.currentTime;
+    }
+    moduleResponseStartTime = 0;
+    moduleCurrentItemId = null;
+    moduleBargeInStartMs = 0;
+
+    // 5. Return to listening
     setNovaState(NOVA_STATES.LISTENING);
   }, []);
+
+  // Legacy alias — kept for backwards compat
+  const interrupt = bargeIn;
+
+  // Update module-level pointer so onaudioprocess can call bargeIn without closure issues
+  moduleBargeInFn = bargeIn;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -569,6 +659,7 @@ export default function useNovaVoice(proxyUrl, familyState, dispatch, { currentP
     startSession,
     endSession,
     interrupt,
+    bargeIn,
     // Compatibility with legacy voice interface
     voiceState: novaState,
     isEnabled: isConnected,
