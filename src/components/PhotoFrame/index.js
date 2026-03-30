@@ -12,7 +12,7 @@ function TasksCard({ tasks, total }) {
       <Box display="flex" alignItems="center" gap={1} mb={1.5}>
         <Icon sx={{ fontSize: "1rem !important", color: "rgba(255,255,255,0.5)" }}>task_alt</Icon>
         <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>
-          Today's Tasks
+          Today&apos;s Tasks
         </Typography>
         {total > 0 && (
           <Box sx={{ ml: 1, px: 1, py: 0.25, borderRadius: "8px", bgcolor: "rgba(255,255,255,0.15)" }}>
@@ -43,7 +43,7 @@ function MealsCard({ meals }) {
       <Box display="flex" alignItems="center" gap={1} mb={1.5}>
         <Icon sx={{ fontSize: "1rem !important", color: "rgba(255,255,255,0.5)" }}>restaurant</Icon>
         <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)" }}>
-          Today's Meals
+          Today&apos;s Meals
         </Typography>
       </Box>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
@@ -91,6 +91,32 @@ function EventsCard({ events }) {
     </Box>
   );
 }
+
+TasksCard.propTypes = {
+  tasks: PropTypes.arrayOf(PropTypes.shape({
+    memberName: PropTypes.string,
+    memberColor: PropTypes.string,
+    items: PropTypes.arrayOf(PropTypes.string),
+  })).isRequired,
+  total: PropTypes.number,
+};
+
+MealsCard.propTypes = {
+  meals: PropTypes.arrayOf(PropTypes.shape({
+    emoji: PropTypes.string,
+    label: PropTypes.string,
+    title: PropTypes.string,
+  })).isRequired,
+};
+
+EventsCard.propTypes = {
+  events: PropTypes.arrayOf(PropTypes.shape({
+    memberName: PropTypes.string,
+    memberColor: PropTypes.string,
+    title: PropTypes.string,
+    timeLabel: PropTypes.string,
+  })).isRequired,
+};
 
 // Generate random Ken Burns params for each photo
 function randomKenBurns() {
