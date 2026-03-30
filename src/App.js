@@ -682,6 +682,82 @@ export default function App() {
     catch { return []; }
   }, []);
 
+  // Ambient info for screensaver lower-third overlay
+  const ambientInfo = useMemo(() => {
+    if (!dataLoaded) return null;
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
+    // Tasks: not completed and due today or overdue (no due date = always relevant)
+    const pendingTasks = (state.tasks || []).filter(
+      (t) => !t.completed && (!t.due_date || t.due_date <= today)
+    );
+    const tasksByMember = {};
+    pendingTasks.forEach((task) => {
+      const member = (state.members || []).find((m) => m.id === task.assigned_to);
+      const key = member?.id || "unassigned";
+      if (!tasksByMember[key]) {
+        tasksByMember[key] = {
+          memberName: member?.name || "Family",
+          memberColor: member?.avatar_color || "#888888",
+          items: [],
+        };
+      }
+      if (tasksByMember[key].items.length < 2) {
+        tasksByMember[key].items.push(task.title);
+      }
+    });
+    const tasks = Object.values(tasksByMember).slice(0, 3);
+
+    // Meals: today only, sorted breakfast → lunch → dinner
+    const MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack"];
+    const MEAL_LABELS = {
+      breakfast: { emoji: "🌅", label: "Breakfast" },
+      lunch:     { emoji: "☀️", label: "Lunch" },
+      dinner:    { emoji: "🌙", label: "Dinner" },
+      snack:     { emoji: "🍎", label: "Snack" },
+    };
+    const meals = (state.meals || [])
+      .filter((m) => m.date === today && m.title)
+      .sort((a, b) => MEAL_ORDER.indexOf(a.meal_type) - MEAL_ORDER.indexOf(b.meal_type))
+      .map((m) => ({
+        type: m.meal_type,
+        emoji: MEAL_LABELS[m.meal_type]?.emoji || "🍽️",
+        label: MEAL_LABELS[m.meal_type]?.label || m.meal_type,
+        title: m.title,
+      }));
+
+    // Events: today + tomorrow, max 4, sorted by start time
+    const events = (state.events || [])
+      .filter((e) => {
+        const d = (e.start || "").split("T")[0];
+        return d === today || d === tomorrow;
+      })
+      .sort((a, b) => new Date(a.start) - new Date(b.start))
+      .slice(0, 4)
+      .map((e) => {
+        const member = (state.members || []).find((m) => m.id === e.member_id);
+        const eventDate = (e.start || "").split("T")[0];
+        let timeLabel;
+        if (e.allDay) {
+          timeLabel = eventDate === today ? "Today · All day" : "Tomorrow · All day";
+        } else {
+          const t = new Date(e.start).toLocaleTimeString("en-US", {
+            hour: "numeric", minute: "2-digit", hour12: true,
+          });
+          timeLabel = eventDate === today ? `Today ${t}` : "Tomorrow";
+        }
+        return {
+          memberName: member?.name || "Family",
+          memberColor: member?.avatar_color || "#888888",
+          title: e.title,
+          timeLabel,
+        };
+      });
+
+    return { tasks, meals, events, totalPendingTasks: pendingTasks.length };
+  }, [state.tasks, state.meals, state.events, state.members, dataLoaded]);
+
   // Load enabled photo sources when screensaver activates
   useEffect(() => {
     if (!isScreensaverActive) return;
@@ -844,6 +920,7 @@ export default function App() {
                 photos={combined}
                 interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
                 weather={weatherData}
+                ambientInfo={ambientInfo}
                 onDismiss={() => {
                   resetTimer();
                   setManualScreensaver(false);
