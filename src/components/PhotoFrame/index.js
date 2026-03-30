@@ -265,6 +265,10 @@ PhotoFrame.propTypes = {
       id: PropTypes.string.isRequired,
       url: PropTypes.string.isRequired,
       caption: PropTypes.string,
+      source: PropTypes.string,
+      title: PropTypes.string,
+      artist: PropTypes.string,
+      year: PropTypes.string,
     })
   ).isRequired,
   interval: PropTypes.number,
