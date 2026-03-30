@@ -27,6 +27,7 @@ import { PRESET_META } from "theme/tokens";
 import { useAuth } from "context/AuthContext";
 import { getGoogleClientId } from "lib/googleCalendar";
 import { connectGooglePhotos, disconnectGooglePhotos, isGooglePhotosConnected, fetchAlbums } from "lib/googlePhotos";
+import { ART_CATEGORIES } from "lib/artPhotos";
 import { uploadPhoto, deletePhoto } from "lib/supabase";
 
 function Settings() {
@@ -72,6 +73,16 @@ function Settings() {
   const [photoInterval, setPhotoInterval] = useState(() => {
     return parseInt(localStorage.getItem("famcal_photo_interval") || "10");
   });
+
+  // Screensaver sources + art config
+  const [screensaverSources, setScreensaverSources] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("famcal_screensaver_sources") || '["uploaded"]'); }
+    catch { return ["uploaded"]; }
+  });
+  const [artCategory, setArtCategory] = useState(
+    () => localStorage.getItem("famcal_art_category") || "all"
+  );
+  const [screensaverStarted, setScreensaverStarted] = useState(false);
 
   // Load albums via serverless proxy (no CORS issues)
   useEffect(() => {
@@ -290,6 +301,27 @@ function Settings() {
   const handlePhotoIntervalChange = (e, newValue) => {
     setPhotoInterval(newValue);
     localStorage.setItem("famcal_photo_interval", String(newValue));
+  };
+
+  const toggleScreensaverSource = (source) => {
+    setScreensaverSources((prev) => {
+      const next = prev.includes(source) ? prev.filter((s) => s !== source) : [...prev, source];
+      localStorage.setItem("famcal_screensaver_sources", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleArtCategoryChange = (cat) => {
+    setArtCategory(cat);
+    localStorage.setItem("famcal_art_category", cat);
+    // Clear cached art so next screensaver loads fresh
+    try { sessionStorage.removeItem(`famcal_art_cache_${cat}`); } catch {}
+  };
+
+  const handleStartScreensaver = () => {
+    window.dispatchEvent(new CustomEvent("famcal-screensaver-start"));
+    setScreensaverStarted(true);
+    setTimeout(() => setScreensaverStarted(false), 2500);
   };
 
   const clientIdConfigured = Boolean(getGoogleClientId() || family.google_client_id);
@@ -1105,257 +1137,299 @@ function Settings() {
         {/* Photo Frame (full width) */}
         <Grid item xs={12}>
           <GlassCard delay={0.5}>
-            <Box display="flex" alignItems="center" gap={1} mb={2}>
-              <Icon sx={{ color: "primary.main" }}>photo_library</Icon>
-              <Typography variant="h6" fontWeight="bold">Photo Frame</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              Display family photos when the screen is idle. Upload your favorite family photos below.
-            </Typography>
-
-            {/* Idle timeout slider */}
-            <Box sx={{ mb: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="body2" fontWeight={600}>Idle Timeout</Typography>
-                <Typography variant="body2" fontWeight="bold" color="primary.main">
-                  {idleTimeout} min
-                </Typography>
+            {/* Header row: title + Start Now button */}
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={3} gap={2} flexWrap="wrap">
+              <Box display="flex" alignItems="center" gap={1}>
+                <Icon sx={{ color: "primary.main" }}>slideshow</Icon>
+                <Box>
+                  <Typography variant="h6" fontWeight="bold" lineHeight={1.2}>Screensaver</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Activates after {idleTimeout} min of inactivity
+                  </Typography>
+                </Box>
               </Box>
-              <Slider
-                value={idleTimeout}
-                onChange={handleIdleTimeoutChange}
-                min={1}
-                max={30}
-                step={1}
-                marks={[
-                  { value: 1, label: "1m" },
-                  { value: 15, label: "15m" },
-                  { value: 30, label: "30m" },
-                ]}
-                valueLabelDisplay="auto"
-              />
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<Icon sx={{ fontSize: "1.1rem !important" }}>{screensaverStarted ? "check" : "play_arrow"}</Icon>}
+                onClick={handleStartScreensaver}
+                sx={{
+                  borderRadius: "12px", textTransform: "none", fontWeight: 600,
+                  background: screensaverStarted
+                    ? "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)"
+                    : `linear-gradient(135deg, ${tokens.accent.main} 0%, ${tokens.accent.light || tokens.accent.main} 100%)`,
+                  boxShadow: "none", px: 2.5,
+                  transition: "all 0.3s ease",
+                  touchAction: "manipulation",
+                }}
+              >
+                {screensaverStarted ? "Launched!" : "Start Now"}
+              </Button>
             </Box>
+
+            {/* Timing sliders */}
+            <Grid container spacing={3} mb={3}>
+              <Grid item xs={12} sm={6}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="body2" fontWeight={600}>Idle Timeout</Typography>
+                  <Typography variant="body2" fontWeight="bold" color="primary.main">{idleTimeout} min</Typography>
+                </Box>
+                <Slider value={idleTimeout} onChange={handleIdleTimeoutChange} min={1} max={30} step={1}
+                  marks={[{ value: 1, label: "1m" }, { value: 15, label: "15m" }, { value: 30, label: "30m" }]}
+                  valueLabelDisplay="auto" />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="body2" fontWeight={600}>Photo Duration</Typography>
+                  <Typography variant="body2" fontWeight="bold" color="primary.main">{photoInterval} sec</Typography>
+                </Box>
+                <Slider value={photoInterval} onChange={handlePhotoIntervalChange} min={5} max={30} step={5}
+                  marks={[{ value: 5, label: "5s" }, { value: 15, label: "15s" }, { value: 30, label: "30s" }]}
+                  valueLabelDisplay="auto" />
+              </Grid>
+            </Grid>
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Photo duration slider */}
-            <Box sx={{ mb: 3 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                <Typography variant="body2" fontWeight={600}>Photo Duration</Typography>
-                <Typography variant="body2" fontWeight="bold" color="primary.main">
-                  {photoInterval} sec
-                </Typography>
+            {/* ── Source selection ── */}
+            <Box mb={2}>
+              <Typography variant="body2" fontWeight={700} mb={2} sx={{ letterSpacing: "0.04em", textTransform: "uppercase", fontSize: "0.7rem", color: "text.secondary" }}>
+                Photo Sources
+              </Typography>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {[
+                  { key: "google",   icon: "photo_library",     label: "Google Photos",    desc: "Albums from your Google account" },
+                  { key: "uploaded", icon: "cloud_upload",       label: "Uploaded Photos",  desc: "Photos you've uploaded manually" },
+                  { key: "art",      icon: "palette",            label: "World Art",        desc: "Famous artworks from the Art Institute of Chicago" },
+                ].map(({ key, icon, label, desc }) => {
+                  const active = screensaverSources.includes(key);
+                  return (
+                    <Box
+                      key={key}
+                      onClick={() => toggleScreensaverSource(key)}
+                      sx={{
+                        display: "flex", alignItems: "center", gap: 1.5,
+                        p: 1.5, borderRadius: "12px", cursor: "pointer",
+                        border: "1.5px solid",
+                        borderColor: active ? tokens.accent.main : "transparent",
+                        bgcolor: active ? alpha(tokens.accent.main, 0.06) : alpha(tokens.accent.main, 0.0),
+                        mb: 1, transition: "all 0.2s ease",
+                        touchAction: "manipulation",
+                        "&:hover": { bgcolor: alpha(tokens.accent.main, 0.08) },
+                      }}
+                    >
+                      <Box sx={{
+                        width: 36, height: 36, borderRadius: "10px", flexShrink: 0,
+                        bgcolor: active ? alpha(tokens.accent.main, 0.15) : "action.hover",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <Icon sx={{ fontSize: "1.1rem !important", color: active ? tokens.accent.main : "text.secondary" }}>{icon}</Icon>
+                      </Box>
+                      <Box flex={1} minWidth={0}>
+                        <Typography variant="body2" fontWeight={600}>{label}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.3 }}>{desc}</Typography>
+                      </Box>
+                      <Box sx={{
+                        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                        border: "2px solid", borderColor: active ? tokens.accent.main : "divider",
+                        bgcolor: active ? tokens.accent.main : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.2s ease",
+                      }}>
+                        {active && <Icon sx={{ fontSize: "0.7rem !important", color: "white" }}>check</Icon>}
+                      </Box>
+                    </Box>
+                  );
+                })}
               </Box>
-              <Slider
-                value={photoInterval}
-                onChange={handlePhotoIntervalChange}
-                min={5}
-                max={30}
-                step={5}
-                marks={[
-                  { value: 5, label: "5s" },
-                  { value: 15, label: "15s" },
-                  { value: 30, label: "30s" },
-                ]}
-                valueLabelDisplay="auto"
-              />
             </Box>
 
-            <Divider sx={{ my: 2 }} />
-
-            {/* Google Photos albums */}
-            <Box mb={3}>
-              <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                <Icon sx={{ fontSize: "1.2rem" }}>photo_library</Icon>
-                <Typography variant="body1" fontWeight={600}>Google Photos Albums</Typography>
-              </Box>
-
-              {!isSupabaseConnected && (
-                <Box sx={{
-                  bgcolor: alpha("#f59e0b", 0.1),
-                  border: `1px solid ${alpha("#f59e0b", 0.3)}`,
-                  borderRadius: "12px",
-                  p: 1.5,
-                  mb: 2,
-                }}>
-                  <Box display="flex" alignItems="flex-start" gap={1}>
-                    <Icon sx={{ color: "warning.main", fontSize: "1.2rem" }}>info</Icon>
-                    <Typography variant="caption" color="warning.main">
-                      Connect Supabase to enable photo uploads
-                    </Typography>
+            {/* ── World Art subsection ── */}
+            {screensaverSources.includes("art") && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Box mb={3}>
+                  <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <Icon sx={{ fontSize: "1.1rem !important", color: tokens.accent.main }}>palette</Icon>
+                    <Typography variant="body2" fontWeight={600}>Art Collection</Typography>
                   </Box>
-                </Box>
-              )}
-
-              {photosError && (
-                <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: alpha("#E17055", 0.08), border: `1px solid ${alpha("#E17055", 0.2)}` }}>
-                  <Typography sx={{ fontSize: "0.8rem", color: "#E17055", lineHeight: 1.5 }}>
-                    {photosError}
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                    Curated from the Art Institute of Chicago — free, no account needed
                   </Typography>
-                </Box>
-              )}
-
-              {!photosConnected ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<Icon>photo_library</Icon>}
-                  onClick={() => { setPhotosError(""); handleConnectPhotos(); }}
-                  sx={{ mb: 2 }}
-                >
-                  Load Google Photos Albums
-                </Button>
-              ) : loadingAlbums ? (
-                <Box display="flex" alignItems="center" justifyContent="center" py={3}>
-                  <CircularProgress size={24} sx={{ mr: 1.5 }} />
-                  <Typography variant="body2" color="text.secondary">Loading albums...</Typography>
-                </Box>
-              ) : albums.length > 0 ? (
-                <>
-                  <Typography variant="body2" color="text.secondary" mb={1.5}>
-                    Select albums for slideshow ({selectedAlbumIds.length} selected)
-                  </Typography>
-                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 1.5, mb: 2 }}>
-                    {albums.map((album) => {
-                      const isSelected = selectedAlbumIds.includes(album.id);
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    {ART_CATEGORIES.map(({ key, label, icon }) => {
+                      const selected = artCategory === key;
                       return (
-                        <Box key={album.id} onClick={() => toggleAlbum(album.id)} sx={{
-                          position: "relative", cursor: "pointer", borderRadius: "12px", overflow: "hidden",
-                          border: "2px solid", borderColor: isSelected ? "primary.main" : "divider",
-                          transition: "all 0.2s ease",
-                          "&:hover": { borderColor: isSelected ? "primary.dark" : "primary.light", transform: "translateY(-2px)" },
-                        }}>
-                          {album.coverUrl ? (
-                            <Box component="img" src={album.coverUrl} alt={album.title} sx={{ width: "100%", aspectRatio: "1", objectFit: "cover" }} />
-                          ) : (
-                            <Box sx={{ width: "100%", aspectRatio: "1", bgcolor: "action.hover", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <Icon sx={{ fontSize: "2rem", color: "text.disabled" }}>photo</Icon>
-                            </Box>
-                          )}
-                          {isSelected && (
-                            <Box sx={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", bgcolor: "primary.main", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <Icon sx={{ fontSize: "1rem", color: "white" }}>check</Icon>
-                            </Box>
-                          )}
-                          <Box sx={{ p: 1, bgcolor: "background.paper" }}>
-                            <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.25 }}>{album.title}</Typography>
-                            <Typography variant="caption" color="text.secondary">{album.itemCount} photos</Typography>
-                          </Box>
-                        </Box>
+                        <Chip
+                          key={key}
+                          label={label}
+                          icon={<Icon sx={{ fontSize: "0.9rem !important" }}>{icon}</Icon>}
+                          onClick={() => handleArtCategoryChange(key)}
+                          size="small"
+                          sx={{
+                            borderRadius: "10px", fontWeight: selected ? 700 : 500,
+                            border: "1.5px solid",
+                            borderColor: selected ? tokens.accent.main : "divider",
+                            bgcolor: selected ? alpha(tokens.accent.main, 0.1) : "transparent",
+                            color: selected ? tokens.accent.main : "text.primary",
+                            touchAction: "manipulation",
+                            "& .MuiChip-icon": { color: selected ? tokens.accent.main : "text.secondary" },
+                          }}
+                        />
                       );
                     })}
                   </Box>
-                  <Button variant="text" size="small" color="error" onClick={handleDisconnectPhotos} startIcon={<Icon>link_off</Icon>}>
-                    Disconnect
-                  </Button>
-                </>
-              ) : (
-                <Typography variant="body2" color="text.secondary" py={2}>
-                  No albums found. Make sure you have albums in Google Photos.
-                </Typography>
-              )}
-            </Box>
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Manual Upload Section */}
-            <Box>
-              <Box display="flex" alignItems="center" gap={1} mb={1.5}>
-                <Icon sx={{ fontSize: "1.2rem" }}>upload</Icon>
-                <Typography variant="body1" fontWeight={600}>Manual Upload</Typography>
-              </Box>
-
-              {/* Upload area */}
-              <Box
-                component="label"
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "2px dashed",
-                  borderColor: "divider",
-                  borderRadius: "16px",
-                  p: 3,
-                  cursor: uploading ? "not-allowed" : "pointer",
-                  mb: 2,
-                  "&:hover": uploading
-                    ? {}
-                    : { borderColor: "primary.main", background: alpha(tokens.accent.main, 0.04) },
-                  opacity: uploading ? 0.5 : 1,
-                }}
-              >
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  hidden
-                  onChange={handlePhotoUpload}
-                  disabled={uploading}
-                />
-                <Icon sx={{ fontSize: "2rem", color: "text.secondary", mb: 1 }}>
-                  {uploading ? "hourglass_empty" : "add_photo_alternate"}
-                </Icon>
-                <Typography variant="body2" color="text.secondary">
-                  {uploading ? "Uploading..." : "Click to upload photos"}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  JPEG, PNG, WebP · Max 5MB · {photos.length}/100
-                </Typography>
-              </Box>
-
-              {/* Photo grid */}
-              {photos.length > 0 && (
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 1 }}>
-                  {photos.map((photo) => (
-                    <Box
-                      key={photo.id}
-                      sx={{
-                        position: "relative",
-                        paddingTop: "100%",
-                        borderRadius: "8px",
-                        overflow: "hidden",
-                        border: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Box
-                        component="img"
-                        src={photo.url}
-                        alt={photo.caption || "Family photo"}
-                        sx={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                      <IconButton
-                        onClick={() => handleDeletePhoto(photo)}
-                        sx={{
-                          position: "absolute",
-                          top: 4,
-                          right: 4,
-                          background: "rgba(0,0,0,0.6)",
-                          color: "white",
-                          p: 0.5,
-                          "&:hover": { background: "rgba(220,38,38,0.8)" },
-                        }}
-                        size="small"
-                      >
-                        <Icon sx={{ fontSize: "1rem" }}>close</Icon>
-                      </IconButton>
-                    </Box>
-                  ))}
                 </Box>
-              )}
+              </>
+            )}
 
-              {photos.length === 0 && !uploading && (
-                <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
-                  No photos uploaded yet
-                </Typography>
-              )}
-            </Box>
+            {/* ── Google Photos subsection ── */}
+            {screensaverSources.includes("google") && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Box mb={3}>
+                  <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <Icon sx={{ fontSize: "1.1rem !important", color: tokens.accent.main }}>photo_library</Icon>
+                    <Typography variant="body2" fontWeight={600}>Google Photos Albums</Typography>
+                  </Box>
+
+                  {photosError && (
+                    <Box sx={{ mb: 2, p: 1.5, borderRadius: "10px", background: alpha("#E17055", 0.08), border: `1px solid ${alpha("#E17055", 0.2)}` }}>
+                      <Typography sx={{ fontSize: "0.8rem", color: "#E17055", lineHeight: 1.5, mb: 1 }}>
+                        {photosError}
+                      </Typography>
+                      {(photosError.includes("permission") || photosError.includes("sign")) && (
+                        <Button size="small" variant="outlined" color="error" sx={{ borderRadius: "8px", textTransform: "none", fontSize: "0.75rem" }}
+                          onClick={() => { signOut(); }}>
+                          Sign Out &amp; Reconnect
+                        </Button>
+                      )}
+                    </Box>
+                  )}
+
+                  {!photosConnected ? (
+                    <Button variant="outlined" startIcon={<Icon>photo_library</Icon>}
+                      onClick={() => { setPhotosError(""); handleConnectPhotos(); }} sx={{ borderRadius: "12px", textTransform: "none" }}>
+                      Load Google Photos Albums
+                    </Button>
+                  ) : loadingAlbums ? (
+                    <Box display="flex" alignItems="center" gap={1.5} py={2}>
+                      <CircularProgress size={20} />
+                      <Typography variant="body2" color="text.secondary">Loading albums...</Typography>
+                    </Box>
+                  ) : albums.length > 0 ? (
+                    <>
+                      <Typography variant="caption" color="text.secondary" display="block" mb={1.5}>
+                        Select albums to include in slideshow ({selectedAlbumIds.length} of {albums.length} selected)
+                      </Typography>
+                      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 1.5, mb: 1.5 }}>
+                        {albums.map((album) => {
+                          const isSelected = selectedAlbumIds.includes(album.id);
+                          return (
+                            <Box key={album.id} onClick={() => toggleAlbum(album.id)} sx={{
+                              position: "relative", cursor: "pointer", borderRadius: "12px", overflow: "hidden",
+                              border: "2px solid", borderColor: isSelected ? tokens.accent.main : "divider",
+                              transition: "all 0.2s ease", touchAction: "manipulation",
+                              "&:hover": { transform: "translateY(-2px)", boxShadow: `0 4px 16px ${alpha(tokens.accent.main, 0.25)}` },
+                            }}>
+                              {album.coverUrl ? (
+                                <Box component="img" src={album.coverUrl} alt={album.title} sx={{ width: "100%", aspectRatio: "1", objectFit: "cover" }} />
+                              ) : (
+                                <Box sx={{ width: "100%", aspectRatio: "1", bgcolor: "action.hover", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  <Icon sx={{ fontSize: "2rem", color: "text.disabled" }}>photo</Icon>
+                                </Box>
+                              )}
+                              {isSelected && (
+                                <Box sx={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: "50%", bgcolor: tokens.accent.main, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  <Icon sx={{ fontSize: "0.85rem", color: "white" }}>check</Icon>
+                                </Box>
+                              )}
+                              <Box sx={{ p: 1, bgcolor: "background.paper" }}>
+                                <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.title}</Typography>
+                                <Typography variant="caption" color="text.secondary">{album.itemCount} photos</Typography>
+                              </Box>
+                            </Box>
+                          );
+                        })}
+                      </Box>
+                      <Button variant="text" size="small" color="error" onClick={handleDisconnectPhotos} startIcon={<Icon>link_off</Icon>}
+                        sx={{ textTransform: "none", fontSize: "0.75rem" }}>
+                        Disconnect Google Photos
+                      </Button>
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" py={1}>
+                      No albums found in your Google Photos account.
+                    </Typography>
+                  )}
+                </Box>
+              </>
+            )}
+
+            {/* ── Uploaded Photos subsection ── */}
+            {screensaverSources.includes("uploaded") && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Box>
+                  <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <Icon sx={{ fontSize: "1.1rem !important", color: tokens.accent.main }}>cloud_upload</Icon>
+                    <Typography variant="body2" fontWeight={600}>Uploaded Family Photos</Typography>
+                    <Typography variant="caption" color="text.secondary">({photos.length}/100)</Typography>
+                  </Box>
+
+                  {!isSupabaseConnected && (
+                    <Box sx={{ bgcolor: alpha("#f59e0b", 0.1), border: `1px solid ${alpha("#f59e0b", 0.3)}`, borderRadius: "10px", p: 1.5, mb: 2 }}>
+                      <Box display="flex" alignItems="flex-start" gap={1}>
+                        <Icon sx={{ color: "warning.main", fontSize: "1.1rem !important" }}>info</Icon>
+                        <Typography variant="caption" color="warning.main">Connect Supabase in settings above to enable photo uploads</Typography>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Upload drop zone */}
+                  <Box component="label" sx={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    border: "2px dashed", borderColor: uploading ? "divider" : alpha(tokens.accent.main, 0.3),
+                    borderRadius: "16px", p: 3, cursor: uploading ? "not-allowed" : "pointer", mb: 2,
+                    bgcolor: alpha(tokens.accent.main, 0.02),
+                    "&:hover": uploading ? {} : { borderColor: tokens.accent.main, bgcolor: alpha(tokens.accent.main, 0.05) },
+                    opacity: uploading ? 0.6 : 1, transition: "all 0.2s ease",
+                  }}>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={handlePhotoUpload} disabled={uploading} />
+                    <Icon sx={{ fontSize: "2.2rem !important", color: uploading ? "text.secondary" : tokens.accent.main, mb: 1 }}>
+                      {uploading ? "hourglass_empty" : "add_photo_alternate"}
+                    </Icon>
+                    <Typography variant="body2" fontWeight={600} color={uploading ? "text.secondary" : "text.primary"}>
+                      {uploading ? "Uploading..." : "Click or drag to upload photos"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" mt={0.5}>JPEG · PNG · WebP · Max 5MB each</Typography>
+                  </Box>
+
+                  {/* Photo grid */}
+                  {photos.length > 0 && (
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 1 }}>
+                      {photos.map((photo) => (
+                        <Box key={photo.id} sx={{ position: "relative", paddingTop: "100%", borderRadius: "10px", overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
+                          <Box component="img" src={photo.url} alt={photo.caption || "Family photo"}
+                            sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                          <IconButton onClick={() => handleDeletePhoto(photo)}
+                            sx={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.55)", color: "white", p: 0.5,
+                              "&:hover": { background: "rgba(220,38,38,0.85)" } }} size="small">
+                            <Icon sx={{ fontSize: "0.9rem" }}>close</Icon>
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+
+                  {photos.length === 0 && !uploading && (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                      No photos uploaded yet — add family photos to show in the screensaver
+                    </Typography>
+                  )}
+                </Box>
+              </>
+            )}
           </GlassCard>
         </Grid>
       </Grid>

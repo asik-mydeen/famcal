@@ -202,7 +202,52 @@ function PhotoFrame({ photos, interval = 10, weather, onDismiss }) {
         </Box>
       )}
 
-      {/* Tap to dismiss hint — shows briefly */}
+      {/* Art attribution — shown for artwork photos (bottom right, above weather) */}
+      {(() => {
+        const photo = photos[current];
+        if (!photo || photo.source !== "art") return null;
+        return (
+          <Box sx={{
+            position: "absolute",
+            bottom: weather ? 140 : 40,
+            right: 40,
+            maxWidth: { xs: 200, md: 280 },
+            textAlign: "right",
+            pointerEvents: "none",
+          }}>
+            <Box sx={{
+              display: "inline-block",
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(8px)",
+              borderRadius: "12px",
+              px: 2, py: 1.25,
+            }}>
+              {photo.title && (
+                <Typography sx={{
+                  fontSize: { xs: "0.75rem", md: "0.85rem" },
+                  fontWeight: 600, color: "white", lineHeight: 1.3,
+                  textShadow: "0 1px 6px rgba(0,0,0,0.5)",
+                }}>
+                  {photo.title}
+                </Typography>
+              )}
+              {photo.artist && (
+                <Typography sx={{
+                  fontSize: { xs: "0.65rem", md: "0.72rem" },
+                  color: "rgba(255,255,255,0.72)", mt: 0.25,
+                }}>
+                  {photo.artist}{photo.year ? ` · ${photo.year}` : ""}
+                </Typography>
+              )}
+              <Typography sx={{ fontSize: "0.58rem", color: "rgba(255,255,255,0.4)", mt: 0.25 }}>
+                Art Institute of Chicago
+              </Typography>
+            </Box>
+          </Box>
+        );
+      })()}
+
+      {/* Tap to dismiss hint */}
       <Box sx={{
         position: "absolute", top: 20, right: 20,
         color: "rgba(255,255,255,0.3)", pointerEvents: "none",

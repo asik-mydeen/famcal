@@ -21,6 +21,7 @@ import { useAuth } from "context/AuthContext";
 import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { getGoogleClientId } from "lib/googleCalendar";
 import { fetchPhotosFromAlbums } from "lib/googlePhotos";
+import { fetchArtPhotos } from "lib/artPhotos";
 import AnimatedBackground from "components/AnimatedBackground";
 import VoiceOverlay from "components/VoiceOverlay";
 import useVoiceMode from "hooks/useVoiceMode";
@@ -662,18 +663,41 @@ export default function App() {
   // Idle timer for photo frame — MUST be called before any conditional returns (React hooks rules)
   const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
 
-  // Google Photos state and loading
+  // Manual screensaver trigger (fires when "Start Now" button pressed in Settings)
+  const [manualScreensaver, setManualScreensaver] = useState(false);
+  useEffect(() => {
+    const handler = () => setManualScreensaver(true);
+    window.addEventListener("famcal-screensaver-start", handler);
+    return () => window.removeEventListener("famcal-screensaver-start", handler);
+  }, []);
+
+  const isScreensaverActive = isIdle || manualScreensaver;
+
+  // Photo sources — read from localStorage (set by Settings)
   const [googlePhotos, setGooglePhotos] = useState([]);
+  const [artPhotos, setArtPhotos] = useState([]);
+
   const selectedAlbumIds = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("famcal_photos_selected_albums") || "[]"); }
     catch { return []; }
   }, []);
 
+  // Load enabled photo sources when screensaver activates
   useEffect(() => {
-    if (isIdle && selectedAlbumIds.length > 0 && googlePhotos.length === 0) {
+    if (!isScreensaverActive) return;
+    let sources;
+    try { sources = JSON.parse(localStorage.getItem("famcal_screensaver_sources") || '["uploaded"]'); }
+    catch { sources = ["uploaded"]; }
+
+    if (sources.includes("google") && selectedAlbumIds.length > 0 && googlePhotos.length === 0) {
       fetchPhotosFromAlbums(selectedAlbumIds).then(setGooglePhotos).catch(console.error);
     }
-  }, [isIdle, selectedAlbumIds, googlePhotos.length]);
+    if (sources.includes("art") && artPhotos.length === 0) {
+      const artCategory = localStorage.getItem("famcal_art_category") || "all";
+      fetchArtPhotos(artCategory).then(setArtPhotos).catch(console.error);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScreensaverActive]);
 
   // Check for daily briefing on initial data load
   useEffect(() => {
@@ -800,15 +824,36 @@ export default function App() {
               },
             }}
           />
-          {/* Photo Frame overlay when idle */}
-          {isIdle && (googlePhotos.length > 0 || photos.length > 0) && (
-            <PhotoFrame
-              photos={googlePhotos.length > 0 ? googlePhotos : photos}
-              interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
-              weather={weatherData}
-              onDismiss={() => { resetTimer(); setGooglePhotos([]); handleBriefingCheck(); }}
-            />
-          )}
+          {/* Screensaver overlay — idle or manually triggered */}
+          {isScreensaverActive && (() => {
+            let sources;
+            try { sources = JSON.parse(localStorage.getItem("famcal_screensaver_sources") || '["uploaded"]'); }
+            catch { sources = ["uploaded"]; }
+
+            // Combine all enabled sources in order: Google → Art → Uploaded
+            const combined = [
+              ...(sources.includes("google") ? googlePhotos : []),
+              ...(sources.includes("art") ? artPhotos : []),
+              ...(sources.includes("uploaded") ? photos : []),
+            ];
+
+            if (combined.length === 0) return null;
+
+            return (
+              <PhotoFrame
+                photos={combined}
+                interval={parseInt(localStorage.getItem("famcal_photo_interval") || "10")}
+                weather={weatherData}
+                onDismiss={() => {
+                  resetTimer();
+                  setManualScreensaver(false);
+                  setGooglePhotos([]);
+                  setArtPhotos([]);
+                  handleBriefingCheck();
+                }}
+              />
+            );
+          })()}
 
           {/* Daily Briefing overlay */}
           {showBriefing && (
