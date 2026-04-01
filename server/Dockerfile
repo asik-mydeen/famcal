@@ -1,10 +1,10 @@
 FROM node:20-alpine
 WORKDIR /app
-# Copy entire server directory (package.json + index.js) and api handlers
+# Install deps at root so both server/ and api/ can resolve them
+COPY server/package*.json ./
+RUN npm install --production
+# Copy source
 COPY server/ ./server/
 COPY api/ ./api/
-# Install server dependencies
-RUN cd server && npm install --production
-WORKDIR /app/server
 EXPOSE 3001
-CMD ["node", "index.js"]
+CMD ["node", "server/index.js"]
