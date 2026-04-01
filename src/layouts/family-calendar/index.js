@@ -897,50 +897,52 @@ function FamilyCalendar() {
 
   return (
     <PageShell flush>
-      {/* Header - simplified (date now in HeaderBar) */}
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1 }}>
-          {/* Left: compact date nav */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton size="small" onClick={goPrev} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_left</Icon></IconButton>
-            <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_right</Icon></IconButton>
-            {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: tokens.accent.main, color: "#fff", "&:hover": { bgcolor: tokens.accent.dark } }} />}
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap avatars to connect calendars")}
-            </Typography>
-          </Box>
+      {/* Full-height flex: calendar area + icon rail + panel */}
+      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        {/* Left: header + calendar (takes remaining space) */}
+        <Box sx={{ flex: 1, overflow: "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {/* Header - date nav + view tabs */}
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1, px: { xs: 0, sm: 0.5 } }}>
+              {/* Left: compact date nav */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <IconButton size="small" onClick={goPrev} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_left</Icon></IconButton>
+                <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_right</Icon></IconButton>
+                {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: tokens.accent.main, color: "#fff", "&:hover": { bgcolor: tokens.accent.dark } }} />}
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap avatars to connect calendars")}
+                </Typography>
+              </Box>
 
-          {/* Right: view toggle + sync */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Box sx={{ bgcolor: alpha(tokens.accent.main, 0.08), borderRadius: "12px", p: "3px", display: "inline-flex" }}>
-              <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
-                sx={{ minHeight: 34,
-                  "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", background: gradient("primary"), boxShadow: `0 2px 8px ${alpha(tokens.accent.main, 0.25)}` },
-                  "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", transition: "color 0.2s", "&.Mui-selected": { color: "#fff" } },
-                }}
-              >
-                <Tab label="Day" />
-                <Tab label="Week" />
-                <Tab label="Month" />
-              </Tabs>
+              {/* Right: view toggle + sync */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ bgcolor: alpha(tokens.accent.main, 0.08), borderRadius: "12px", p: "3px", display: "inline-flex" }}>
+                  <Tabs value={viewTab} onChange={(_, v) => setViewTab(v)}
+                    sx={{ minHeight: 34,
+                      "& .MuiTabs-indicator": { borderRadius: "9px", height: "100%", background: gradient("primary"), boxShadow: `0 2px 8px ${alpha(tokens.accent.main, 0.25)}` },
+                      "& .MuiTab-root": { minHeight: 30, py: 0, px: 2.5, fontSize: "0.75rem", fontWeight: 700, zIndex: 1, color: "text.secondary", transition: "color 0.2s", "&.Mui-selected": { color: "#fff" } },
+                    }}
+                  >
+                    <Tab label="Day" />
+                    <Tab label="Week" />
+                    <Tab label="Month" />
+                  </Tabs>
+                </Box>
+                <Tooltip title={syncTooltip} arrow>
+                  <span>
+                    <IconButton size="small" onClick={handleSync} disabled={syncing || connectedCount === 0}
+                      sx={{ bgcolor: "action.hover", width: 34, height: 34 }}
+                    >
+                      <Icon sx={{ fontSize: "1.1rem !important", animation: syncing ? "spin 1s linear infinite" : "none", "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(360deg)" } } }}>sync</Icon>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
             </Box>
-            <Tooltip title={syncTooltip} arrow>
-              <span>
-                <IconButton size="small" onClick={handleSync} disabled={syncing || connectedCount === 0}
-                  sx={{ bgcolor: "action.hover", width: 34, height: 34 }}
-                >
-                  <Icon sx={{ fontSize: "1.1rem !important", animation: syncing ? "spin 1s linear infinite" : "none", "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(360deg)" } } }}>sync</Icon>
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
-        </Box>
-      </motion.div>
+          </motion.div>
 
-      {/* Main content with sidebar */}
-      <Box sx={{ display: "flex", flex: 1, overflow: "hidden", gap: 2 }}>
-        {/* Calendar content */}
-        <Box sx={{ flex: 1, overflow: "auto", minWidth: 0 }}>
+          {/* Calendar content (scrollable) */}
+          <Box sx={{ flex: 1, overflow: "auto", minWidth: 0 }}>
           {/* Member strip */}
           <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, mb: 2.5, overflowX: "auto", pb: 0.5, px: 0.5 }}>
             {members.map((m) => {
@@ -1036,6 +1038,7 @@ function FamilyCalendar() {
               </Card>
             </motion.div>
           )}
+          </Box>
         </Box>
 
         {/* Icon Rail */}
