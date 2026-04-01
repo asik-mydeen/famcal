@@ -195,6 +195,13 @@ function getComponents(mode, tokens) {
         .fc th, .fc td { border-color: ${fcGridBorder} !important; }
         .fc .fc-more-link { color: ${accentLight}; font-weight: 600; }
         @media (max-width: 599px) { .MuiDialog-paper { margin: 0 !important; max-height: 100% !important; height: 100% !important; border-radius: 0 !important; } }
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
       `,
     },
     MuiCard: {

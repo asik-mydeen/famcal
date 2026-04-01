@@ -692,6 +692,7 @@ function AIAssistant({
       {voiceActive && (
         <Tooltip title="Voice mode" placement="top">
           <IconButton
+            aria-label="Switch to voice mode"
             onClick={onTapToSpeak}
             sx={{
               color: darkMode ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.45)",
@@ -704,6 +705,7 @@ function AIAssistant({
         </Tooltip>
       )}
       <IconButton
+        aria-label="Send message"
         onClick={handleSubmit}
         disabled={!input.trim() || loading}
         sx={{
@@ -753,18 +755,18 @@ function AIAssistant({
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5, mt: -1.5, mb: 0.5 }}>
           {hasMessages && (
             <Tooltip title="Clear chat" placement="bottom">
-              <IconButton size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
+              <IconButton aria-label="Clear chat" size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
                 <Icon sx={{ fontSize: "1.1rem" }}>delete_outline</Icon>
               </IconButton>
             </Tooltip>
           )}
           <Tooltip title="Chat history" placement="bottom">
-            <IconButton size="small" onClick={(e) => setConversationMenuAnchor(e.currentTarget)} sx={{ color: "text.secondary" }}>
+            <IconButton aria-label="Chat history" size="small" onClick={(e) => setConversationMenuAnchor(e.currentTarget)} sx={{ color: "text.secondary" }}>
               <Icon sx={{ fontSize: "1.1rem" }}>history</Icon>
             </IconButton>
           </Tooltip>
           <Tooltip title="New chat" placement="bottom">
-            <IconButton size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
+            <IconButton aria-label="New chat" size="small" onClick={handleNewChat} sx={{ color: "text.secondary" }}>
               <Icon sx={{ fontSize: "1.1rem" }}>add</Icon>
             </IconButton>
           </Tooltip>

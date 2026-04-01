@@ -680,6 +680,8 @@ function FamilyProvider({ children }) {
   const familyIdRef = useRef(null);
   const channelRef = useRef(null);
   const [realtimeReady, setRealtimeReady] = useState(false);
+  const [photosPage, setPhotosPage] = useState(0);
+  const [hasMorePhotos, setHasMorePhotos] = useState(true);
 
   // Wait for auth session to be fully established before subscribing.
   // Listen for the Supabase auth state change to ensure the client
@@ -934,6 +936,8 @@ function FamilyProvider({ children }) {
           dispatch({ type: "SET_NOTES", value: notesData });
           dispatch({ type: "SET_COUNTDOWNS", value: countdownsData });
           dispatch({ type: "SET_PHOTOS", value: photosData });
+          setPhotosPage(0);
+          setHasMorePhotos(photosData.length === 50);
         } catch (e) {
           console.log("[supabase] v3 tables not available yet:", e.message);
         }
@@ -944,7 +948,8 @@ function FamilyProvider({ children }) {
             .from("family_messages")
             .select("*")
             .eq("family_id", family.id)
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false })
+            .limit(100);
           if (dbMessages) dispatch({ type: "SET_MESSAGES", value: dbMessages });
         } catch (e) {
           console.log("[supabase] family_messages table not available yet:", e.message);
@@ -1720,7 +1725,29 @@ function FamilyProvider({ children }) {
     };
   }, [state.isSupabaseConnected, state.family.id, state.tasks, state.members, state.rewards]);
 
-  const value = useMemo(() => [state, persistingDispatch], [state, persistingDispatch]);
+  const loadMorePhotos = async () => {
+    if (!hasMorePhotos || !state.family?.id || state.family.id === "demo-family") return;
+    try {
+      const { fetchPhotos } = await import("lib/supabase");
+      const nextPage = photosPage + 1;
+      const newPhotos = await fetchPhotos(state.family.id, nextPage);
+      if (newPhotos.length === 0) {
+        setHasMorePhotos(false);
+      } else {
+        dispatch({ type: "SET_PHOTOS", value: [...state.photos, ...newPhotos] });
+        setPhotosPage(nextPage);
+        if (newPhotos.length < 50) setHasMorePhotos(false);
+      }
+    } catch (e) {
+      console.warn("[loadMorePhotos] failed:", e.message);
+    }
+  };
+
+  const value = useMemo(
+    () => [state, persistingDispatch, { hasMorePhotos, loadMorePhotos }],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, persistingDispatch, hasMorePhotos]
+  );
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
 }

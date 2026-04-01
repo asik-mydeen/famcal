@@ -5,6 +5,8 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || "your-anon-ke
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export const isValidUrl = (url) => { try { return Boolean(new URL(url)); } catch { return false; } };
+
 export async function uploadAvatar(memberId, file) {
   const ext = file.name.split(".").pop();
   const path = `${memberId}.${ext}`;
@@ -24,7 +26,8 @@ export async function uploadAvatar(memberId, file) {
 
   const { data } = supabase.storage.from("avatars").getPublicUrl(path);
   // Append cache-buster so browser picks up new image
-  return `${data.publicUrl}?t=${Date.now()}`;
+  const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
+  return isValidUrl(publicUrl) ? publicUrl : null;
 }
 
 // ── Meals ──
@@ -138,12 +141,13 @@ export async function deleteCountdown(id) {
 }
 
 // ── Photos ──
-export async function fetchPhotos(familyId) {
+export async function fetchPhotos(familyId, page = 0) {
   const { data } = await supabase
     .from("photos")
     .select("*")
     .eq("family_id", familyId)
-    .order("sort_order");
+    .order("sort_order")
+    .range(page * 50, (page + 1) * 50 - 1);
   return (data || []).map((p) => ({
     ...p,
     url: supabase.storage.from("photos").getPublicUrl(p.storage_path).data?.publicUrl,
@@ -250,7 +254,8 @@ export async function fetchMessages(conversationId) {
     .from("conversation_messages")
     .select("*")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(100);
   if (error) {
     console.warn("fetchMessages error:", error);
     return [];
@@ -288,7 +293,7 @@ export async function fetchMemories(familyId, activeOnly = true) {
     query = query.eq("active", true);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.limit(100);
   if (error) {
     console.warn("fetchMemories error:", error);
     return [];
