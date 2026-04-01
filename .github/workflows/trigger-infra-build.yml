@@ -1,0 +1,24 @@
+name: Trigger infra Docker build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'server/**'
+      - 'nginx.conf'
+      - 'Dockerfile'
+      - 'nova-proxy/**'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch build to famcal-infra
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.INFRA_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/asik-mydeen/famcal-infra/dispatches \
+            -d '{"event_type":"famcal-source-updated"}'
