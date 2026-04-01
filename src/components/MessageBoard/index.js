@@ -98,17 +98,15 @@ function MessageBoard({ messages, members, dispatch, familyId }) {
 
       {/* Messages list */}
       {sortedMessages.length === 0 && (
-        <Typography
-          sx={{
-            fontSize: "0.75rem",
-            color: "text.secondary",
-            textAlign: "center",
-            py: 2,
-            fontStyle: "italic",
-          }}
-        >
-          No messages yet. Leave a message for your family!
-        </Typography>
+        <Box sx={{ textAlign: "center", py: 3 }}>
+          <Typography variant="h4" sx={{ mb: 1 }}>💬</Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
+            No messages yet
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.disabled" }}>
+            Leave a note for your family!
+          </Typography>
+        </Box>
       )}
 
       <AnimatePresence mode="popLayout">

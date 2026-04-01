@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -48,6 +48,7 @@ function Tasks() {
   const [activeTab, setActiveTab] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [newTask, setNewTask] = useState(INITIAL_TASK_FORM);
+  const [justCompletedTaskId, setJustCompletedTaskId] = useState(null);
   const isSmall = useMediaQuery("(max-width:599px)");
 
   const PRIORITY_COLORS = {
@@ -102,6 +103,8 @@ function Tasks() {
           type: "COMPLETE_TASK",
           value: { taskId, memberId: task.assigned_to },
         });
+        setJustCompletedTaskId(taskId);
+        setTimeout(() => setJustCompletedTaskId(null), 1000);
       }
     },
     [tasks, dispatch]
@@ -509,26 +512,59 @@ function Tasks() {
 
                         {/* Complete button */}
                         {!task.completed && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleCompleteTask(task.id)}
-                            sx={{
-                              color: tokens.priority.low,
-                              background: alpha(tokens.priority.low, 0.1),
-                              border: `1px solid ${alpha(tokens.priority.low, 0.2)}`,
-                              width: isSmall ? 32 : 36,
-                              height: isSmall ? 32 : 36,
-                              transition: "all 0.2s",
-                              "&:hover": {
-                                background: alpha(tokens.priority.low, 0.2),
-                                transform: "scale(1.1)",
-                              },
-                            }}
-                          >
-                            <Icon sx={{ fontSize: isSmall ? "1rem !important" : "1.2rem !important" }}>
-                              check_circle
-                            </Icon>
-                          </IconButton>
+                          <Box sx={{ position: "relative" }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleCompleteTask(task.id)}
+                              sx={{
+                                color: tokens.priority.low,
+                                background: alpha(tokens.priority.low, 0.1),
+                                border: `1px solid ${alpha(tokens.priority.low, 0.2)}`,
+                                width: isSmall ? 32 : 36,
+                                height: isSmall ? 32 : 36,
+                                transition: "all 0.2s",
+                                "&:hover": {
+                                  background: alpha(tokens.priority.low, 0.2),
+                                  transform: "scale(1.1)",
+                                },
+                              }}
+                            >
+                              <motion.div
+                                animate={justCompletedTaskId === task.id
+                                  ? { scale: [1, 1.5, 1], rotate: [0, -20, 0] }
+                                  : {}}
+                                transition={{ type: "spring", stiffness: 500, damping: 25, duration: 0.4 }}
+                              >
+                                <Icon sx={{ fontSize: isSmall ? "1rem !important" : "1.2rem !important", display: "flex" }}>
+                                  check_circle
+                                </Icon>
+                              </motion.div>
+                            </IconButton>
+                            {/* Points popup */}
+                            <AnimatePresence>
+                              {justCompletedTaskId === task.id && (
+                                <motion.div
+                                  initial={{ opacity: 1, y: 0 }}
+                                  animate={{ opacity: 0, y: -36 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.8, ease: "easeOut" }}
+                                  style={{
+                                    position: "absolute",
+                                    top: 0,
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    pointerEvents: "none",
+                                    whiteSpace: "nowrap",
+                                    zIndex: 10,
+                                  }}
+                                >
+                                  <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: tokens.priority.low }}>
+                                    +{task.points_value || 0}pts
+                                  </Typography>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </Box>
                         )}
 
                         {/* Delete button */}

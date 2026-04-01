@@ -32,6 +32,7 @@ import FloatingNav from "components/FloatingNav";
 import PageTransition from "components/PageTransition";
 import PhotoFrame from "components/PhotoFrame";
 import KioskWrapper from "components/KioskWrapper";
+import AmbientScreen from "components/AmbientScreen";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import AIAssistant from "components/AIAssistant";
@@ -938,7 +939,21 @@ export default function App() {
               ...(sources.includes("uploaded") ? photos : []),
             ];
 
-            if (combined.length === 0) return null;
+            // No photos configured — show the family hub ambient display instead
+            if (combined.length === 0) {
+              return (
+                <AmbientScreen
+                  members={members}
+                  events={state.events}
+                  tasks={state.tasks}
+                  onDismiss={() => {
+                    resetTimer();
+                    setManualScreensaver(false);
+                    handleBriefingCheck();
+                  }}
+                />
+              );
+            }
 
             return (
               <PhotoFrame

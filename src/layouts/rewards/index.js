@@ -24,7 +24,7 @@ import GlassCard from "components/GlassCard";
 import SlidePanel from "components/SlidePanel";
 import PageShell from "components/PageShell";
 import { useFamilyController, MEMBER_COLORS, ACHIEVEMENT_DEFS } from "context/FamilyContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppTheme } from "context/ThemeContext";
 import { getTokens } from "theme/tokens";
 import { alpha } from "theme/helpers";
@@ -266,16 +266,31 @@ function Rewards() {
           {/* Best Streak */}
           <Grid item xs={4} textAlign="center">
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 0.5 }}>
-              <Icon sx={{ fontSize: "1.4rem !important", color: tokens.priority.high }}>
-                local_fire_department
-              </Icon>
+              <motion.div
+                key={bestStreak}
+                animate={bestStreak > 0 ? { scale: [1, 1.3, 1], rotate: [0, -10, 10, 0] } : {}}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                style={{ display: "inline-flex" }}
+              >
+                <Icon sx={{ fontSize: "1.4rem !important", color: tokens.priority.high }}>
+                  local_fire_department
+                </Icon>
+              </motion.div>
             </Box>
-            <Typography
-              variant={isSmall ? "h4" : "h3"}
-              sx={{ fontWeight: 800, color: tokens.priority.high, lineHeight: 1.2 }}
+            <motion.div
+              key={`streak-${bestStreak}`}
+              initial={{ scale: 1.2 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 350, damping: 18 }}
+              style={{ display: "inline-block" }}
             >
-              {bestStreak}
-            </Typography>
+              <Typography
+                variant={isSmall ? "h4" : "h3"}
+                sx={{ fontWeight: 800, color: tokens.priority.high, lineHeight: 1.2 }}
+              >
+                {bestStreak}
+              </Typography>
+            </motion.div>
             <Typography variant="caption" sx={{ color: "text.secondary", fontSize: isSmall ? "0.6rem" : "0.75rem" }}>
               Best Streak
             </Typography>
@@ -580,16 +595,24 @@ function Rewards() {
                         </Typography>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                           <Icon sx={{ fontSize: "0.9rem !important", color: tokens.priority.medium }}>star</Icon>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 700,
-                              color: tokens.priority.medium,
-                              fontSize: isSmall ? "0.8rem" : "0.9rem",
-                            }}
+                          <motion.span
+                            key={member.points}
+                            initial={{ scale: 1.3, color: tokens.priority.medium }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                            style={{ display: "inline-block" }}
                           >
-                            {member.points.toLocaleString()}
-                          </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 700,
+                                color: tokens.priority.medium,
+                                fontSize: isSmall ? "0.8rem" : "0.9rem",
+                              }}
+                            >
+                              {member.points.toLocaleString()}
+                            </Typography>
+                          </motion.span>
                         </Box>
                       </Box>
 
@@ -614,7 +637,12 @@ function Rewards() {
                             "& .MuiChip-label": { px: 1 },
                           }}
                         />
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <motion.div
+                          key={member.streak_days}
+                          animate={member.streak_days > 0 ? { scale: [1, 1.25, 1] } : {}}
+                          transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
+                          style={{ display: "flex", alignItems: "center", gap: 4 }}
+                        >
                           <Icon sx={{ fontSize: "0.8rem !important", color: tokens.priority.high }}>
                             local_fire_department
                           </Icon>
@@ -628,7 +656,7 @@ function Rewards() {
                           >
                             {member.streak_days}d
                           </Typography>
-                        </Box>
+                        </motion.div>
                       </Box>
 
                       {/* Level progress bar */}

@@ -396,8 +396,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
           {dayEventCount === 0 && (
             <Box sx={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", textAlign: "center", zIndex: 1, pointerEvents: "none" }}>
               <Icon sx={{ fontSize: "3rem !important", color: "text.disabled", opacity: 0.3, mb: 1 }}>event_available</Icon>
-              <Typography variant="body2" sx={{ color: "text.disabled", opacity: 0.5, fontWeight: 500 }}>No events today</Typography>
-              <Typography variant="caption" sx={{ color: "text.disabled", opacity: 0.4 }}>Tap a time slot or + to add one</Typography>
+              <Typography variant="body2" sx={{ color: "text.disabled", opacity: 0.5, fontWeight: 500 }}>Nothing scheduled — enjoy the day!</Typography>
+              <Typography variant="caption" sx={{ color: "text.disabled", opacity: 0.4 }}>Tap a time slot or + to add an event</Typography>
             </Box>
           )}
         </Box>
