@@ -20,6 +20,7 @@ import GlassCard from "components/GlassCard";
 import PageShell from "components/PageShell";
 import ChoreGrid from "components/ChoreGrid";
 import { useFamilyController, TASK_CATEGORIES } from "context/FamilyContext";
+import { useTaskContext } from "context/TaskContext"; // S4.1: task-specific context (PoC)
 import { useAppTheme } from "context/ThemeContext";
 import { getTokens } from "theme/tokens";
 
@@ -41,6 +42,8 @@ const RECURRING_PATTERNS = [
 function Chores() {
   const [state, dispatch] = useFamilyController();
   const { tasks, members } = state;
+  // S4.1 PoC: TaskContext is now available as an alternative source for task data
+  const { pendingTasks, completedTasks } = useTaskContext(); // eslint-disable-line no-unused-vars
   const { tokens, alpha, gradient, darkMode } = useAppTheme();
 
   // View state

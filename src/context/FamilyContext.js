@@ -966,47 +966,13 @@ function FamilyProvider({ children }) {
           if (seeded) dispatch({ type: "SET_REWARDS", value: seeded });
         }
 
-        // Load v3 data (meals, lists, notes, countdowns, photos) in parallel
+        // ── Phase 1 critical: lists (used on dashboard/ambient) ──
         try {
-          const { fetchMeals, fetchLists, fetchNotes, fetchCountdowns, fetchPhotos } = await import("lib/supabase");
-
-          // Calculate current week for meals
-          const now = new Date();
-          const weekStart = new Date(now);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
-
-          const [mealsData, listsData, notesData, countdownsData, photosData] = await Promise.all([
-            fetchMeals(family.id, weekStart.toISOString().split("T")[0], weekEnd.toISOString().split("T")[0]),
-            fetchLists(family.id),
-            fetchNotes(family.id),
-            fetchCountdowns(family.id),
-            fetchPhotos(family.id),
-          ]);
-
-          dispatch({ type: "SET_MEALS", value: mealsData });
+          const { fetchLists } = await import("lib/supabase");
+          const listsData = await fetchLists(family.id);
           dispatch({ type: "SET_LISTS", value: listsData });
-          dispatch({ type: "SET_NOTES", value: notesData });
-          dispatch({ type: "SET_COUNTDOWNS", value: countdownsData });
-          dispatch({ type: "SET_PHOTOS", value: photosData });
-          setPhotosPage(0);
-          setHasMorePhotos(photosData.length === 50);
         } catch (e) {
-          console.log("[supabase] v3 tables not available yet:", e.message);
-        }
-
-        // Load family messages
-        try {
-          const { data: dbMessages } = await supabase
-            .from("family_messages")
-            .select("*")
-            .eq("family_id", family.id)
-            .order("created_at", { ascending: false })
-            .limit(100);
-          if (dbMessages) dispatch({ type: "SET_MESSAGES", value: dbMessages });
-        } catch (e) {
-          console.log("[supabase] family_messages table not available yet:", e.message);
+          console.log("[supabase] lists table not available yet:", e.message);
         }
 
         // Load routines with steps and today's completions
@@ -1085,27 +1051,15 @@ function FamilyProvider({ children }) {
           console.log("[supabase] achievements table not available yet:", e.message);
         }
 
-        // Load AI Assistant data
-        try {
-          const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
-          const [aiPrefs, memoriesData, conversationsData] = await Promise.all([
-            fetchAIPreferences(family.id),
-            fetchMemories(family.id),
-            fetchConversations(family.id, 10),
-          ]);
-
-          console.log("[ai-load] Preferences:", aiPrefs ? "loaded" : "none", aiPrefs?.cuisine_preferences || "");
-          console.log("[ai-load] Memories:", memoriesData?.length || 0);
-          console.log("[ai-load] Conversations:", conversationsData?.length || 0);
-          if (aiPrefs) dispatch({ type: "SET_AI_PREFERENCES", value: aiPrefs });
-          dispatch({ type: "SET_MEMORIES", value: memoriesData || [] });
-          dispatch({ type: "SET_CONVERSATIONS", value: conversationsData || [] });
-        } catch (e) {
-          console.log("[supabase] AI tables not available yet:", e.message);
-        }
-
-        // Mark data as loaded after all queries complete
+        // Mark critical data as loaded — app is interactive from this point
         dispatch({ type: "SET_DATA_LOADED", value: true });
+
+        // ── Phase 2 deferred: heavy/non-critical data loaded after a short delay ──
+        // Meals, photos, countdowns, notes, messages, and AI data are not needed on
+        // the calendar page and are deferred to avoid blocking the initial render.
+        setTimeout(() => {
+          loadDeferredData(family.id);
+        }, 1500);
       } catch (e) {
         console.warn("[supabase] Load failed, using local state:", e.message);
         // Still mark as loaded even on error, so app doesn't stay in loading state
@@ -1779,6 +1733,69 @@ function FamilyProvider({ children }) {
     };
   }, [state.isSupabaseConnected, state.family.id, state.tasks, state.members, state.rewards]);
 
+  // ── Deferred data loader ──
+  // Loads non-critical data (meals, photos, countdowns, notes, messages, AI).
+  // Called automatically 1.5 s after critical data is ready, and can also be
+  // called directly from page components that need the data immediately.
+  const loadDeferredData = async (familyId) => {
+    if (!familyId || familyId === "demo-family") return;
+    console.log("[deferred-load] Starting deferred data load for family:", familyId);
+    try {
+      const { fetchMeals, fetchNotes, fetchCountdowns, fetchPhotos } = await import("lib/supabase");
+
+      // Calculate current week for meals
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+      const [mealsData, notesData, countdownsData, photosData] = await Promise.all([
+        fetchMeals(familyId, weekStart.toISOString().split("T")[0], weekEnd.toISOString().split("T")[0]),
+        fetchNotes(familyId),
+        fetchCountdowns(familyId),
+        fetchPhotos(familyId, 0),
+      ]);
+
+      dispatch({ type: "SET_MEALS", value: mealsData });
+      dispatch({ type: "SET_NOTES", value: notesData });
+      dispatch({ type: "SET_COUNTDOWNS", value: countdownsData });
+      dispatch({ type: "SET_PHOTOS", value: photosData });
+      setPhotosPage(0);
+      setHasMorePhotos(photosData.length === 50);
+    } catch (e) {
+      console.warn("[deferred-load] v3 tables error:", e.message);
+    }
+
+    // Messages
+    try {
+      const { data: dbMessages } = await supabase
+        .from("family_messages")
+        .select("*")
+        .eq("family_id", familyId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (dbMessages) dispatch({ type: "SET_MESSAGES", value: dbMessages });
+    } catch (e) {
+      console.warn("[deferred-load] family_messages error:", e.message);
+    }
+
+    // AI Assistant data
+    try {
+      const { fetchAIPreferences, fetchMemories, fetchConversations } = await import("lib/supabase");
+      const [aiPrefs, memoriesData, conversationsData] = await Promise.all([
+        fetchAIPreferences(familyId),
+        fetchMemories(familyId),
+        fetchConversations(familyId, 10),
+      ]);
+      if (aiPrefs) dispatch({ type: "SET_AI_PREFERENCES", value: aiPrefs });
+      dispatch({ type: "SET_MEMORIES", value: memoriesData || [] });
+      dispatch({ type: "SET_CONVERSATIONS", value: conversationsData || [] });
+    } catch (e) {
+      console.warn("[deferred-load] AI tables error:", e.message);
+    }
+  };
+
   const loadMorePhotos = async () => {
     if (!hasMorePhotos || !state.family?.id || state.family.id === "demo-family") return;
     try {
@@ -1798,7 +1815,7 @@ function FamilyProvider({ children }) {
   };
 
   const value = useMemo(
-    () => [state, persistingDispatch, { hasMorePhotos, loadMorePhotos }],
+    () => [state, persistingDispatch, { hasMorePhotos, loadMorePhotos, loadDeferredData }],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state, persistingDispatch, hasMorePhotos]
   );

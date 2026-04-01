@@ -5,6 +5,8 @@ import App from "App";
 import { AuthProvider } from "context/AuthContext";
 import { FamilyProvider } from "context/FamilyContext";
 import { ThemeModeProvider } from "context/ThemeContext";
+import { TaskProvider } from "context/TaskContext";
+import { CalendarProvider } from "context/CalendarContext";
 const root = createRoot(document.getElementById("root"));
 
 root.render(
@@ -12,7 +14,11 @@ root.render(
     <AuthProvider>
       <ThemeModeProvider>
         <FamilyProvider>
-          <App />
+          <TaskProvider>
+            <CalendarProvider>
+              <App />
+            </CalendarProvider>
+          </TaskProvider>
         </FamilyProvider>
       </ThemeModeProvider>
     </AuthProvider>
