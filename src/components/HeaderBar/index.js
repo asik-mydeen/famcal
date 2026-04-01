@@ -11,6 +11,7 @@ import { useAppTheme } from "context/ThemeContext";
 import { alpha } from "theme/helpers";
 import TimerAlarmChips from "components/TimerAlarmChips";
 import BirthdayWidget from "components/BirthdayWidget";
+import { canNotify, requestNotificationPermission } from "lib/notifications";
 
 function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWidget, kioskEnabled, onKioskToggle, fontScale, onFontScaleChange, onOpenTimerPanel, urgentMessageCount, onOpenBriefing }) {
   const { tokens, darkMode } = useAppTheme();
@@ -27,6 +28,16 @@ function HeaderBar({ weather, topCountdown, members, weatherWidget, countdownWid
     }, 60000); // Update every minute
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Request notification permission once, with a 2-second delay so it doesn't
+  // interrupt the initial page load. Only asks if the user hasn't been asked before.
+  useEffect(() => {
+    const asked = localStorage.getItem('famcal-notif-asked');
+    if (!asked && canNotify() && Notification.permission === 'default') {
+      localStorage.setItem('famcal-notif-asked', 'true');
+      setTimeout(() => requestNotificationPermission(), 2000);
+    }
   }, []);
 
   // Format date (e.g., "Thursday, Mar 19")

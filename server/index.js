@@ -54,6 +54,7 @@ const handlers = [
   "google-sync",
   "google-token",
   "photos",
+  "send-digest",
   "voice-nova-key",
   "voice-transcribe",
   "voice-tts",

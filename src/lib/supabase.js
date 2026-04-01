@@ -383,3 +383,30 @@ export async function deleteAlarm(id) {
     .eq("id", id);
   if (error) console.warn("deleteAlarm error:", error);
 }
+
+// ── Event Comments ──
+export async function fetchEventComments(eventId) {
+  const { data, error } = await supabase
+    .from("event_comments")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (error) { console.warn("fetchEventComments error:", error); return []; }
+  return data || [];
+}
+
+export async function addEventComment(eventId, familyId, authorId, authorName, text) {
+  const { data, error } = await supabase
+    .from("event_comments")
+    .insert({ event_id: eventId, family_id: familyId, author_id: authorId, author_name: authorName, text, created_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteEventComment(commentId) {
+  const { error } = await supabase.from("event_comments").delete().eq("id", commentId);
+  if (error) throw error;
+}

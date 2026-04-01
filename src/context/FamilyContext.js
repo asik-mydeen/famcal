@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { supabase } from "lib/supabase";
 import { useAuth } from "context/AuthContext";
 import { getTokens } from "theme/tokens";
+import { notifyEventAdded, notifyEventUpdated, notifyEventDeleted } from "lib/notifications";
 
 const FamilyContext = createContext(null);
 FamilyContext.displayName = "FamilyContext";
@@ -683,6 +684,10 @@ function FamilyProvider({ children }) {
   const [photosPage, setPhotosPage] = useState(0);
   const [hasMorePhotos, setHasMorePhotos] = useState(true);
 
+  // Notification tracking: compare events before/after a remote refresh
+  const prevEventsRef = useRef(null);       // snapshot before remote refresh
+  const realtimeEventsFlagRef = useRef(false); // set true when refresh is triggered by remote broadcast
+
   // Wait for auth session to be fully established before subscribing.
   // Listen for the Supabase auth state change to ensure the client
   // has an active session token before opening the WebSocket.
@@ -764,6 +769,11 @@ function FamilyProvider({ children }) {
     channel.on("broadcast", { event: "change" }, (payload) => {
       const table = payload.payload?.table;
       console.log("[realtime] Change on", table, "from another client");
+      if (table === "events") {
+        // Snapshot current events so the notification effect can diff them
+        prevEventsRef.current = state.events.slice();
+        realtimeEventsFlagRef.current = true;
+      }
       if (table && ACTION_MAP[table]) refreshTable(table);
       if (table === "list_items") refreshTable("lists");
     });
@@ -772,6 +782,10 @@ function FamilyProvider({ children }) {
     ["INSERT", "UPDATE", "DELETE"].forEach((evt) => {
       channel.on("broadcast", { event: evt }, (payload) => {
         const table = payload.payload?.table || payload.table;
+        if (table === "events") {
+          prevEventsRef.current = state.events.slice();
+          realtimeEventsFlagRef.current = true;
+        }
         if (table && ACTION_MAP[table]) refreshTable(table);
         if (table === "list_items") refreshTable("lists");
       });
@@ -805,6 +819,46 @@ function FamilyProvider({ children }) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.family?.id, realtimeReady]);
+
+  // Fire browser notifications when events change due to a remote (other-user) broadcast
+  useEffect(() => {
+    if (!realtimeEventsFlagRef.current) return;
+    realtimeEventsFlagRef.current = false;
+
+    const prev = prevEventsRef.current;
+    if (!prev) return;
+
+    const prevIds = new Set(prev.map((e) => e.id));
+    const currIds = new Set(state.events.map((e) => e.id));
+
+    // Determine actor name: look for the member who owns the changed event.
+    // Fall back to "Someone" when member can't be resolved.
+    const getActor = (memberIdOrNull) => {
+      if (!memberIdOrNull) return "Someone";
+      const m = state.members.find((mb) => mb.id === memberIdOrNull);
+      return m ? m.name : "Someone";
+    };
+
+    // Added events
+    state.events
+      .filter((e) => !prevIds.has(e.id))
+      .forEach((e) => notifyEventAdded(e, getActor(e.member_id)));
+
+    // Deleted events
+    prev
+      .filter((e) => !currIds.has(e.id))
+      .forEach((e) => notifyEventDeleted(e.title, getActor(e.member_id)));
+
+    // Updated events (same id, different title or start time)
+    state.events
+      .filter((e) => {
+        if (!prevIds.has(e.id)) return false; // already handled as added
+        const old = prev.find((p) => p.id === e.id);
+        return old && (old.title !== e.title || old.start !== e.start);
+      })
+      .forEach((e) => notifyEventUpdated(e, getActor(e.member_id)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.events]);
 
   // Load from Supabase on mount (or when user changes)
   useEffect(() => {

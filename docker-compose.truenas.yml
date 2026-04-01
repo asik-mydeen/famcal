@@ -61,6 +61,11 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      CRON_SECRET: ${CRON_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
     networks:
       - famcal-network
     healthcheck:
@@ -68,6 +73,21 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # ── Cron (daily agenda digest at 07:00) ──────────────────────────────────
+  famcal-cron:
+    image: alpine:3.19
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      - CRON_SECRET=${CRON_SECRET:-}
+      - API_URL=http://famcal-api:3001
+    command: >
+      sh -c "echo '0 7 * * * wget -qO- --header=\"Authorization: Bearer $$CRON_SECRET\" --post-data=\"{}\" --header=\"Content-Type: application/json\" $$API_URL/api/send-digest >> /var/log/cron.log 2>&1' | crontab - && crond -f -l 2"
+    depends_on:
+      - famcal-api
+    networks:
+      - famcal-network
 
   # ── Nova Proxy (WebSocket relay for Amazon Nova 2 Sonic voice) ────────────
   famcal-nova-proxy:

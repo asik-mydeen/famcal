@@ -37,6 +37,7 @@ import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
 import MessageBoard from "components/MessageBoard";
 import MoodBoard from "components/MoodBoard";
+import EventComments from "components/EventComments";
 
 // ── Helpers ──
 
@@ -1119,6 +1120,13 @@ function FamilyCalendar() {
           <TextField label="End Date" type="date" value={eventForm.endDate} onChange={(e) => handleFormChange("endDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} inputProps={{ min: eventForm.startDate }} />
           {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
         </Box>
+        {editingEvent && editingEvent.id && !editingEvent.id.startsWith("evt-") && (
+          <EventComments
+            eventId={editingEvent.id}
+            familyId={family.id}
+            members={members}
+          />
+        )}
       </SlidePanel>
     </PageShell>
   );
