@@ -247,7 +247,8 @@ function reducer(state, action) {
               created_at: new Date().toISOString(),
             };
           }
-          return { ...m, points: newPoints, level: newLevel, streak_days: newStreak, allowance_balance: newBalance };
+          const newWeeklyStars = (m.weekly_stars || 0) + earnedPoints;
+          return { ...m, points: newPoints, level: newLevel, streak_days: newStreak, allowance_balance: newBalance, weekly_stars: newWeeklyStars };
         }
         return m;
       });
@@ -272,7 +273,8 @@ function reducer(state, action) {
         if (m.id === task.completed_by) {
           const newPoints = Math.max(0, m.points - deduction);
           const newLevel = Math.floor(newPoints / 100) + 1;
-          return { ...m, points: newPoints, level: newLevel };
+          const newWeeklyStars = Math.max(0, (m.weekly_stars || 0) - deduction);
+          return { ...m, points: newPoints, level: newLevel, weekly_stars: newWeeklyStars };
         }
         return m;
       });
@@ -510,11 +512,11 @@ function reducer(state, action) {
           return s;
         }),
       }));
-      // Award points to member
+      // Award points + weekly stars to member
       const updatedMembers = state.members.map((m) => {
         if (m.id === cMemberId && stepPoints > 0) {
           const newPts = m.points + stepPoints;
-          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1 };
+          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1, weekly_stars: (m.weekly_stars || 0) + stepPoints };
         }
         return m;
       });
@@ -539,7 +541,7 @@ function reducer(state, action) {
       const uncMembers = state.members.map((m) => {
         if (m.id === uncMemberId && uncPoints > 0) {
           const newPts = Math.max(0, m.points - uncPoints);
-          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1 };
+          return { ...m, points: newPts, level: Math.floor(newPts / 100) + 1, weekly_stars: Math.max(0, (m.weekly_stars || 0) - uncPoints) };
         }
         return m;
       });
@@ -638,9 +640,23 @@ function taskToDb(t) {
   return row;
 }
 
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(date.getFullYear(), date.getMonth(), diff).toISOString().split("T")[0];
+}
+
 function memberFromDb(row) {
   const { google_refresh_token, ...rest } = row;
-  return { ...rest, visible: true, has_server_sync: !!google_refresh_token };
+  const member = { ...rest, visible: true, has_server_sync: !!google_refresh_token };
+  // Weekly stars reset check: if last reset was before this Monday, reset to 0
+  const thisMonday = getMonday(new Date());
+  if (!member.weekly_stars_reset_at || member.weekly_stars_reset_at < thisMonday) {
+    member.weekly_stars = 0;
+    member.weekly_stars_reset_at = thisMonday;
+  }
+  return member;
 }
 
 function memberToDb(m) {
@@ -940,7 +956,18 @@ function FamilyProvider({ children }) {
 
         // Load members
         const { data: dbMembers } = await supabase.from("family_members").select("*").eq("family_id", family.id);
-        if (dbMembers) dispatch({ type: "SET_MEMBERS", value: dbMembers.map(memberFromDb) });
+        if (dbMembers) {
+          const mapped = dbMembers.map(memberFromDb);
+          dispatch({ type: "SET_MEMBERS", value: mapped });
+          // Persist weekly star resets if any member was reset
+          const thisMonday = getMonday(new Date());
+          for (const m of mapped) {
+            const raw = dbMembers.find((r) => r.id === m.id);
+            if (raw && (!raw.weekly_stars_reset_at || raw.weekly_stars_reset_at < thisMonday)) {
+              persist("family_members", "update", { id: m.id, weekly_stars: 0, weekly_stars_reset_at: thisMonday });
+            }
+          }
+        }
 
         // Load tasks
         const { data: dbTasks } = await supabase.from("tasks").select("*").eq("family_id", family.id);
@@ -1138,6 +1165,8 @@ function FamilyProvider({ children }) {
           if (mv.birth_date !== undefined) updatePayload.birth_date = mv.birth_date;
           if (mv.allowance_balance !== undefined) updatePayload.allowance_balance = mv.allowance_balance;
           if (mv.allowance_rate !== undefined) updatePayload.allowance_rate = mv.allowance_rate;
+          if (mv.weekly_stars !== undefined) updatePayload.weekly_stars = mv.weekly_stars;
+          if (mv.weekly_stars_reset_at !== undefined) updatePayload.weekly_stars_reset_at = mv.weekly_stars_reset_at;
           persist("family_members", "update", updatePayload);
           break;
         }
@@ -1173,7 +1202,8 @@ function FamilyProvider({ children }) {
               const yStr = yesterday.toISOString().split("T")[0];
               const hadYesterday = state.tasks.some((t) => t.completed_by === member.id && t.completed_at === yStr);
               const newStreak = hadYesterday ? (member.streak_days || 0) + 1 : 1;
-              persist("family_members", "update", { id: member.id, points: newPoints, level: newLevel, streak_days: newStreak });
+              const newWeeklyStars = (member.weekly_stars || 0) + earned;
+              persist("family_members", "update", { id: member.id, points: newPoints, level: newLevel, streak_days: newStreak, weekly_stars: newWeeklyStars });
               // Allowance: create transaction if member has allowance_rate
               if ((member.allowance_rate || 0) > 0) {
                 const allowanceEarned = Math.round(earned * (member.allowance_rate / 100) * 100) / 100;
@@ -1222,7 +1252,8 @@ function FamilyProvider({ children }) {
             const member = state.members.find((m) => m.id === task.completed_by);
             if (member) {
               const newPoints = Math.max(0, member.points - earned);
-              persist("family_members", "update", { id: member.id, points: newPoints, level: Math.floor(newPoints / 100) + 1 });
+              const newWeeklyStars = Math.max(0, (member.weekly_stars || 0) - earned);
+              persist("family_members", "update", { id: member.id, points: newPoints, level: Math.floor(newPoints / 100) + 1, weekly_stars: newWeeklyStars });
             }
           }
           break;
@@ -1640,13 +1671,14 @@ function FamilyProvider({ children }) {
           supabase.from("routine_completions").insert(csRow).then(({ error }) => {
             if (error) console.warn("[supabase] routine_completions insert failed:", error.message);
           });
-          // Award points to member
+          // Award points + weekly stars to member
           const csStep = state.routines.flatMap((r) => r.steps || []).find((s) => s.id === csId);
           if (csStep) {
             const csMember = state.members.find((m) => m.id === csMemberId);
             if (csMember) {
               const newPts = csMember.points + (csStep.points_value || 5);
-              persist("family_members", "update", { id: csMemberId, points: newPts, level: Math.floor(newPts / 100) + 1 });
+              const newWS = (csMember.weekly_stars || 0) + (csStep.points_value || 5);
+              persist("family_members", "update", { id: csMemberId, points: newPts, level: Math.floor(newPts / 100) + 1, weekly_stars: newWS });
             }
           }
           break;
@@ -1662,13 +1694,14 @@ function FamilyProvider({ children }) {
             .then(({ error }) => {
               if (error) console.warn("[supabase] routine_completions delete failed:", error.message);
             });
-          // Deduct points
+          // Deduct points + weekly stars
           const ucStep = state.routines.flatMap((r) => r.steps || []).find((s) => s.id === ucId);
           if (ucStep) {
             const ucMember = state.members.find((m) => m.id === ucMemberId);
             if (ucMember) {
               const newPts = Math.max(0, ucMember.points - (ucStep.points_value || 5));
-              persist("family_members", "update", { id: ucMemberId, points: newPts, level: Math.floor(newPts / 100) + 1 });
+              const newWS = Math.max(0, (ucMember.weekly_stars || 0) - (ucStep.points_value || 5));
+              persist("family_members", "update", { id: ucMemberId, points: newPts, level: Math.floor(newPts / 100) + 1, weekly_stars: newWS });
             }
           }
           break;

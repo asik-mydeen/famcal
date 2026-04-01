@@ -106,9 +106,14 @@ function Rewards() {
     () => (members.length > 0 ? Math.max(...members.map((m) => m.streak_days)) : 0),
     [members]
   );
+  const [leaderboardMode, setLeaderboardMode] = useState("weekly"); // "weekly" | "alltime"
   const sortedMembers = useMemo(
-    () => [...members].sort((a, b) => b.points - a.points),
-    [members]
+    () => [...members].sort((a, b) =>
+      leaderboardMode === "weekly"
+        ? (b.weekly_stars || 0) - (a.weekly_stars || 0)
+        : b.points - a.points
+    ),
+    [members, leaderboardMode]
   );
 
   const getRankDisplay = (index) => {
@@ -504,12 +509,47 @@ function Rewards() {
       <Grid container spacing={3}>
         {/* ── Leaderboard ── */}
         <Grid item xs={12} md={5}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <Icon sx={{ fontSize: "1.5rem !important", color: tokens.level.gold }}>emoji_events</Icon>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
-              Leaderboard
-            </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Icon sx={{ fontSize: "1.5rem !important", color: tokens.level.gold }}>emoji_events</Icon>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: "text.primary" }}>
+                Leaderboard
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", bgcolor: alpha(tokens.accent.main, 0.08), borderRadius: "10px", p: "2px" }}>
+              <Chip
+                label="This Week"
+                size="small"
+                icon={<Icon sx={{ fontSize: "0.85rem !important" }}>star</Icon>}
+                onClick={() => setLeaderboardMode("weekly")}
+                sx={{
+                  height: 28, fontSize: "0.7rem", fontWeight: 600,
+                  bgcolor: leaderboardMode === "weekly" ? tokens.accent.main : "transparent",
+                  color: leaderboardMode === "weekly" ? "#fff" : "text.secondary",
+                  "& .MuiChip-icon": { color: leaderboardMode === "weekly" ? "#fff" : "text.secondary" },
+                  cursor: "pointer", touchAction: "manipulation",
+                }}
+              />
+              <Chip
+                label="All Time"
+                size="small"
+                icon={<Icon sx={{ fontSize: "0.85rem !important" }}>shield</Icon>}
+                onClick={() => setLeaderboardMode("alltime")}
+                sx={{
+                  height: 28, fontSize: "0.7rem", fontWeight: 600,
+                  bgcolor: leaderboardMode === "alltime" ? tokens.accent.main : "transparent",
+                  color: leaderboardMode === "alltime" ? "#fff" : "text.secondary",
+                  "& .MuiChip-icon": { color: leaderboardMode === "alltime" ? "#fff" : "text.secondary" },
+                  cursor: "pointer", touchAction: "manipulation",
+                }}
+              />
+            </Box>
           </Box>
+          {leaderboardMode === "weekly" && (
+            <Typography sx={{ fontSize: "0.68rem", color: "text.disabled", mb: 1.5, textAlign: "center" }}>
+              Resets every Monday
+            </Typography>
+          )}
 
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             {sortedMembers.map((member, index) => {
@@ -593,26 +633,29 @@ function Rewards() {
                         >
                           {member.name}
                         </Typography>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          <Icon sx={{ fontSize: "0.9rem !important", color: tokens.priority.medium }}>star</Icon>
-                          <motion.span
-                            key={member.points}
-                            initial={{ scale: 1.3, color: tokens.priority.medium }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                            style={{ display: "inline-block" }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 700,
-                                color: tokens.priority.medium,
-                                fontSize: isSmall ? "0.8rem" : "0.9rem",
-                              }}
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          {/* Weekly stars */}
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
+                            <Icon sx={{ fontSize: "0.85rem !important", color: tokens.level?.gold || "#f59e0b" }}>star</Icon>
+                            <motion.span
+                              key={`ws-${member.weekly_stars || 0}`}
+                              initial={{ scale: 1.3 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                              style={{ display: "inline-block" }}
                             >
+                              <Typography sx={{ fontWeight: 700, color: tokens.level?.gold || "#f59e0b", fontSize: isSmall ? "0.8rem" : "0.9rem" }}>
+                                {(member.weekly_stars || 0).toLocaleString()}
+                              </Typography>
+                            </motion.span>
+                          </Box>
+                          {/* All-time XP */}
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.3, opacity: leaderboardMode === "weekly" ? 0.5 : 1 }}>
+                            <Icon sx={{ fontSize: "0.75rem !important", color: tokens.accent.main }}>shield</Icon>
+                            <Typography sx={{ fontWeight: 600, color: tokens.accent.main, fontSize: "0.7rem" }}>
                               {member.points.toLocaleString()}
                             </Typography>
-                          </motion.span>
+                          </Box>
                         </Box>
                       </Box>
 
