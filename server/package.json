@@ -1,0 +1,17 @@
+{
+  "name": "famcal-api",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "ai": "^3.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "openai": "^4.28.0"
+  }
+}

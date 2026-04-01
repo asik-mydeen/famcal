@@ -380,8 +380,10 @@ function AIAssistant({
   }, [voiceQuery]);
 
   const handleSuggestionClick = (prompt) => {
-    setInput(prompt);
-    if (!voiceActive) inputRef.current?.focus();
+    // Exit voice view first so the message thread becomes visible
+    setShowVoiceInput(false);
+    // Submit immediately — suggestion pills should send, not just populate
+    submitMessage(prompt);
   };
 
   const handleKeyPress = (e) => {
@@ -539,7 +541,7 @@ function AIAssistant({
 
         {/* Switch to keyboard */}
         <Typography
-          onClick={() => { if (inputRef.current) inputRef.current.focus(); }}
+          onClick={() => { setShowVoiceInput(false); setTimeout(() => inputRef.current?.focus(), 50); }}
           sx={{ fontSize: "0.72rem", color: "text.secondary", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
         >
           or type instead

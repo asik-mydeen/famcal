@@ -1,0 +1,92 @@
+version: "3.8"
+
+# FamCal — TrueNAS / Self-hosted Deployment
+#
+# Create a .env file with these required variables:
+#   REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+#   REACT_APP_SUPABASE_ANON_KEY=your-anon-key
+#   SUPABASE_SERVICE_KEY=your-service-role-key
+#   OPENAI_API_KEY=sk-...        (for chat + TTS + Whisper)
+#   NOVA_API_KEY=your-nova-key   (for Amazon Nova real-time voice, optional)
+#   GOOGLE_CLIENT_ID=...         (for Google calendar sync, optional)
+#   GOOGLE_CLIENT_SECRET=...     (optional)
+#
+# Ports used (change if conflicts):
+#   8090 → web (nginx serving React SPA + API proxy)
+#   8091 → nova-proxy (WebSocket relay for Amazon Nova voice)
+#
+# Usage:
+#   docker-compose -f docker-compose.truenas.yml up -d
+
+services:
+  # ── Web (React SPA + nginx proxy) ────────────────────────────────────────
+  famcal-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: famcal-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8090}:80"
+    environment:
+      - REACT_APP_SUPABASE_URL=${REACT_APP_SUPABASE_URL}
+      - REACT_APP_SUPABASE_ANON_KEY=${REACT_APP_SUPABASE_ANON_KEY}
+      - REACT_APP_NOVA_PROXY_URL=ws://localhost:${NOVA_PORT:-8091}
+    depends_on:
+      - famcal-api
+    networks:
+      - famcal-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── API (Express wrapper for serverless handlers) ─────────────────────────
+  famcal-api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: famcal-api
+    restart: unless-stopped
+    environment:
+      PORT: 3001
+      REACT_APP_SUPABASE_URL: ${REACT_APP_SUPABASE_URL}
+      REACT_APP_SUPABASE_ANON_KEY: ${REACT_APP_SUPABASE_ANON_KEY}
+      SUPABASE_URL: ${REACT_APP_SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${REACT_APP_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      NOVA_API_KEY: ${NOVA_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    networks:
+      - famcal-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Nova Proxy (WebSocket relay for Amazon Nova 2 Sonic voice) ────────────
+  famcal-nova-proxy:
+    build:
+      context: ./nova-proxy
+      dockerfile: Dockerfile
+    container_name: famcal-nova-proxy
+    restart: unless-stopped
+    ports:
+      - "${NOVA_PORT:-8091}:8080"
+    environment:
+      NOVA_API_KEY: ${NOVA_API_KEY}
+      PORT: 8080
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    networks:
+      - famcal-network
+    profiles:
+      - nova  # Only start if Nova voice is configured: docker-compose --profile nova up
+
+networks:
+  famcal-network:
+    driver: bridge
