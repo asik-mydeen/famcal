@@ -1,7 +1,7 @@
 FROM node:20-alpine
 WORKDIR /app
-# Copy server files
-COPY server/package.json ./server/
+# Copy entire server directory (package.json + index.js) and api handlers
+COPY server/ ./server/
 COPY api/ ./api/
 # Install server dependencies
 RUN cd server && npm install --production
