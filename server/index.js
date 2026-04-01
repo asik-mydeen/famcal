@@ -90,10 +90,10 @@ async function loadHandlers() {
 // Health check
 app.get("/health", (_req, res) => res.json({ status: "ok", uptime: process.uptime() }));
 
-// 404 fallback for unknown API routes
-app.use("/api/*", (_req, res) => res.status(404).json({ error: "Not found" }));
-
 loadHandlers().then(() => {
+  // 404 fallback for unknown API routes — MUST be after handlers are mounted
+  app.use("/api/*", (_req, res) => res.status(404).json({ error: "Not found" }));
+
   app.listen(PORT, () => {
     console.log(`FamCal API listening on :${PORT}`);
   });
