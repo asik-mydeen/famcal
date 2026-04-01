@@ -7,8 +7,10 @@ import CardContent from "@mui/material/CardContent";
 import IconButton from "@mui/material/IconButton";
 import Icon from "@mui/material/Icon";
 import Chip from "@mui/material/Chip";
-import SlidePanel from "components/SlidePanel";
 import PageShell from "components/PageShell";
+import IconRail from "components/IconRail";
+import ExpandablePanel from "components/ExpandablePanel";
+import EventPeekCard from "components/EventPeekCard";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Tabs from "@mui/material/Tabs";
@@ -32,7 +34,6 @@ import { useFamilyController, MEMBER_COLORS } from "context/FamilyContext";
 import { syncAllMembers, connectMemberCalendar, disconnectMemberCalendar, deleteSyncedEvent, pushEventToGoogle, pushEventUpdateToGoogle, pushEventDeleteToGoogle, hasValidToken } from "lib/googleCalendar";
 import { useAppTheme } from "context/ThemeContext";
 import { apiUrl } from "lib/api";
-import SmartSidebar from "components/SmartSidebar";
 import NotesWidget from "components/NotesWidget";
 import CountdownWidget from "components/CountdownWidget";
 import MessageBoard from "components/MessageBoard";
@@ -233,7 +234,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
             {allDay.map((evt) => {
               const m = members.find((x) => x.id === evt.member_id);
               return (
-                <Chip key={evt.id} label={evt.title} size="small" onClick={() => onEventClick(evt)}
+                <Chip key={evt.id} label={evt.title} size="small" onClick={(e) => onEventClick(evt, e)}
                   icon={evt.recurrence_rule ? <Icon sx={{ fontSize: "0.8rem !important" }}>repeat</Icon> : undefined}
                   sx={{ bgcolor: m ? `${m.avatar_color}18` : "background.paper", color: m ? m.avatar_color : "text.primary", fontWeight: 600, fontSize: "0.75rem", cursor: "pointer", border: "1px solid", borderColor: m ? `${m.avatar_color}30` : "divider" }}
                 />
@@ -347,7 +348,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
                 : `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`;
 
               return (
-                <Box key={evt.id} onClick={() => onEventClick(evt)}
+                <Box key={evt.id} onClick={(e) => onEventClick(evt, e)}
                   sx={{
                     position: "absolute", top, height,
                     left: subLeft,
@@ -384,7 +385,7 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
             const top = Math.max(0, (s.getHours() + s.getMinutes() / 60 - DAY_START)) * HOUR_HEIGHT;
             const height = Math.max(28, ((e.getHours() + e.getMinutes() / 60) - (s.getHours() + s.getMinutes() / 60)) * HOUR_HEIGHT);
             return (
-              <Box key={evt.id} onClick={() => onEventClick(evt)}
+              <Box key={evt.id} onClick={(e) => onEventClick(evt, e)}
                 sx={{ position: "absolute", top, height, left: `calc(${timeColW}px + 3px)`, right: 3, background: alpha(tokens.accent.main, 0.05), border: `1px dashed ${alpha(tokens.accent.main, 0.15)}`, borderLeft: `4px dashed ${alpha(tokens.accent.main, 0.3)}`, color: tokens.accent.main, borderRadius: "10px", px: "14px", py: "10px", cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center" }}
               >
                 <Typography sx={{ fontWeight: 700, fontSize: "0.75rem", color: tokens.accent.main }}>{evt.title}</Typography>
@@ -418,16 +419,17 @@ function FamilyCalendar() {
 
   const [viewTab, setViewTab] = useState(0);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [eventForm, setEventForm] = useState(defaultEventForm());
   const [syncing, setSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [connectingId, setConnectingId] = useState(null);
   const [syncMessage, setSyncMessage] = useState("");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    localStorage.getItem("famcal_sidebar_collapsed") === "true"
-  );
+
+  // Icon Rail + Expandable Panel state
+  const [activePanel, setActivePanel] = useState(null); // null | "messages" | "notes" | "countdowns" | "chores" | "dinner" | "mood" | "event-edit" | "event-comments"
+  const [previousPanel, setPreviousPanel] = useState(null); // restore after event edit
+  const [peekCard, setPeekCard] = useState(null); // { event, anchorRect }
 
   // Navigation
   const goToday = () => setCurrentDate(new Date());
@@ -480,8 +482,17 @@ function FamilyCalendar() {
   })), [expandedEvents]);
 
   // Event handlers
-  const handleEventClick = useCallback((evt) => {
-    // If this is a recurring instance, find the original event for editing
+  // Open peek card near tapped event (DayTimeline custom view)
+  const handleEventClick = useCallback((evt, domEvent) => {
+    const targetEvt = evt.isRecurrence
+      ? events.find((e) => e.id === evt.originalEventId) || evt
+      : evt;
+    const rect = domEvent?.target?.getBoundingClientRect?.() || { top: 300, bottom: 340, left: 300 };
+    setPeekCard({ event: targetEvt, anchorRect: rect });
+  }, [events]);
+
+  // Prepare event form for editing in the panel
+  const openEventInPanel = useCallback((evt, panelMode) => {
     const targetEvt = evt.isRecurrence
       ? events.find((e) => e.id === evt.originalEventId) || evt
       : evt;
@@ -499,26 +510,46 @@ function FamilyCalendar() {
       recurrence_rule: targetEvt.recurrence_rule || "",
       reminder_minutes: targetEvt.reminder_minutes ?? "",
     });
-    setDialogOpen(true);
-  }, [events]);
+    setPreviousPanel(activePanel);
+    setActivePanel(panelMode || "event-edit");
+    setPeekCard(null);
+  }, [events, activePanel]);
+
+  const handlePeekEdit = useCallback((evt) => openEventInPanel(evt, "event-edit"), [openEventInPanel]);
+  const handlePeekComment = useCallback((evt) => openEventInPanel(evt, "event-comments"), [openEventInPanel]);
+  const handlePeekDelete = useCallback((evt) => {
+    setPeekCard(null);
+    if (!isDashboard) {
+      const existing = events.find(e => e.id === evt.id);
+      if (existing?.google_event_id && existing.member_id) {
+        const member = members.find(m => m.id === existing.member_id);
+        if (member) deleteSyncedEvent(member, existing.google_event_id).catch(() => {});
+      }
+    }
+    dispatch({ type: "REMOVE_EVENT", value: evt.id });
+  }, [events, members, dispatch, isDashboard]);
 
   const handleFcEventClick = useCallback((info) => {
     const evt = expandedEvents.find((e) => e.id === info.event.id);
-    if (evt) handleEventClick(evt);
+    if (evt) handleEventClick(evt, info.jsEvent);
   }, [expandedEvents, handleEventClick]);
 
   const handleTimeClick = useCallback((dateStr, time, memberId) => {
     const [h] = time.split(":").map(Number);
     setEditingEvent(null);
     setEventForm({ title: "", member_id: memberId || "", startDate: dateStr, startTime: time, endDate: dateStr, endTime: `${String(h + 1).padStart(2, "0")}:00`, allDay: false });
-    setDialogOpen(true);
-  }, []);
+    setPreviousPanel(activePanel);
+    setActivePanel("event-edit");
+    setPeekCard(null);
+  }, [activePanel]);
 
   const handleFcDateClick = useCallback((info) => {
     setEditingEvent(null);
     setEventForm(defaultEventForm(info.dateStr.split("T")[0]));
-    setDialogOpen(true);
-  }, []);
+    setPreviousPanel(activePanel);
+    setActivePanel("event-edit");
+    setPeekCard(null);
+  }, [activePanel]);
 
   const handleFormChange = useCallback((field, value) => {
     setEventForm((prev) => {
@@ -539,8 +570,8 @@ function FamilyCalendar() {
     if (editingEvent) {
       const existingEvent = events.find(e => e.id === editingEvent.id);
 
-      // Close dialog FIRST so UI feels instant
-      setDialogOpen(false); setEditingEvent(null);
+      // Close panel FIRST so UI feels instant
+      setActivePanel(previousPanel); setEditingEvent(null);
 
       // Update local state immediately
       dispatch({
@@ -566,7 +597,7 @@ function FamilyCalendar() {
           setTimeout(() => pushEventUpdateToGoogle(memberForPush, { ...existingEvent, title: title.trim(), start, end, allDay }).catch(() => {}), 100);
         }
       }
-      return; // Skip the setDialogOpen below
+      return;
     } else {
       const newEventId = crypto.randomUUID();
       const newEvent = {
@@ -583,8 +614,8 @@ function FamilyCalendar() {
         recurrence_rule: recurrence_rule || null,
         reminder_minutes: reminder_minutes === "" ? null : Number(reminder_minutes),
       };
-      // Close dialog FIRST so UI feels instant
-      setDialogOpen(false); setEditingEvent(null);
+      // Close panel FIRST so UI feels instant
+      setActivePanel(previousPanel); setEditingEvent(null);
 
       // Add to local state immediately — UI updates now
       dispatch({
@@ -602,10 +633,10 @@ function FamilyCalendar() {
           }).catch(() => {});
         }, 500);
       }
-      return; // Skip the setDialogOpen below (already done above)
+      return;
     }
-    setDialogOpen(false); setEditingEvent(null);
-  }, [eventForm, editingEvent, members, family.id, events, dispatch]);
+    setActivePanel(previousPanel); setEditingEvent(null);
+  }, [eventForm, editingEvent, members, family.id, events, dispatch, previousPanel]);
 
   const handleDeleteEvent = useCallback(async () => {
     if (editingEvent) {
@@ -621,11 +652,11 @@ function FamilyCalendar() {
       }
       dispatch({ type: "REMOVE_EVENT", value: editingEvent.id });
     }
-    setDialogOpen(false); setEditingEvent(null);
-  }, [editingEvent, events, members, dispatch]);
+    setActivePanel(previousPanel); setEditingEvent(null);
+  }, [editingEvent, events, members, dispatch, previousPanel]);
 
   const handleCloseDialog = useCallback(() => {
-    setDialogOpen(false);
+    setActivePanel(previousPanel);
     setEditingEvent(null);
     setEventForm(defaultEventForm());
   }, []);
@@ -1007,127 +1038,128 @@ function FamilyCalendar() {
           )}
         </Box>
 
-        {/* Smart Sidebar */}
-        <SmartSidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => {
-            const next = !sidebarCollapsed;
-            setSidebarCollapsed(next);
-            localStorage.setItem("famcal_sidebar_collapsed", String(next));
-          }}
-          notesWidget={notesWidget}
-          countdownWidget={countdownWidget}
-          todayChoresWidget={todayChoresWidget}
-          tonightDinnerWidget={tonightDinnerWidget}
-          messagesWidget={messagesWidget}
-          moodWidget={moodWidget}
+        {/* Icon Rail */}
+        <IconRail
+          items={[
+            { key: "messages", icon: "forum", label: "Messages", badge: (messages || []).filter(m => m.urgent).length },
+            { key: "notes", icon: "sticky_note_2", label: "Notes", badge: notes.filter(n => { const age = Date.now() - new Date(n.created_at).getTime(); return n.pinned || age < 86400000; }).length },
+            { key: "countdowns", icon: "timer", label: "Countdowns", badge: 0 },
+            { key: "chores", icon: "task_alt", label: "Today's Chores", badge: tasks.filter(t => t.due_date === fmtDate(new Date()) && !t.completed).length },
+            { key: "dinner", icon: "restaurant", label: "Tonight's Dinner", badge: 0 },
+            { key: "mood", icon: "mood", label: "Mood Check-In", badge: 0 },
+          ]}
+          activeKey={activePanel && !activePanel.startsWith("event-") ? activePanel : null}
+          onSelect={(key) => { setPeekCard(null); setActivePanel(key); }}
         />
 
-        {/* Sidebar reopen button — visible when collapsed */}
-        {sidebarCollapsed && (
-          <Box
-            onClick={() => {
-              setSidebarCollapsed(false);
-              localStorage.setItem("famcal_sidebar_collapsed", "false");
-            }}
-            sx={{
-              display: { xs: "none", lg: "flex" },
-              position: "fixed", top: "50%", right: 0, transform: "translateY(-50%)",
-              zIndex: 1100, cursor: "pointer",
-              bgcolor: darkMode ? alpha(tokens.accent.light, 0.15) : alpha(tokens.accent.main, 0.08),
-              border: "1px solid",
-              borderColor: darkMode ? alpha(tokens.accent.light, 0.25) : alpha(tokens.accent.main, 0.15),
-              borderRight: "none",
-              borderRadius: "12px 0 0 12px",
-              px: 0.5, py: 2,
-              flexDirection: "column", alignItems: "center", gap: 0.5,
-              "&:hover": { bgcolor: darkMode ? alpha(tokens.accent.light, 0.25) : alpha(tokens.accent.main, 0.15) },
-              transition: "all 0.2s ease",
-            }}
-          >
-            <Icon sx={{ fontSize: "1rem", color: darkMode ? tokens.accent.light : tokens.accent.main }}>chevron_left</Icon>
-          </Box>
-        )}
+        {/* Expandable Panel */}
+        <ExpandablePanel
+          open={activePanel !== null}
+          title={
+            activePanel === "messages" ? "Messages"
+            : activePanel === "notes" ? "Notes"
+            : activePanel === "countdowns" ? "Countdowns"
+            : activePanel === "chores" ? "Today's Chores"
+            : activePanel === "dinner" ? "Tonight's Dinner"
+            : activePanel === "mood" ? "Mood Check-In"
+            : activePanel === "event-edit" ? (editingEvent ? "Edit Event" : "New Event")
+            : activePanel === "event-comments" ? "Comments"
+            : ""
+          }
+          icon={
+            activePanel === "messages" ? "forum"
+            : activePanel === "notes" ? "sticky_note_2"
+            : activePanel === "countdowns" ? "timer"
+            : activePanel === "chores" ? "task_alt"
+            : activePanel === "dinner" ? "restaurant"
+            : activePanel === "mood" ? "mood"
+            : activePanel?.startsWith("event-") ? "calendar_today"
+            : ""
+          }
+          contentKey={activePanel}
+          onClose={() => {
+            if (activePanel?.startsWith("event-")) {
+              setEditingEvent(null);
+              setActivePanel(previousPanel);
+            } else {
+              setActivePanel(null);
+            }
+          }}
+        >
+          {/* Widget content */}
+          {activePanel === "messages" && messagesWidget}
+          {activePanel === "notes" && notesWidget}
+          {activePanel === "countdowns" && countdownWidget}
+          {activePanel === "chores" && todayChoresWidget}
+          {activePanel === "dinner" && tonightDinnerWidget}
+          {activePanel === "mood" && moodWidget}
+
+          {/* Event edit form */}
+          {activePanel === "event-edit" && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <TextField label="Event Title" value={eventForm.title} onChange={(e) => handleFormChange("title", e.target.value)} fullWidth autoFocus placeholder="What's happening?" />
+              <TextField label="Assign to" value={eventForm.member_id} onChange={(e) => handleFormChange("member_id", e.target.value)} select fullWidth>
+                <MenuItem value=""><em>Family Event</em></MenuItem>
+                {members.map((m) => (
+                  <MenuItem key={m.id} value={m.id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: m.avatar_color }} />
+                      {m.name}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </TextField>
+              <FormControlLabel control={<Switch checked={eventForm.allDay} onChange={(e) => handleFormChange("allDay", e.target.checked)} />} label="All Day" />
+              <TextField label="Repeat" value={eventForm.recurrence_rule || ""} onChange={(e) => handleFormChange("recurrence_rule", e.target.value)} select fullWidth>
+                {RECURRENCE_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </TextField>
+              <TextField label="Reminder" value={eventForm.reminder_minutes ?? ""} onChange={(e) => handleFormChange("reminder_minutes", e.target.value)} select fullWidth>
+                {REMINDER_OPTIONS.map((opt) => (
+                  <MenuItem key={String(opt.value)} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </TextField>
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <TextField label="Start Date" type="date" value={eventForm.startDate} onChange={(e) => handleFormChange("startDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+                {!eventForm.allDay && <TextField label="Start Time" type="time" value={eventForm.startTime} onChange={(e) => handleFormChange("startTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
+              </Box>
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <TextField label="End Date" type="date" value={eventForm.endDate} onChange={(e) => handleFormChange("endDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} inputProps={{ min: eventForm.startDate }} />
+                {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
+              </Box>
+              {editingEvent && editingEvent.id && !editingEvent.id.startsWith("evt-") && (
+                <EventComments eventId={editingEvent.id} familyId={family.id} members={members} />
+              )}
+              {/* Actions */}
+              <Box sx={{ display: "flex", gap: 1.5, justifyContent: "flex-end", pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+                {editingEvent && <Button onClick={handleDeleteEvent} color="error" variant="outlined" startIcon={<Icon>delete</Icon>} sx={{ mr: "auto", borderRadius: "12px" }}>Delete</Button>}
+                <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: "12px" }}>Cancel</Button>
+                <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()} sx={{ borderRadius: "12px", background: gradient(tokens.accent.main, tokens.accent.light) }}>
+                  {editingEvent ? "Save" : "Add Event"}
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {/* Event comments only */}
+          {activePanel === "event-comments" && editingEvent && editingEvent.id && !editingEvent.id.startsWith("evt-") && (
+            <EventComments eventId={editingEvent.id} familyId={family.id} members={members} />
+          )}
+        </ExpandablePanel>
       </Box>
 
-      {/* Event Panel */}
-      <SlidePanel
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        title={editingEvent ? "Edit Event" : "New Event"}
-        subtitle={editingEvent ? "Update event details" : "Create a new calendar event"}
-        icon="calendar_today"
-        actions={
-          <>
-            {editingEvent && <Button onClick={handleDeleteEvent} color="error" variant="outlined" startIcon={<Icon>delete</Icon>} sx={{ mr: "auto" }}>Delete</Button>}
-            <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: "12px" }}>Cancel</Button>
-            <Button onClick={handleSaveEvent} variant="contained" disabled={!eventForm.title.trim()} sx={{ borderRadius: "12px", background: gradient(tokens.accent.main, tokens.accent.light) }}>
-              {editingEvent ? "Save" : "Add Event"}
-            </Button>
-          </>
-        }
-      >
-        <TextField label="Event Title" value={eventForm.title} onChange={(e) => handleFormChange("title", e.target.value)} fullWidth autoFocus placeholder="What's happening?" />
-        <TextField label="Assign to" value={eventForm.member_id} onChange={(e) => handleFormChange("member_id", e.target.value)} select fullWidth>
-          <MenuItem value=""><em>Family Event</em></MenuItem>
-          {members.map((m) => (
-            <MenuItem key={m.id} value={m.id}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: m.avatar_color }} />
-                {m.name}
-              </Box>
-            </MenuItem>
-          ))}
-        </TextField>
-        <FormControlLabel control={<Switch checked={eventForm.allDay} onChange={(e) => handleFormChange("allDay", e.target.checked)} />} label="All Day" />
-        <TextField
-          label="Repeat"
-          value={eventForm.recurrence_rule || ""}
-          onChange={(e) => handleFormChange("recurrence_rule", e.target.value)}
-          select
-          fullWidth
-          InputProps={{
-            startAdornment: eventForm.recurrence_rule ? (
-              <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.main, mr: 1 }}>repeat</Icon>
-            ) : null,
-          }}
-        >
-          {RECURRENCE_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label="Reminder"
-          value={eventForm.reminder_minutes ?? ""}
-          onChange={(e) => handleFormChange("reminder_minutes", e.target.value)}
-          select
-          fullWidth
-          InputProps={{
-            startAdornment: eventForm.reminder_minutes ? (
-              <Icon sx={{ fontSize: "1.2rem !important", color: tokens.accent.main, mr: 1 }}>notifications</Icon>
-            ) : null,
-          }}
-        >
-          {REMINDER_OPTIONS.map((opt) => (
-            <MenuItem key={String(opt.value)} value={opt.value}>{opt.label}</MenuItem>
-          ))}
-        </TextField>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <TextField label="Start Date" type="date" value={eventForm.startDate} onChange={(e) => handleFormChange("startDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-          {!eventForm.allDay && <TextField label="Start Time" type="time" value={eventForm.startTime} onChange={(e) => handleFormChange("startTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
-        </Box>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          <TextField label="End Date" type="date" value={eventForm.endDate} onChange={(e) => handleFormChange("endDate", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} inputProps={{ min: eventForm.startDate }} />
-          {!eventForm.allDay && <TextField label="End Time" type="time" value={eventForm.endTime} onChange={(e) => handleFormChange("endTime", e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />}
-        </Box>
-        {editingEvent && editingEvent.id && !editingEvent.id.startsWith("evt-") && (
-          <EventComments
-            eventId={editingEvent.id}
-            familyId={family.id}
-            members={members}
-          />
-        )}
-      </SlidePanel>
+      {/* Event Peek Card — floating near tapped event */}
+      <EventPeekCard
+        event={peekCard?.event}
+        anchorRect={peekCard?.anchorRect}
+        members={members}
+        commentCount={0}
+        onEdit={handlePeekEdit}
+        onComment={handlePeekComment}
+        onDelete={handlePeekDelete}
+        onClose={() => setPeekCard(null)}
+      />
     </PageShell>
   );
 }
