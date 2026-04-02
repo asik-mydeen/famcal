@@ -41,22 +41,32 @@ jobs:
       - name: Configure pi-gen
         run: |
           cp kiosk/pi-gen-config /tmp/pi-gen/config
-          touch /tmp/pi-gen/stage3/SKIP /tmp/pi-gen/stage4/SKIP /tmp/pi-gen/stage5/SKIP
-          touch /tmp/pi-gen/stage3/SKIP_IMAGES /tmp/pi-gen/stage4/SKIP_IMAGES /tmp/pi-gen/stage5/SKIP_IMAGES
-          cp -r kiosk/pi-gen-stage /tmp/pi-gen/famcal-kiosk-stage
-          find /tmp/pi-gen/famcal-kiosk-stage -name "*.sh" -exec chmod +x {} +
+
+          # Skip stages 3-5 (we only need Lite + our kiosk additions)
+          for s in stage3 stage4 stage5; do
+            touch "/tmp/pi-gen/${s}/SKIP" "/tmp/pi-gen/${s}/SKIP_IMAGES"
+          done
+
+          # Inject our kiosk substages into stage2 (after its existing 00-03)
+          # pi-gen runs substages in alphabetical order within a stage
+          cp -r kiosk/pi-gen-stage/00-install-deps  /tmp/pi-gen/stage2/04-famcal-deps
+          cp -r kiosk/pi-gen-stage/01-kiosk-user    /tmp/pi-gen/stage2/05-famcal-user
+          cp -r kiosk/pi-gen-stage/02-kiosk-service  /tmp/pi-gen/stage2/06-famcal-service
+          cp -r kiosk/pi-gen-stage/03-rpi-config     /tmp/pi-gen/stage2/07-famcal-config
+
+          find /tmp/pi-gen/stage2 -name "*.sh" -exec chmod +x {} +
 
       - name: Download latest Tauri .deb
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_NAME: ${{ github.repository }}
         run: |
-          mkdir -p /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app
+          mkdir -p /tmp/pi-gen/stage2/06-famcal-service/files/app
           RELEASE=$(gh api "repos/${REPO_NAME}/releases/latest" 2>/dev/null || echo '{}')
           DEB_URL=$(echo "$RELEASE" | jq -r '.assets[] | select(.name | contains("aarch64.deb")) | .browser_download_url' 2>/dev/null | head -1)
           if [[ -n "$DEB_URL" && "$DEB_URL" != "null" ]]; then
             echo "Downloading: ${DEB_URL}"
-            curl -sL -o /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app/famcal-kiosk.deb "$DEB_URL"
+            curl -sL -o /tmp/pi-gen/stage2/06-famcal-service/files/app/famcal-kiosk.deb "$DEB_URL"
             echo "App .deb will be pre-installed in the image"
           else
             echo "No .deb found — OTA will install on first boot"
@@ -64,8 +74,8 @@ jobs:
 
       - name: Add app install step to pi-gen stage
         run: |
-          STAGE_SCRIPT="/tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/00-run.sh"
-          DEB_FILE="/tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app/famcal-kiosk.deb"
+          STAGE_SCRIPT="/tmp/pi-gen/stage2/06-famcal-service/00-run.sh"
+          DEB_FILE="/tmp/pi-gen/stage2/06-famcal-service/files/app/famcal-kiosk.deb"
           if [ -f "$DEB_FILE" ]; then
             printf '\n# Install pre-downloaded .deb\n' >> "$STAGE_SCRIPT"
             printf 'if [ -f files/app/famcal-kiosk.deb ]; then\n' >> "$STAGE_SCRIPT"
