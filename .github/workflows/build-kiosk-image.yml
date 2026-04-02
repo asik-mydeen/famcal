@@ -29,7 +29,11 @@ jobs:
       - name: Install pi-gen dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y quilt qemu-user-static qemu-user-binfmt debootstrap libarchive-tools arch-test binfmt-support kpartx dosfstools
+          sudo apt-get install -y quilt qemu-user-static debootstrap libarchive-tools arch-test binfmt-support kpartx dosfstools zerofree xz-utils bc pigz xxd
+          # pi-gen checks for "qemu-arm" binary (from qemu-user-binfmt) but that
+          # conflicts with qemu-user-static. Symlink satisfies the check.
+          sudo ln -sf /usr/bin/qemu-arm-static /usr/bin/qemu-arm
+          sudo ln -sf /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64
 
       - name: Clone pi-gen
         run: git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
