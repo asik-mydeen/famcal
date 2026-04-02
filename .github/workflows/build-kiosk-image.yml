@@ -27,8 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Clone pi-gen
-        run: |
-          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
+        run: git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
 
       - name: Configure pi-gen
         run: |
@@ -49,19 +48,24 @@ jobs:
           if [[ -n "$DEB_URL" && "$DEB_URL" != "null" ]]; then
             echo "Downloading: ${DEB_URL}"
             curl -sL -o /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app/famcal-kiosk.deb "$DEB_URL"
-            cat >> /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/00-run.sh << 'INSTALL'
-
-if [ -f files/app/famcal-kiosk.deb ]; then
-  install -m 644 files/app/famcal-kiosk.deb "${ROOTFS_DIR}/tmp/famcal-kiosk.deb"
-  on_chroot << APPEOF
-    dpkg -i /tmp/famcal-kiosk.deb || apt-get install -f -y
-    rm -f /tmp/famcal-kiosk.deb
-APPEOF
-fi
-INSTALL
-            echo "App pre-installed in image"
+            echo "App .deb will be pre-installed in the image"
           else
             echo "No .deb found — OTA will install on first boot"
+          fi
+
+      - name: Add app install step to pi-gen stage
+        run: |
+          STAGE_SCRIPT="/tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/00-run.sh"
+          DEB_FILE="/tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app/famcal-kiosk.deb"
+          if [ -f "$DEB_FILE" ]; then
+            printf '\n# Install pre-downloaded .deb\n' >> "$STAGE_SCRIPT"
+            printf 'if [ -f files/app/famcal-kiosk.deb ]; then\n' >> "$STAGE_SCRIPT"
+            printf '  install -m 644 files/app/famcal-kiosk.deb "${ROOTFS_DIR}/tmp/famcal-kiosk.deb"\n' >> "$STAGE_SCRIPT"
+            printf '  on_chroot <<EOF\n' >> "$STAGE_SCRIPT"
+            printf '    dpkg -i /tmp/famcal-kiosk.deb || apt-get install -f -y\n' >> "$STAGE_SCRIPT"
+            printf '    rm -f /tmp/famcal-kiosk.deb\n' >> "$STAGE_SCRIPT"
+            printf 'EOF\n' >> "$STAGE_SCRIPT"
+            printf 'fi\n' >> "$STAGE_SCRIPT"
           fi
 
       - name: Build image
