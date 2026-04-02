@@ -93,14 +93,16 @@ jobs:
           sudo ./build.sh
         timeout-minutes: 90
 
-      - name: Compress and upload
+      - name: Find built image
         run: |
-          IMG=$(find /tmp/pi-gen/deploy -name "*.img" | head -1)
-          if [[ -n "$IMG" ]]; then
-            xz -T0 -9 "$IMG"
-            echo "IMAGE_PATH=${IMG}.xz" >> "$GITHUB_ENV"
-            ls -lh "${IMG}.xz"
+          # pi-gen outputs a .zip, not a raw .img
+          ARTIFACT=$(find /tmp/pi-gen/deploy -name "*.zip" -o -name "*.img" -o -name "*.img.xz" | head -1)
+          if [[ -n "$ARTIFACT" ]]; then
+            echo "IMAGE_PATH=${ARTIFACT}" >> "$GITHUB_ENV"
+            echo "IMAGE_NAME=$(basename ${ARTIFACT})" >> "$GITHUB_ENV"
+            ls -lh "$ARTIFACT"
           else
+            echo "No image found in deploy:"
             ls -la /tmp/pi-gen/deploy/ || true
             exit 1
           fi
