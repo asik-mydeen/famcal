@@ -202,6 +202,77 @@ function getComponents(mode, tokens) {
             transition-duration: 0.01ms !important;
           }
         }
+        /* E-ink mode: kill ALL animations, blur, gradients. Force high-contrast B/W. */
+        body.eink-mode {
+          -webkit-font-smoothing: none !important;
+          -moz-osx-font-smoothing: unset !important;
+          text-rendering: geometricPrecision !important;
+          font-feature-settings: "kern" 1 !important;
+        }
+        body.eink-mode * {
+          animation: none !important;
+          animation-duration: 0ms !important;
+          animation-delay: 0ms !important;
+          transition: none !important;
+          transition-duration: 0ms !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          filter: none !important;
+          will-change: auto !important;
+          box-shadow: none !important;
+          text-shadow: none !important;
+          background-image: none !important;
+          font-weight: 600 !important;
+          border-radius: 4px !important;
+        }
+        body.eink-mode h1, body.eink-mode h2, body.eink-mode h3,
+        body.eink-mode h4, body.eink-mode h5, body.eink-mode h6 {
+          font-weight: 800 !important;
+        }
+        body.eink-mode .MuiTypography-caption,
+        body.eink-mode .MuiTypography-body2 {
+          font-size: 0.9rem !important;
+          font-weight: 600 !important;
+        }
+        body.eink-mode .MuiButton-root,
+        body.eink-mode .MuiChip-root {
+          border: 2px solid #000 !important;
+          border-radius: 6px !important;
+          background: #fff !important;
+          color: #000 !important;
+          font-weight: 700 !important;
+        }
+        body.eink-mode .MuiButton-contained {
+          background: #000 !important;
+          color: #fff !important;
+        }
+        body.eink-mode .MuiCard-root {
+          border: 2px solid #000 !important;
+          border-radius: 8px !important;
+          box-shadow: none !important;
+          background: #fff !important;
+        }
+        body.eink-mode .MuiAvatar-root {
+          border: 2px solid #000 !important;
+          background: #fff !important;
+          color: #000 !important;
+        }
+        body.eink-mode .MuiLinearProgress-root {
+          background: #e0e0e0 !important;
+          border: 1px solid #000 !important;
+        }
+        body.eink-mode .MuiLinearProgress-bar {
+          background: #000 !important;
+        }
+        body.eink-mode .MuiIcon-root {
+          color: #000 !important;
+        }
+        body.eink-mode .MuiDivider-root {
+          border-color: #000 !important;
+        }
+        body.eink-mode img {
+          filter: grayscale(100%) contrast(150%) !important;
+        }
       `,
     },
     MuiCard: {

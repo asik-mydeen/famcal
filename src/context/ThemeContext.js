@@ -112,7 +112,16 @@ export function useAppTheme() {
   if (!ctx) throw new Error("useAppTheme must be used inside ThemeModeProvider");
 
   const { darkMode, preset } = ctx;
-  const mode = darkMode ? "dark" : "light";
+  const einkMode = preset === "eink";
+  // E-ink always uses light mode — force it
+  const mode = einkMode ? "light" : darkMode ? "dark" : "light";
+
+  // Toggle body.eink-mode class for global CSS overrides
+  useMemo(() => {
+    if (typeof document !== "undefined") {
+      document.body.classList.toggle("eink-mode", einkMode);
+    }
+  }, [einkMode]);
 
   const tokens = useMemo(() => getTokens(mode, preset), [mode, preset]);
 
@@ -123,10 +132,11 @@ export function useAppTheme() {
       ...ctx,
       tokens,
       mode,
+      einkMode,
       alpha: alphaHelper,
       gradient: gradientFn,
       presetNames: getPresetNames(),
     }),
-    [ctx, tokens, mode, gradientFn]
+    [ctx, tokens, mode, einkMode, gradientFn]
   );
 }
