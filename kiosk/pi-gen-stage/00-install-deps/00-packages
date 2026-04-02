@@ -1,0 +1,10 @@
+cage
+libwebkit2gtk-4.1-0
+libgtk-3-0
+libappindicator3-1
+fonts-noto
+curl
+jq
+glib-networking
+dbus-x11
+ca-certificates

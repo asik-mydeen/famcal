@@ -1,0 +1,11 @@
+IMG_NAME=famcal-kiosk
+RELEASE=bookworm
+TARGET_HOSTNAME=famcal-kiosk
+FIRST_USER_NAME=kiosk
+FIRST_USER_PASS=famcal
+LOCALE_DEFAULT=en_US.UTF-8
+KEYBOARD_KEYMAP=us
+KEYBOARD_LAYOUT="English (US)"
+TIMEZONE_DEFAULT=UTC
+ENABLE_SSH=1
+STAGE_LIST="stage0 stage1 stage2 ../famcal-kiosk-stage"

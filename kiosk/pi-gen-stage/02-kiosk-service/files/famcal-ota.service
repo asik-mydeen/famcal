@@ -1,0 +1,6 @@
+[Unit]
+Description=FamCal OTA Update Check
+
+[Service]
+Type=oneshot
+ExecStart=/home/kiosk/famcal/ota-update.sh

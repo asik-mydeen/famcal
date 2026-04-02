@@ -1,0 +1,90 @@
+name: Build FamCal Kiosk Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_app:
+        description: 'Pre-install Tauri .deb from latest release'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  build-image:
+    name: Build RPi4 Kiosk Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout famcal
+        uses: actions/checkout@v4
+
+      - name: Clone pi-gen
+        run: |
+          git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
+
+      - name: Configure pi-gen
+        run: |
+          cp kiosk/pi-gen-config /tmp/pi-gen/config
+          touch /tmp/pi-gen/stage3/SKIP /tmp/pi-gen/stage4/SKIP /tmp/pi-gen/stage5/SKIP
+          touch /tmp/pi-gen/stage3/SKIP_IMAGES /tmp/pi-gen/stage4/SKIP_IMAGES /tmp/pi-gen/stage5/SKIP_IMAGES
+          cp -r kiosk/pi-gen-stage /tmp/pi-gen/famcal-kiosk-stage
+          find /tmp/pi-gen/famcal-kiosk-stage -name "*.sh" -exec chmod +x {} +
+
+      - name: Download latest Tauri .deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          mkdir -p /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app
+          RELEASE=$(gh api "repos/${REPO_NAME}/releases/latest" 2>/dev/null || echo '{}')
+          DEB_URL=$(echo "$RELEASE" | jq -r '.assets[] | select(.name | contains("aarch64.deb")) | .browser_download_url' 2>/dev/null | head -1)
+          if [[ -n "$DEB_URL" && "$DEB_URL" != "null" ]]; then
+            echo "Downloading: ${DEB_URL}"
+            curl -sL -o /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/files/app/famcal-kiosk.deb "$DEB_URL"
+            cat >> /tmp/pi-gen/famcal-kiosk-stage/02-kiosk-service/00-run.sh << 'INSTALL'
+
+if [ -f files/app/famcal-kiosk.deb ]; then
+  install -m 644 files/app/famcal-kiosk.deb "${ROOTFS_DIR}/tmp/famcal-kiosk.deb"
+  on_chroot << APPEOF
+    dpkg -i /tmp/famcal-kiosk.deb || apt-get install -f -y
+    rm -f /tmp/famcal-kiosk.deb
+APPEOF
+fi
+INSTALL
+            echo "App pre-installed in image"
+          else
+            echo "No .deb found — OTA will install on first boot"
+          fi
+
+      - name: Build image
+        run: |
+          cd /tmp/pi-gen
+          sudo ./build.sh
+        timeout-minutes: 90
+
+      - name: Compress and upload
+        run: |
+          IMG=$(find /tmp/pi-gen/deploy -name "*.img" | head -1)
+          if [[ -n "$IMG" ]]; then
+            xz -T0 -9 "$IMG"
+            echo "IMAGE_PATH=${IMG}.xz" >> "$GITHUB_ENV"
+            ls -lh "${IMG}.xz"
+          else
+            ls -la /tmp/pi-gen/deploy/ || true
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: famcal-kiosk-image
+          path: ${{ env.IMAGE_PATH }}
+          retention-days: 30

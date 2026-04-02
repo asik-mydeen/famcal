@@ -1,0 +1,36 @@
+[Unit]
+Description=FamCal Kiosk (Cage + Tauri)
+After=systemd-user-sessions.service dbus.service
+Wants=network-online.target
+ConditionPathExists=/dev/tty1
+
+[Service]
+Type=simple
+User=kiosk
+PAMName=cage
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+
+# Wayland + WebKitGTK environment
+Environment=XDG_RUNTIME_DIR=/run/user/1001
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+Environment=WLR_RENDERER=pixman
+Environment=GDK_BACKEND=wayland
+Environment=WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+# Ensure runtime dir exists
+ExecStartPre=/bin/mkdir -p /run/user/1001
+ExecStartPre=/bin/chown kiosk:kiosk /run/user/1001
+
+# Cage launches the app fullscreen, single window, no decorations
+# -s flag disables VT switching (locks to the app)
+ExecStart=/usr/bin/cage -s -- /usr/bin/famcal-kiosk
+
+# Auto-restart on crash (5 second delay)
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
