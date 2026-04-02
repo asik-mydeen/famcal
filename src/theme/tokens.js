@@ -12,6 +12,7 @@ import sunsetPreset from "theme/presets/sunset";
 import forestPreset from "theme/presets/forest";
 import warmPreset from "theme/presets/warm";
 import einkPreset from "theme/presets/eink";
+import einkColorPreset from "theme/presets/eink-color";
 
 // Registry of available presets
 const PRESETS = {
@@ -21,6 +22,7 @@ const PRESETS = {
   forest: forestPreset,
   warm: warmPreset,
   eink: einkPreset,
+  "eink-color": einkColorPreset,
 };
 
 // Display metadata for the Settings UI
@@ -30,7 +32,8 @@ export const PRESET_META = {
   sunset: { label: "Sunset", icon: "wb_twilight", colors: ["#ea580c", "#fb923c"] },
   forest: { label: "Forest", icon: "park", colors: ["#059669", "#34d399"] },
   warm: { label: "Warm", icon: "local_fire_department", colors: ["#E07B39", "#F4A261"] },
-  eink: { label: "E-Ink", icon: "contrast", colors: ["#000000", "#ffffff"] },
+  eink: { label: "E-Ink B/W", icon: "contrast", colors: ["#000000", "#ffffff"] },
+  "eink-color": { label: "E-Ink Color", icon: "palette", colors: ["#0000FF", "#FF0000"] },
 };
 
 /**

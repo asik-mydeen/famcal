@@ -112,7 +112,7 @@ export function useAppTheme() {
   if (!ctx) throw new Error("useAppTheme must be used inside ThemeModeProvider");
 
   const { darkMode, preset } = ctx;
-  const einkMode = preset === "eink";
+  const einkMode = preset === "eink" || preset === "eink-color";
   // E-ink always uses light mode — force it
   const mode = einkMode ? "light" : darkMode ? "dark" : "light";
 
