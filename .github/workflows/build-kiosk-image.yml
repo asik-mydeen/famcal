@@ -26,6 +26,11 @@ jobs:
       - name: Checkout famcal
         uses: actions/checkout@v4
 
+      - name: Install pi-gen dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y quilt qemu-user-static debootstrap libarchive-tools arch-test binfmt-support kpartx dosfstools
+
       - name: Clone pi-gen
         run: git clone --depth 1 https://github.com/RPi-Distro/pi-gen.git /tmp/pi-gen
 
