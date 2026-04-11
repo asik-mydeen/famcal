@@ -78,7 +78,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
         default: return true; // daily
       }
     }
-    if (!task.due_date) return false;
+    if (!task.due_date) return isSameDay(date, today);
     const dueDate = new Date(task.due_date + "T00:00:00");
     return isSameDay(dueDate, date);
   };
@@ -189,6 +189,7 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
           const member = members.find((m) => m.id === task.assigned_to);
           const memberColor = member?.avatar_color || "#6C5CE7";
           const memberName = member?.name?.split(" ")[0] || "Unassigned";
+          const isCompletedToday = isTaskCompletedOnDate(task, today);
           return (
             <Box
               key={task.id}
@@ -287,6 +288,23 @@ function ChoreGrid({ tasks, members, weekStart, onToggleComplete, onUncomplete, 
                 >
                   {Math.ceil((task.points_value || 10) * ({ high: 2, medium: 1, low: 0.5 }[task.priority] || 1))}pt
                 </Box>
+                {/* Quick-complete button */}
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    if (isCompletedToday) {
+                      onUncomplete(task.id);
+                    } else {
+                      const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                      onToggleComplete(task.id, today, task.assigned_to, todayDateStr);
+                    }
+                  }}
+                  sx={{ p: 0.5, color: isCompletedToday ? tokens.priority.low : "text.secondary", flexShrink: 0 }}
+                >
+                  <Icon sx={{ fontSize: "0.9rem !important" }}>
+                    {isCompletedToday ? "check_circle" : "check_circle_outline"}
+                  </Icon>
+                </IconButton>
                 {/* Edit/Delete actions */}
                 <Box sx={{ display: "flex", flexShrink: 0, opacity: 0.4, "&:hover": { opacity: 1 }, transition: "opacity 0.2s" }}>
                   {onEdit && (
