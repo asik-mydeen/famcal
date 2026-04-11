@@ -910,7 +910,7 @@ function FamilyCalendar() {
                 <IconButton size="small" onClick={goNext} sx={{ bgcolor: "action.hover", width: 32, height: 32 }}><Icon>chevron_right</Icon></IconButton>
                 {!isToday && <Chip label="Today" size="small" onClick={goToday} sx={{ fontWeight: 600, cursor: "pointer", bgcolor: tokens.accent.main, color: "#fff", "&:hover": { bgcolor: tokens.accent.dark } }} />}
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                  {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "Tap avatars to connect calendars")}
+                  {syncMessage || (connectedCount > 0 ? `${connectedCount} calendar${connectedCount > 1 ? "s" : ""} connected` : "No calendars connected")}
                 </Typography>
               </Box>
 
@@ -943,50 +943,6 @@ function FamilyCalendar() {
 
           {/* Calendar content (scrollable) */}
           <Box sx={{ flex: 1, overflow: "auto", minWidth: 0 }}>
-          {/* Member strip */}
-          <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, mb: 2.5, overflowX: "auto", pb: 0.5, px: 0.5 }}>
-            {members.map((m) => {
-              const hasCalId = Boolean(m.google_calendar_id);
-              const tokenValid = hasCalId && hasValidToken(m.id);
-              const hasServerSync = hasCalId && m.has_server_sync;
-              const isConnected = tokenValid || hasServerSync;
-              const needsReconnect = hasCalId && !isConnected;
-              const tooltip = isDashboard
-                ? (isConnected ? "Synced via server" : hasCalId ? "Reconnect via web portal" : "Connect via web portal")
-                : needsReconnect ? "Token expired — tap to reconnect"
-                : hasCalId ? "Connected — tap to disconnect"
-                : "Tap to connect Google Calendar";
-              return (
-                <Tooltip key={m.id} title={tooltip} arrow>
-                  <Box onClick={() => !isDashboard && (hasCalId ? (needsReconnect ? handleConnectMember(m) : handleDisconnectMember(m)) : handleConnectMember(m))}
-                    sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: isDashboard ? "default" : "pointer", opacity: connectingId === m.id ? 0.5 : 1, minWidth: isSmall ? 54 : 68, transition: "opacity 0.2s" }}
-                  >
-                    <Box sx={{ position: "relative", mb: 0.5 }}>
-                      <Avatar src={m.avatar_url || undefined}
-                        sx={{ width: isSmall ? 44 : 52, height: isSmall ? 44 : 52, bgcolor: m.avatar_color, boxShadow: `0 4px 14px ${m.avatar_color}30`, border: isConnected ? `3px solid ${m.avatar_color}` : needsReconnect ? `3px solid ${tokens.priority.medium}` : "3px solid transparent", transition: "border 0.2s" }}
-                      >
-                        <Icon sx={{ fontSize: "1.3rem !important", color: "#fff" }}>person</Icon>
-                      </Avatar>
-                      {isConnected && (
-                        <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: "success.main", border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>{hasServerSync && !tokenValid ? "cloud_done" : "check"}</Icon>
-                        </Box>
-                      )}
-                      {needsReconnect && (
-                        <Box sx={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderRadius: "50%", bgcolor: tokens.priority.medium, border: "2px solid", borderColor: "background.paper", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon sx={{ fontSize: "0.5rem !important", color: "#fff" }}>sync_problem</Icon>
-                        </Box>
-                      )}
-                    </Box>
-                    <Typography variant="caption" fontWeight={600} sx={{ color: "text.primary", fontSize: "0.65rem", lineHeight: 1.2, textAlign: "center" }}>
-                      {m.name.split(" ")[0]}
-                    </Typography>
-                  </Box>
-                </Tooltip>
-              );
-            })}
-          </Box>
-
           {/* Day View */}
           {viewTab === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
