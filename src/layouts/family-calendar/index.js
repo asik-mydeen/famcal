@@ -22,10 +22,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
+// FullCalendar imports removed — using custom WeekGrid and MonthGrid components
 
 import PropTypes from "prop-types";
 import { motion } from "framer-motion";
@@ -425,6 +422,417 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
   );
 }
 
+// ── Week Grid ──
+
+WeekGrid.propTypes = {
+  weekStart: PropTypes.instanceOf(Date).isRequired,
+  members: PropTypes.array.isRequired,
+  events: PropTypes.array.isRequired,
+  onEventClick: PropTypes.func.isRequired,
+  onTimeClick: PropTypes.func.isRequired,
+  darkMode: PropTypes.bool.isRequired,
+};
+
+function WeekGrid({ weekStart, members, events, onEventClick, onTimeClick, darkMode }) {
+  const { tokens, alpha } = useAppTheme();
+  const scrollRef = useRef(null);
+  const isSmall = useMediaQuery("(max-width:599px)");
+  const now = new Date();
+  const timeColW = isSmall ? 42 : 54;
+
+  // Get the 7 days of the week (Mon to Sun)
+  const weekDays = useMemo(() => {
+    const days = [];
+    const start = new Date(weekStart);
+    // Adjust to Monday
+    const day = start.getDay();
+    const diff = day === 0 ? 6 : day - 1; // Sunday = 0, make it 6 days back
+    start.setDate(start.getDate() - diff);
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [weekStart]);
+
+  const todayStr = fmtDate(now);
+
+  // Group events by day
+  const dayEvents = useMemo(() => {
+    const map = {};
+    weekDays.forEach(d => { map[fmtDate(d)] = []; });
+    events.forEach(evt => {
+      const evtDate = evt.start ? fmtDate(new Date(evt.start)) : "";
+      const evtEnd = evt.end ? fmtDate(new Date(evt.end)) : evtDate;
+      if (evt.allDay && evtDate <= fmtDate(weekDays[6]) && evtEnd >= fmtDate(weekDays[0])) {
+        // Add to all days in range
+        weekDays.forEach(d => {
+          const dStr = fmtDate(d);
+          if (evtDate <= dStr && evtEnd >= dStr) {
+            map[dStr].push({ ...evt, isAllDaySpan: true });
+          }
+        });
+      } else if (evtDate && map[evtDate] !== undefined) {
+        map[evtDate].push(evt);
+      }
+    });
+    return map;
+  }, [weekDays, events]);
+
+  const hours = [];
+  for (let h = DAY_START; h <= DAY_END; h++) hours.push(h);
+  const totalHeight = (DAY_END - DAY_START) * HOUR_HEIGHT;
+  const colWidth = `calc((100% - ${timeColW}px) / 7)`;
+
+  return (
+    <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
+      {/* All-day events row */}
+      <Box sx={{ px: 2, py: 1, display: "flex", gap: 1, flexWrap: "wrap", bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
+        <Icon sx={{ fontSize: "1rem !important", color: "text.disabled", mt: 0.25 }}>wb_sunny</Icon>
+        {weekDays.map(d => {
+          const dStr = fmtDate(d);
+          const allDay = (dayEvents[dStr] || []).filter(e => e.allDay);
+          return allDay.map(evt => {
+            const m = members.find(x => x.id === evt.member_id);
+            return (
+              <Chip key={evt.id} label={evt.title} size="small" onClick={(e) => onEventClick(evt, e)}
+                icon={evt.recurrence_rule ? <Icon sx={{ fontSize: "0.8rem !important" }}>repeat</Icon> : undefined}
+                sx={{ bgcolor: m ? `${m.avatar_color}18` : "background.paper", color: m ? m.avatar_color : "text.primary", fontWeight: 600, fontSize: "0.75rem", cursor: "pointer", border: "1px solid", borderColor: m ? `${m.avatar_color}30` : "divider" }}
+              />
+            );
+          });
+        })}
+      </Box>
+
+      {/* Column headers */}
+      <Box sx={{ display: "flex", borderBottom: "2px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+        <Box sx={{ width: timeColW, flexShrink: 0 }} />
+        {weekDays.map(d => {
+          const dStr = fmtDate(d);
+          const isToday = dStr === todayStr;
+          return (
+            <Box key={dStr} sx={{ flex: 1, py: 1.5, textAlign: "center", minWidth: 0, borderLeft: "1px solid", borderColor: "divider" }}>
+              <Typography sx={{ fontSize: "0.6rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "text.secondary" }}>
+                {DAYS_SHORT[d.getDay()]}
+              </Typography>
+              <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", position: "relative", mt: 0.5 }}>
+                {isToday && (
+                  <Box sx={{
+                    position: "absolute",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    bgcolor: alpha(tokens.accent.main, 0.15),
+                    border: `2px solid ${tokens.accent.main}`,
+                  }} />
+                )}
+                <Typography sx={{ fontSize: "1.1rem", fontWeight: 800, color: "text.primary", position: "relative", zIndex: 1 }}>
+                  {d.getDate()}
+                </Typography>
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+
+      {/* Timeline grid */}
+      <Box ref={scrollRef} sx={{ position: "relative", height: "78vh", overflowY: "auto", overflowX: "hidden" }}>
+        <Box sx={{ position: "relative", height: totalHeight, minHeight: "100%" }}>
+          {/* Hour rows with grid lines */}
+          {hours.map((h) => (
+            <Box key={h} sx={{ position: "absolute", top: (h - DAY_START) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT, display: "flex" }}>
+              <Box sx={{ width: timeColW, flexShrink: 0, pr: 0.75, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", pt: "2px" }}>
+                <Typography sx={{ color: "text.secondary", fontSize: "0.72rem", fontWeight: 500, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
+                  {h % 2 === 0 ? fmtTimeLabel(h) : ""}
+                </Typography>
+              </Box>
+              {weekDays.map((d, dayIdx) => {
+                const dStr = fmtDate(d);
+                return (
+                  <Box key={`${h}-${dStr}`} onClick={() => onTimeClick(dStr, `${String(h).padStart(2, "0")}:00`, "")}
+                    sx={{
+                      flex: 1,
+                      borderLeft: "1px solid",
+                      borderColor: "divider",
+                      borderBottom: "0.5px solid",
+                      borderBottomColor: "divider",
+                      cursor: "pointer",
+                      position: "relative",
+                      "&:hover": { bgcolor: "action.hover" },
+                    }}
+                  />
+                );
+              })}
+            </Box>
+          ))}
+
+          {/* Now indicator */}
+          {(() => {
+            const todayIdx = weekDays.findIndex(d => fmtDate(d) === todayStr);
+            if (todayIdx === -1) return null;
+            const currentHour = now.getHours() + now.getMinutes() / 60;
+            if (currentHour < DAY_START || currentHour > DAY_END) return null;
+            return (
+              <Box sx={{ position: "absolute", top: (currentHour - DAY_START) * HOUR_HEIGHT, left: timeColW - 6, right: 0, zIndex: 10, pointerEvents: "none" }}>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "error.main", flexShrink: 0 }} />
+                  <Box sx={{ flex: 1, height: 2, bgcolor: "error.main" }} />
+                </Box>
+              </Box>
+            );
+          })()}
+
+          {/* Events */}
+          {weekDays.map((d, dayIdx) => {
+            const dStr = fmtDate(d);
+            const dayEvts = (dayEvents[dStr] || []).filter(e => !e.allDay);
+
+            return dayEvts.map(evt => {
+              const s = new Date(evt.start);
+              const e = evt.end ? new Date(evt.end) : new Date(s.getTime() + 3600000);
+              const startH = s.getHours() + s.getMinutes() / 60;
+              const endH = e.getHours() + e.getMinutes() / 60;
+              const top = Math.max(0, (startH - DAY_START)) * HOUR_HEIGHT;
+              const height = Math.max(28, (endH - startH) * HOUR_HEIGHT);
+              const member = members.find(m => m.id === evt.member_id);
+              const avatarColor = member?.avatar_color || tokens.accent.main;
+
+              const timeLabel = `${fmtTime(s)}${e && e.getTime() !== s.getTime() ? " - " + fmtTime(e) : ""}`;
+
+              return (
+                <Box key={evt.id} onClick={(ev) => onEventClick(evt, ev)}
+                  sx={{
+                    position: "absolute",
+                    top,
+                    height,
+                    left: `calc(${timeColW}px + ${colWidth} * ${dayIdx} + 3px)`,
+                    width: `calc(${colWidth} - 6px)`,
+                    background: darkMode ? alpha(avatarColor, 0.12) : "#ffffff",
+                    borderLeft: `3px solid ${avatarColor}`,
+                    borderRadius: "6px",
+                    px: "12px", py: "8px",
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    zIndex: 4,
+                    boxShadow: darkMode ? "none" : `0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)`,
+                    transition: "transform 0.15s, box-shadow 0.15s",
+                    "&:hover": { transform: "scale(1.02)", boxShadow: darkMode ? "none" : `0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06)`, zIndex: 6 },
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "12px", lineHeight: 1.2, color: darkMode ? avatarColor : "#1a1a1a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {evt.recurrence_rule && <Icon sx={{ fontSize: "0.65rem !important", mr: 0.25 }}>repeat</Icon>}
+                        {evt.title}
+                      </Typography>
+                      {height > 40 && (
+                        <Typography sx={{ fontSize: "10px", color: "text.secondary", mt: 0.25, opacity: 0.8 }}>
+                          {member?.name || "Family"}
+                        </Typography>
+                      )}
+                    </Box>
+                    {height > 40 && (
+                      <Typography sx={{ fontSize: "10px", color: "text.secondary", fontWeight: 500, opacity: 0.7, flexShrink: 0 }}>
+                        {timeLabel}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            });
+          })}
+        </Box>
+      </Box>
+    </Card>
+  );
+}
+
+// ── Month Grid ──
+
+MonthGrid.propTypes = {
+  monthStart: PropTypes.instanceOf(Date).isRequired,
+  members: PropTypes.array.isRequired,
+  events: PropTypes.array.isRequired,
+  onEventClick: PropTypes.func.isRequired,
+  onDateClick: PropTypes.func.isRequired,
+  darkMode: PropTypes.bool.isRequired,
+};
+
+function MonthGrid({ monthStart, members, events, onEventClick, onDateClick, darkMode }) {
+  const { tokens, alpha } = useAppTheme();
+  const isSmall = useMediaQuery("(max-width:599px)");
+  const now = new Date();
+  const todayStr = fmtDate(now);
+
+  // Get the calendar grid for the month
+  const monthGrid = useMemo(() => {
+    const grid = [];
+    const firstDay = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+    const lastDay = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+
+    // Start from Sunday before the first day
+    const startPad = firstDay.getDay();
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - startPad);
+
+    // End on Saturday after the last day
+    const endPad = 6 - lastDay.getDay();
+    const endDate = new Date(lastDay);
+    endDate.setDate(endDate.getDate() + endPad);
+
+    const cursor = new Date(startDate);
+    while (cursor <= endDate) {
+      const week = [];
+      for (let i = 0; i < 7; i++) {
+        week.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      grid.push(week);
+    }
+    return grid;
+  }, [monthStart]);
+
+  // Group events by day
+  const dayEvents = useMemo(() => {
+    const map = {};
+    monthGrid.flat().forEach(d => { map[fmtDate(d)] = []; });
+    events.forEach(evt => {
+      const evtDate = evt.start ? fmtDate(new Date(evt.start)) : "";
+      const evtEnd = evt.end ? fmtDate(new Date(evt.end)) : evtDate;
+      if (evt.allDay && evtDate && evtEnd) {
+        // Add to all days in range
+        Object.keys(map).forEach(dStr => {
+          if (evtDate <= dStr && evtEnd >= dStr) {
+            map[dStr].push(evt);
+          }
+        });
+      } else if (evtDate && map[evtDate] !== undefined) {
+        map[evtDate].push(evt);
+      }
+    });
+    return map;
+  }, [monthGrid, events]);
+
+  const cellHeight = isSmall ? "85px" : "110px";
+  const maxEvents = isSmall ? 2 : 3;
+
+  return (
+    <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
+      {/* Day headers */}
+      <Box sx={{ display: "flex", borderBottom: "1px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+        {DAYS_SHORT.map(day => (
+          <Box key={day} sx={{ flex: 1, py: 1, textAlign: "center" }}>
+            <Typography sx={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", color: "text.secondary" }}>
+              {day}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+
+      {/* Calendar grid */}
+      <Box sx={{ maxHeight: isSmall ? "70vh" : "78vh", overflowY: "auto" }}>
+        {monthGrid.map((week, weekIdx) => (
+          <Box key={weekIdx} sx={{ display: "flex", borderBottom: weekIdx < monthGrid.length - 1 ? "1px solid" : "none", borderColor: "divider" }}>
+            {week.map(d => {
+              const dStr = fmtDate(d);
+              const isToday = dStr === todayStr;
+              const isCurrentMonth = d.getMonth() === monthStart.getMonth();
+              const dayEvts = dayEvents[dStr] || [];
+              const displayEvts = dayEvts.slice(0, maxEvents);
+              const overflowCount = Math.max(0, dayEvts.length - maxEvents);
+
+              return (
+                <Box
+                  key={dStr}
+                  onClick={() => onDateClick(dStr)}
+                  sx={{
+                    flex: 1,
+                    height: cellHeight,
+                    borderRight: "1px solid",
+                    borderColor: "divider",
+                    p: 0.5,
+                    cursor: "pointer",
+                    bgcolor: isToday ? alpha(tokens.accent.main, 0.06) : "background.paper",
+                    opacity: isCurrentMonth ? 1 : 0.5,
+                    position: "relative",
+                    "&:hover": { bgcolor: isToday ? alpha(tokens.accent.main, 0.1) : "action.hover" },
+                  }}
+                >
+                  {/* Date number */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}>
+                    <Typography sx={{
+                      fontSize: "0.8rem",
+                      fontWeight: isToday ? 800 : 600,
+                      color: isToday ? tokens.accent.main : "text.primary",
+                    }}>
+                      {d.getDate()}
+                    </Typography>
+                    {isToday && (
+                      <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: tokens.accent.main }} />
+                    )}
+                  </Box>
+
+                  {/* Event chips */}
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {displayEvts.map(evt => {
+                      const member = members.find(m => m.id === evt.member_id);
+                      const avatarColor = member?.avatar_color || tokens.accent.main;
+                      return (
+                        <Box
+                          key={evt.id}
+                          onClick={(e) => { e.stopPropagation(); onEventClick(evt, e); }}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                            px: 0.75,
+                            py: 0.35,
+                            borderRadius: "4px",
+                            bgcolor: darkMode ? alpha(avatarColor, 0.15) : `${avatarColor}12`,
+                            borderLeft: `2px solid ${avatarColor}`,
+                            cursor: "pointer",
+                            "&:hover": { bgcolor: darkMode ? alpha(avatarColor, 0.25) : `${avatarColor}20` },
+                          }}
+                        >
+                          <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: avatarColor, flexShrink: 0 }} />
+                          <Typography sx={{
+                            fontSize: "0.65rem",
+                            fontWeight: 600,
+                            color: darkMode ? avatarColor : "text.primary",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            flex: 1,
+                          }}>
+                            {evt.title}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                    {overflowCount > 0 && (
+                      <Typography sx={{
+                        fontSize: "0.65rem",
+                        fontWeight: 600,
+                        color: "text.secondary",
+                        px: 0.75,
+                        fontStyle: "italic",
+                      }}>
+                        +{overflowCount} more
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        ))}
+      </Box>
+    </Card>
+  );
+}
+
 // ── Main ──
 
 function FamilyCalendar() {
@@ -432,7 +840,6 @@ function FamilyCalendar() {
   const { family, members, events, tasks, notes, countdowns, meals, messages } = state;
   const isDashboard = state.isDashboard || false; // Skip Google auth in dashboard mode
   const { tokens, alpha, gradient, darkMode } = useAppTheme();
-  const calendarRef = useRef(null);
   const isSmall = useMediaQuery("(max-width:599px)");
 
   const [viewTab, setViewTab] = useState(0);
@@ -492,13 +899,6 @@ function FamilyCalendar() {
     [events, viewRange]
   );
 
-  // FullCalendar events
-  const fcEvents = useMemo(() => expandedEvents.map((evt) => ({
-    id: evt.id, title: evt.title, start: evt.start, end: evt.end, allDay: evt.allDay,
-    className: `event-${evt.className || "info"}`,
-    extendedProps: { member_id: evt.member_id, isRecurrence: evt.isRecurrence, recurrence_rule: evt.recurrence_rule },
-  })), [expandedEvents]);
-
   // Event handlers
   // Open peek card near tapped event (DayTimeline custom view)
   const handleEventClick = useCallback((evt, domEvent) => {
@@ -546,11 +946,6 @@ function FamilyCalendar() {
     }
     dispatch({ type: "REMOVE_EVENT", value: evt.id });
   }, [events, members, dispatch, isDashboard]);
-
-  const handleFcEventClick = useCallback((info) => {
-    const evt = expandedEvents.find((e) => e.id === info.event.id);
-    if (evt) handleEventClick(evt, info.jsEvent);
-  }, [expandedEvents, handleEventClick]);
 
   const handleTimeClick = useCallback((dateStr, time, memberId) => {
     const [h] = time.split(":").map(Number);
@@ -973,21 +1368,21 @@ function FamilyCalendar() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
               {/* Prominent date display */}
               <Box sx={{ mb: 2, textAlign: "center" }}>
-                <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "text.secondary", mb: 0.5 }}>
+                <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "text.secondary", mb: 1.5 }}>
                   {DAYS[currentDate.getDay()]}
                 </Typography>
-                <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", position: "relative", mt: 0.5 }}>
                   {isToday && (
                     <Box sx={{
                       position: "absolute",
-                      width: 56,
-                      height: 56,
+                      width: 52,
+                      height: 52,
                       borderRadius: "50%",
                       bgcolor: alpha(tokens.accent.main, 0.15),
                       border: `2px solid ${tokens.accent.main}`,
                     }} />
                   )}
-                  <Typography sx={{ fontSize: "36px", fontWeight: 800, lineHeight: 1, color: "text.primary", position: "relative", zIndex: 1 }}>
+                  <Typography sx={{ fontSize: "36px", fontWeight: 800, lineHeight: 1.4, color: "text.primary", position: "relative", zIndex: 1 }}>
                     {currentDate.getDate()}
                   </Typography>
                 </Box>
@@ -1002,46 +1397,28 @@ function FamilyCalendar() {
           {/* Week View */}
           {viewTab === 1 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-              <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
-                <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
-                  <FullCalendar
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="timeGridWeek"
-                    initialDate={currentDate}
-                    headerToolbar={false}
-                    events={fcEvents}
-                    dateClick={handleFcDateClick}
-                    eventClick={handleFcEventClick}
-                    height={isSmall ? "70vh" : "78vh"}
-                    nowIndicator
-                    editable={false}
-                    selectable={false}
-                    eventDisplay="block"
-                    allDaySlot={true}
-                    slotMinTime="00:00:00"
-                    slotMaxTime="23:00:00"
-                    eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-                    dayHeaderFormat={{ weekday: "short", day: "numeric" }}
-                  />
-                </CardContent>
-              </Card>
+              <WeekGrid
+                weekStart={currentDate}
+                members={members}
+                events={expandedEvents}
+                onEventClick={handleEventClick}
+                onTimeClick={handleTimeClick}
+                darkMode={darkMode}
+              />
             </motion.div>
           )}
 
           {/* Month View */}
           {viewTab === 2 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
-              <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
-                <CardContent sx={{ p: { xs: 1, sm: 2 }, "&:last-child": { pb: { xs: 1, sm: 2 } } }}>
-                  <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="dayGridMonth" headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
-                    events={fcEvents} dateClick={handleFcDateClick} eventClick={handleFcEventClick}
-                    height={isSmall ? "70vh" : "78vh"} dayMaxEvents={isSmall ? 2 : 4}
-                    nowIndicator editable={false} selectable={false} eventDisplay="block"
-                    eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-                  />
-                </CardContent>
-              </Card>
+              <MonthGrid
+                monthStart={currentDate}
+                members={members}
+                events={expandedEvents}
+                onEventClick={handleEventClick}
+                onDateClick={handleFcDateClick}
+                darkMode={darkMode}
+              />
             </motion.div>
           )}
           </Box>
