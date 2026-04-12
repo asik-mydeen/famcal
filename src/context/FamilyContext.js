@@ -588,13 +588,19 @@ function reducer(state, action) {
 // ── DB ↔ App field mappers ──
 
 function eventFromDb(row) {
+  // Strip timezone suffix to treat stored time as local time (naive UTC in DB = intended local time)
+  const stripTimezone = (isoString) => {
+    if (!isoString) return null;
+    return isoString.replace(/([+-]\d{2}:\d{2})$/, "").replace(/Z$/, "");
+  };
+
   return {
     id: row.id,
     family_id: row.family_id,
     member_id: row.member_id,
     title: row.title,
-    start: row.start_time,
-    end: row.end_time,
+    start: stripTimezone(row.start_time),
+    end: stripTimezone(row.end_time),
     allDay: row.all_day,
     className: row.color || "info",
     source: row.source,
