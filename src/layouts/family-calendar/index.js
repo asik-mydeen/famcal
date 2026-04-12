@@ -59,9 +59,9 @@ function getMemberGradient(member) {
   return MEMBER_COLORS.find((c) => c.value === member.avatar_color)?.gradient || "info";
 }
 
-const DAY_START = 6;
+const DAY_START = 0;
 const DAY_END = 23;
-const HOUR_HEIGHT = 64;
+const HOUR_HEIGHT = 56;
 const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -272,14 +272,14 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
       </Box>
 
       {/* Timeline */}
-      <Box ref={scrollRef} sx={{ position: "relative", height: { xs: "55vh", sm: "62vh", md: "68vh" }, overflowY: "auto", overflowX: "hidden" }}>
+      <Box ref={scrollRef} sx={{ position: "relative", height: { xs: "70vh", sm: "78vh", md: "85vh" }, overflowY: "auto", overflowX: "hidden" }}>
         <Box sx={{ position: "relative", height: totalHeight, minHeight: "100%" }}>
           {/* Hour rows */}
           {hours.map((h) => (
             <Box key={h} sx={{ position: "absolute", top: (h - DAY_START) * HOUR_HEIGHT, left: 0, right: 0, height: HOUR_HEIGHT, display: "flex" }}>
               <Box sx={{ width: timeColW, flexShrink: 0, pr: 0.75, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", pt: "2px" }}>
                 <Typography sx={{ color: "text.secondary", fontSize: "0.72rem", fontWeight: 500, fontFamily: "monospace", letterSpacing: "-0.02em" }}>
-                  {fmtTimeLabel(h)}
+                  {h % 2 === 0 ? fmtTimeLabel(h) : ""}
                 </Typography>
               </Box>
               {members.map((m) => (
@@ -354,32 +354,43 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
                 ? `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px + (${colWidth} - 6px) * ${col} / ${totalCols})`
                 : `calc(${timeColW}px + ${colWidth} * ${mIdx} + 3px)`;
 
+              const timeLabel = `${fmtTime(evt._s)}${evt._e && evt._e.getTime() !== evt._s.getTime() ? " - " + fmtTime(evt._e) : ""}`;
+              const canShowDetails = height > 36 && totalCols < 3;
+
               return (
                 <Box key={evt.id} onClick={(e) => onEventClick(evt, e)}
                   sx={{
                     position: "absolute", top, height,
                     left: subLeft,
                     width: subWidth,
-                    background: alpha(m.avatar_color, 0.18),
-                    color: m.avatar_color,
-                    borderLeft: `4px solid ${m.avatar_color}`,
-                    borderRadius: "10px",
+                    background: darkMode ? alpha(m.avatar_color, 0.12) : "#ffffff",
+                    borderLeft: `3px solid ${m.avatar_color}`,
+                    borderRadius: "6px",
                     px: totalCols > 1 ? "8px" : "14px", py: totalCols > 1 ? "6px" : "10px",
                     cursor: "pointer", overflow: "hidden", zIndex: 4,
-                    boxShadow: `0 2px 8px ${alpha(m.avatar_color, 0.2)}`,
+                    boxShadow: darkMode ? "none" : `0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)`,
                     transition: "transform 0.15s, box-shadow 0.15s",
-                    "&:hover": { transform: "scale(1.02)", boxShadow: `0 4px 16px ${alpha(m.avatar_color, 0.3)}`, zIndex: 6 },
+                    "&:hover": { transform: "scale(1.02)", boxShadow: darkMode ? "none" : `0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06)`, zIndex: 6 },
                   }}
                 >
-                  <Typography sx={{ fontWeight: 700, fontSize: height > 40 && totalCols < 3 ? "0.75rem" : "0.6rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, display: "flex", alignItems: "center", gap: 0.5 }}>
-                    {evt.recurrence_rule && <Icon sx={{ fontSize: "0.7rem !important", opacity: 0.7 }}>repeat</Icon>}
-                    {evt.title}
-                  </Typography>
-                  {height > 36 && totalCols < 3 && (
-                    <Typography sx={{ fontSize: "0.55rem", opacity: 0.7, mt: 0.25 }}>
-                      {fmtTime(evt._s)} - {fmtTime(evt._e)}
-                    </Typography>
-                  )}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 600, fontSize: "13px", lineHeight: 1.2, color: darkMode ? m.avatar_color : "#1a1a1a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center", gap: 0.5 }}>
+                        {evt.recurrence_rule && <Icon sx={{ fontSize: "0.7rem !important", opacity: 0.6 }}>repeat</Icon>}
+                        {evt.title}
+                      </Typography>
+                      {canShowDetails && (
+                        <Typography sx={{ fontSize: "11px", color: "text.secondary", mt: 0.25, opacity: 0.8 }}>
+                          {m.name}
+                        </Typography>
+                      )}
+                    </Box>
+                    {canShowDetails && (
+                      <Typography sx={{ fontSize: "11px", color: "text.secondary", fontWeight: 500, opacity: 0.7, flexShrink: 0 }}>
+                        {timeLabel}
+                      </Typography>
+                    )}
+                  </Box>
                 </Box>
               );
             });
@@ -960,6 +971,30 @@ function FamilyCalendar() {
           {/* Day View */}
           {viewTab === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+              {/* Prominent date display */}
+              <Box sx={{ mb: 2, textAlign: "center" }}>
+                <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "1.5px", textTransform: "uppercase", color: "text.secondary", mb: 0.5 }}>
+                  {DAYS[currentDate.getDay()]}
+                </Typography>
+                <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                  {isToday && (
+                    <Box sx={{
+                      position: "absolute",
+                      width: 56,
+                      height: 56,
+                      borderRadius: "50%",
+                      bgcolor: alpha(tokens.accent.main, 0.15),
+                      border: `2px solid ${tokens.accent.main}`,
+                    }} />
+                  )}
+                  <Typography sx={{ fontSize: "36px", fontWeight: 800, lineHeight: 1, color: "text.primary", position: "relative", zIndex: 1 }}>
+                    {currentDate.getDate()}
+                  </Typography>
+                </Box>
+                <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "text.secondary", mt: 1, textTransform: "capitalize" }}>
+                  {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+                </Typography>
+              </Box>
               <DayTimeline date={currentDate} members={members} events={expandedEvents} onEventClick={handleEventClick} onTimeClick={handleTimeClick} darkMode={darkMode} />
             </motion.div>
           )}
@@ -977,15 +1012,16 @@ function FamilyCalendar() {
                     events={fcEvents}
                     dateClick={handleFcDateClick}
                     eventClick={handleFcEventClick}
-                    height={isSmall ? "55vh" : "68vh"}
+                    height={isSmall ? "70vh" : "78vh"}
                     nowIndicator
                     editable={false}
                     selectable={false}
                     eventDisplay="block"
                     allDaySlot={true}
-                    slotMinTime="06:00:00"
+                    slotMinTime="00:00:00"
                     slotMaxTime="23:00:00"
                     eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+                    dayHeaderFormat={{ weekday: "short", day: "numeric" }}
                   />
                 </CardContent>
               </Card>
@@ -1000,7 +1036,7 @@ function FamilyCalendar() {
                   <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="dayGridMonth" headerToolbar={{ left: "prev,next today", center: "title", right: "" }}
                     events={fcEvents} dateClick={handleFcDateClick} eventClick={handleFcEventClick}
-                    height={isSmall ? "55vh" : "65vh"} dayMaxEvents={isSmall ? 2 : 4}
+                    height={isSmall ? "70vh" : "78vh"} dayMaxEvents={isSmall ? 2 : 4}
                     nowIndicator editable={false} selectable={false} eventDisplay="block"
                     eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
                   />
