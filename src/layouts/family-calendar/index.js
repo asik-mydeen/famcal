@@ -201,8 +201,9 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
     members.forEach((m) => { map[m.id] = []; });
     map.__family__ = [];
     events.forEach((evt) => {
-      const evtDate = (evt.start || "").split("T")[0];
-      const evtEnd = (evt.end || evt.start || "").split("T")[0];
+      // Use local time for date comparison, not UTC ISO string splitting
+      const evtDate = evt.start ? fmtDate(new Date(evt.start)) : "";
+      const evtEnd = evt.end ? fmtDate(new Date(evt.end)) : evtDate;
       if (evt.allDay && evtDate <= dateStr && evtEnd >= dateStr) {
         (map[evt.member_id] || map.__family__).push(evt);
       } else if (evtDate === dateStr) {
@@ -218,7 +219,8 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
 
   // Count day events for the empty state
   const dayEventCount = events.filter((e) => {
-    const d = (e.start || "").split("T")[0];
+    // Use local time for date comparison, not UTC ISO string splitting
+    const d = e.start ? fmtDate(new Date(e.start)) : "";
     return d === dateStr || (e.allDay && d <= dateStr);
   }).length;
 
@@ -226,7 +228,12 @@ function DayTimeline({ date, members, events, onEventClick, onTimeClick, darkMod
     <Card sx={{ overflow: "hidden", borderRadius: "20px" }}>
       {/* All-day events */}
       {(() => {
-        const allDay = events.filter((e) => e.allDay && (e.start || "").split("T")[0] <= dateStr && ((e.end || e.start || "").split("T")[0]) >= dateStr);
+        // Use local time for date comparison, not UTC ISO string splitting
+        const allDay = events.filter((e) => {
+          const d = e.start ? fmtDate(new Date(e.start)) : "";
+          const dEnd = e.end ? fmtDate(new Date(e.end)) : d;
+          return e.allDay && d <= dateStr && dEnd >= dateStr;
+        });
         if (!allDay.length) return null;
         return (
           <Box sx={{ px: 2, py: 1.5, display: "flex", gap: 1, flexWrap: "wrap", bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
