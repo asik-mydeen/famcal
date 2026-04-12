@@ -194,6 +194,7 @@ function TimerAlarmProvider({ children, familyId }) {
       addAlarm,
       removeAlarm,
       removeTimer: (id) => dispatch({ type: "REMOVE_TIMER", value: id }),
+      cancelTimer: (id) => dispatch({ type: "REMOVE_TIMER", value: id }),
       pauseTimer: (id) => dispatch({ type: "PAUSE_TIMER", value: id }),
       resumeTimer: (id) => dispatch({ type: "RESUME_TIMER", value: id }),
       dismissAlert,
