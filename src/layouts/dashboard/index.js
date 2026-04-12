@@ -19,17 +19,12 @@ import PageTransition from "components/PageTransition";
 import WeatherWidget from "components/WeatherWidget";
 import CountdownWidget from "components/CountdownWidget";
 import { fetchWeather } from "lib/weather";
-import AIAssistant from "components/AIAssistant";
 import PhotoFrame from "components/PhotoFrame";
-import VoiceOverlay from "components/VoiceOverlay";
 import DailyBriefing from "components/DailyBriefing";
 import ErrorBoundary from "components/ErrorBoundary";
 import { TimerAlarmProvider } from "context/TimerAlarmContext";
 import AlertOverlay from "components/AlertOverlay";
 import TimerAlarmPanel from "components/TimerAlarmPanel";
-import useIdleTimer from "hooks/useIdleTimer";
-import useNovaVoice from "hooks/useNovaVoice";
-import useVoiceMode from "hooks/useVoiceMode";
 import { fetchArtPhotos } from "lib/artPhotos";
 
 // Lazy-load page components for code splitting
@@ -412,9 +407,6 @@ function DashboardShell({ data, slug, onDisconnect }) {
 
   // Kiosk settings panel
   const [showKioskSettings, setShowKioskSettings] = useState(false);
-
-  // AI Command Bar
-  const [aiOpen, setAiOpen] = useState(false);
   const [timerPanelOpen, setTimerPanelOpen] = useState(false);
 
   // Weather
@@ -430,39 +422,27 @@ function DashboardShell({ data, slug, onDisconnect }) {
   const pathParts = location.pathname.split("/");
   const activeTab = pathParts.length > 3 ? pathParts[3] : "calendar";
 
-  // ── Voice Mode (Nova + Whisper Fallback) ──
-  const [voiceQuery, setVoiceQuery] = useState(null);
-
-  // Nova Sonic real-time voice (preferred when configured)
-  const novaProxyUrl = process.env.REACT_APP_NOVA_PROXY_URL || null;
-  const nova = useNovaVoice(novaProxyUrl, state, persistingDispatch, {
-    currentPage: activeTab,
-    onTranscript: (text, role) => { if (role === "user") setVoiceQuery(text); },
-  });
-
-  // Legacy Whisper+TTS voice (fallback)
-  const legacyVoice = useVoiceMode(state, {
-    onWakeWord: () => setAiOpen(true),
-    onVoiceCommand: (query) => setVoiceQuery(query),
-  });
-
-  const useNova = Boolean(novaProxyUrl) && nova.isAvailable;
-  const voice = useNova ? nova : legacyVoice;
-  const voiceModeEnabled = localStorage.getItem("famcal_voice_mode") === "true";
-
-  // ── Screensaver (Idle Detection + Art Photos) ──
-  const idleTimeout = parseInt(localStorage.getItem("famcal_idle_timeout") || "5") * 60 * 1000;
-  const { isIdle, resetTimer } = useIdleTimer(idleTimeout);
-
+  // ── Screensaver (Manual + Art Photos) ──
   // Manual screensaver trigger
   const [manualScreensaver, setManualScreensaver] = useState(false);
-  useEffect(() => {
-    const handler = () => setManualScreensaver(true);
-    window.addEventListener("famcal-screensaver-start", handler);
-    return () => window.removeEventListener("famcal-screensaver-start", handler);
-  }, []);
+  const [isScreensaverActive, setIsScreensaverActive] = useState(false);
 
-  const isScreensaverActive = isIdle || manualScreensaver;
+  useEffect(() => {
+    const handler = () => {
+      setManualScreensaver(true);
+      setIsScreensaverActive(true);
+    };
+    const dismissHandler = () => {
+      setManualScreensaver(false);
+      setIsScreensaverActive(false);
+    };
+    window.addEventListener("famcal-screensaver-start", handler);
+    window.addEventListener("famcal-screensaver-dismiss", dismissHandler);
+    return () => {
+      window.removeEventListener("famcal-screensaver-start", handler);
+      window.removeEventListener("famcal-screensaver-dismiss", dismissHandler);
+    };
+  }, []);
 
   // Art photos for screensaver (Google Photos not available in kiosk — no OAuth)
   const [artPhotos, setArtPhotos] = useState([]);
@@ -611,8 +591,8 @@ function DashboardShell({ data, slug, onDisconnect }) {
             weather={weatherData}
             ambientInfo={ambientInfo}
             onDismiss={() => {
-              resetTimer();
               setManualScreensaver(false);
+              setIsScreensaverActive(false);
               setArtPhotos([]);
               handleBriefingCheck();
             }}
@@ -749,68 +729,6 @@ function DashboardShell({ data, slug, onDisconnect }) {
           </Box>
         </>
       )}
-
-      {/* AI Assistant FAB — single tap opens Amara */}
-      <Box
-        onClick={() => setAiOpen(true)}
-        sx={{
-          position: "fixed",
-          bottom: { xs: 70, md: 28 },
-          right: 20,
-          zIndex: 1200,
-          width: 56,
-          height: 56,
-          borderRadius: "16px",
-          background: "linear-gradient(135deg, #6C5CE7, #A29BFE)",
-          boxShadow: "0 6px 24px rgba(108,92,231,0.4)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          touchAction: "manipulation",
-          transition: "all 0.2s ease",
-          "&:hover": {
-            boxShadow: "0 8px 32px rgba(108,92,231,0.6)",
-            transform: "scale(1.05)",
-          },
-          "&:active": { transform: "scale(0.95)" },
-        }}
-      >
-        <Icon sx={{ color: "#fff", fontSize: "1.5rem" }}>auto_awesome</Icon>
-      </Box>
-
-      {/* AI Assistant */}
-      <AIAssistant
-        familyId={family?.id}
-        dispatch={persistingDispatch}
-        state={state}
-        currentPage={activeTab}
-        externalOpen={aiOpen}
-        onExternalClose={() => { setAiOpen(false); voice.endVoiceSession?.(); }}
-        voiceActive={voiceModeEnabled}
-        voiceState={voice.voiceState}
-        voiceTranscript={voice.transcript}
-        voiceQuery={voiceQuery}
-        onVoiceQueryHandled={() => setVoiceQuery(null)}
-        onVoiceResponse={useNova ? null : (text) => voice.speakResponse?.(text)}
-        onTapToSpeak={() => {
-          setAiOpen(true);
-          if (useNova && !nova.isConnected) nova.startSession();
-          else voice.tapToSpeak?.();
-        }}
-      />
-      {/* Voice Mode — listening indicator only (chat happens in AIAssistant) */}
-      <VoiceOverlay
-        voiceState={voice.voiceState}
-        isEnabled={voiceModeEnabled}
-        onDisable={voice.disable}
-        onTapToSpeak={() => {
-          setAiOpen(true);
-          if (useNova && !nova.isConnected) nova.startSession();
-          else voice.tapToSpeak?.();
-        }}
-        onInterrupt={useNova ? nova.bargeIn : undefined}
-      />
       <TimerAlarmPanel
         open={timerPanelOpen}
         onClose={() => setTimerPanelOpen(false)}
