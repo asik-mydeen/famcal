@@ -565,8 +565,16 @@ function FamilyCalendar() {
     const member = members.find((m) => m.id === member_id);
     const gradient = getMemberGradient(member);
     // Convert local time to proper UTC ISO string for Supabase (timestamptz)
-    const start = allDay ? startDate : new Date(`${startDate}T${startTime}:00`).toISOString();
-    const end = allDay ? endDate : new Date(`${endDate}T${endTime}:00`).toISOString();
+    // Parse as local time by manually constructing the Date object
+    const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
+    const [startHour, startMin] = startTime.split(":").map(Number);
+    const startLocal = new Date(startYear, startMonth - 1, startDay, startHour, startMin);
+    const start = allDay ? startDate : startLocal.toISOString();
+
+    const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
+    const [endHour, endMin] = endTime.split(":").map(Number);
+    const endLocal = new Date(endYear, endMonth - 1, endDay, endHour, endMin);
+    const end = allDay ? endDate : endLocal.toISOString();
     if (editingEvent) {
       const existingEvent = events.find(e => e.id === editingEvent.id);
 
