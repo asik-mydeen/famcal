@@ -1,0 +1,39 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  copilot-code-review:
+    name: Copilot Code Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR HEAD
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Ensure clean working tree
+        run: |
+          git status
+          git reset --hard HEAD
+          git clean -fd
+
+      - name: Run Copilot Code Review
+        uses: github/copilot-code-review@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
