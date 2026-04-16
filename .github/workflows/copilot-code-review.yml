@@ -1,0 +1,41 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+jobs:
+  copilot-code-review:
+    name: Copilot Code Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clean working tree
+        run: |
+          # Discard any uncommitted changes from previous steps
+          git checkout -- .
+          # Also clean untracked files to ensure pristine state
+          git clean -fd
+
+      - name: Run Copilot Code Review
+        uses: github/copilot-code-review-action@v1
+        with:
+          # Optional: Customize the model (default is gpt-4o)
+          model: gpt-4o
+          # Optional: Add custom instructions
+          # instructions: "Focus on React best practices, Material UI patterns, and theme engine consistency"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
