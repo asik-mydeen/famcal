@@ -1,0 +1,42 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'server/**'
+      - 'public/**'
+
+permissions:
+  pull-requests: write
+  contents: read
+  actions: read
+
+jobs:
+  copilot-review:
+    name: Copilot Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history required for accurate reviews
+
+      - name: Ensure clean working directory
+        run: |
+          git status
+          git clean -fd
+          git reset --hard HEAD
+
+      - name: Run Copilot Code Review
+        uses: advanced-security/copilot-review-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          exclude-extracted: true
+          max-tokens: 16000
+          only-review-changed-files: true
+          fail-on: 'none'  # Post comments but don't fail the build
