@@ -1,0 +1,41 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'server/**'
+      - 'public/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history — critical for diff operations
+          persist-credentials: true
+
+      - name: Clean working tree
+        run: |
+          git status
+          git checkout -- .
+          git clean -fd
+          git status
+
+      - name: Copilot Review
+        uses: github/copilot-code-review-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          summary: true
+          comment: true
+          # Optional: Customize review focus
+          # rules: 'Security,Performance,Readability'
