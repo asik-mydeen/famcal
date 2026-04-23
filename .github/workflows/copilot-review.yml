@@ -1,0 +1,36 @@
+name: Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  copilot-review:
+    runs-on: ubuntu-latest
+    steps:
+      # CRITICAL: Full git history required for Copilot review
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch complete history
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Ensure clean working tree before review
+      - name: Clean working tree
+        run: |
+          git stash --include-untracked || true
+          git status
+
+      # Run Copilot Code Review
+      - name: Copilot Review
+        uses: github/copilot-code-review-action@v1
+        with:
+          # GitHub generates this token automatically
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: exclude certain file patterns
+          # exclude: '**/*.md,**/ yarn.lock,**/package-lock.json'
